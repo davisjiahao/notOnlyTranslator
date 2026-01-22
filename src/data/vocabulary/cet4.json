@@ -1,0 +1,20 @@
+{
+  "examType": "cet4",
+  "baseVocabulary": 4500,
+  "description": "大学英语四级核心词汇",
+  "words": [
+    "abandon", "ability", "able", "abolish", "about", "above", "abroad", "absence",
+    "absent", "absolute", "absorb", "abstract", "absurd", "abundant", "abuse", "academic",
+    "academy", "accelerate", "accent", "accept", "access", "accident", "accidental", "accommodate",
+    "accompany", "accomplish", "accord", "according", "account", "accumulate", "accurate", "accuse",
+    "accustom", "achieve", "acid", "acknowledge", "acquaint", "acquire", "across", "act",
+    "action", "active", "activity", "actor", "actual", "acute", "adapt", "add",
+    "addition", "additional", "address", "adequate", "adhere", "adjacent", "adjective", "adjust",
+    "administer", "admire", "admission", "admit", "adolescent", "adopt", "adult", "advance",
+    "advanced", "advantage", "adventure", "adverb", "adverse", "advertise", "advice", "advise",
+    "advocate", "affair", "affect", "affection", "afford", "afraid", "after", "afternoon",
+    "afterward", "again", "against", "age", "agency", "agenda", "agent", "aggressive",
+    "ago", "agree", "agreement", "agriculture", "ahead", "aid", "aim", "air",
+    "aircraft", "airline", "airport", "alarm", "album", "alcohol", "alert", "alien"
+  ]
+}

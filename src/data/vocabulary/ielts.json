@@ -1,0 +1,20 @@
+{
+  "examType": "ielts",
+  "baseVocabulary": 7000,
+  "description": "雅思考试核心词汇",
+  "words": [
+    "abandon", "abbreviation", "abide", "abolish", "abortion", "abrupt", "absence", "absorb",
+    "abstract", "absurd", "abundant", "abuse", "academic", "accelerate", "accent", "accept",
+    "access", "accessible", "accident", "accommodate", "accompany", "accomplish", "accord", "account",
+    "accumulate", "accurate", "accuse", "achieve", "acknowledge", "acquire", "adapt", "adequate",
+    "adhere", "adjacent", "adjust", "administer", "admire", "admission", "admit", "adolescent",
+    "adopt", "adult", "advance", "advantage", "adventure", "adverse", "advertise", "advocate",
+    "aesthetic", "affect", "afford", "agency", "agenda", "agent", "aggregate", "aggressive",
+    "agriculture", "aid", "aim", "aircraft", "aisle", "alarm", "alcohol", "alert",
+    "algorithm", "alien", "align", "alike", "allege", "allergic", "alleviate", "alliance",
+    "allocate", "allow", "alloy", "allude", "ally", "alter", "alternate", "alternative",
+    "altitude", "altogether", "aluminum", "amateur", "amaze", "ambassador", "ambient", "ambiguous",
+    "ambition", "ambitious", "amend", "amiable", "amid", "among", "amount", "amplify",
+    "analogy", "analyse", "anchor", "ancient", "anecdote", "angle", "animate", "announce"
+  ]
+}

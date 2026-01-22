@@ -1,0 +1,19 @@
+{
+  "examType": "toefl",
+  "baseVocabulary": 8000,
+  "description": "托福考试核心词汇",
+  "words": [
+    "abate", "aberrant", "abeyance", "abhor", "abject", "abjure", "abnegate", "abortive",
+    "abridge", "abrogate", "abscond", "absolve", "abstain", "abstemious", "abstruse", "accede",
+    "accentuate", "accessible", "acclaim", "acclimate", "accolade", "accomplice", "accretion", "accrue",
+    "acerbic", "acknowledge", "acme", "acoustic", "acquiesce", "acquittal", "acrid", "acrimonious",
+    "acuity", "acumen", "adamant", "adaptation", "addendum", "adherent", "adjacent", "adjourn",
+    "adjunct", "admonish", "adorn", "adroit", "adulation", "adulterate", "adversary", "adversity",
+    "advocacy", "advocate", "aerial", "aesthetic", "affable", "affected", "affinity", "affluent",
+    "aftermath", "aggregate", "aghast", "agile", "agitate", "alacrity", "alchemy", "alcove",
+    "alias", "alienate", "allay", "allege", "allegiance", "allegory", "alleviate", "allocate",
+    "alloy", "allude", "allure", "allusion", "aloft", "altercation", "altruism", "amalgamate",
+    "ambiguous", "ambivalent", "ameliorate", "amenable", "amend", "amiable", "amicable", "amnesty",
+    "amorphous", "anachronism", "analgesic", "analogous", "anarchist", "anarchy", "anecdote", "anguish"
+  ]
+}

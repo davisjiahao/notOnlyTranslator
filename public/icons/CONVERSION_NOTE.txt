@@ -1,0 +1,20 @@
+# Icon Files
+
+SVG placeholder icons have been created. For production use, please:
+
+1. Convert these SVG files to PNG format
+2. Or create custom PNG icons with a design tool
+3. Ensure you have: icon16.png, icon48.png, icon128.png
+
+The manifest.json currently references .png files, so make sure to:
+- Convert the SVG files to PNG, OR
+- Update manifest.json to use .svg files (note: browser support varies)
+
+## Quick Conversion (with ImageMagick)
+
+```bash
+cd public/icons
+for file in *.svg; do
+  convert -background none -density 300 $file ${file%.svg}.png
+done
+```

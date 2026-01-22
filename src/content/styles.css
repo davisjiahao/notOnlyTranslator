@@ -1,0 +1,496 @@
+/* NotOnlyTranslator Content Script Styles */
+
+/* Highlighted words */
+.not-translator-highlight {
+  background-color: var(--not-translator-highlight-color, #fef08a);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+.not-translator-highlight:hover {
+  background-color: #fde047;
+}
+
+.not-translator-highlight.not-translator-known {
+  background-color: #bbf7d0;
+}
+
+.not-translator-highlight.not-translator-unknown {
+  background-color: #fecaca;
+}
+
+/* Tooltip container */
+.not-translator-tooltip {
+  position: absolute;
+  z-index: 2147483647;
+  max-width: 360px;
+  min-width: 200px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+}
+
+.not-translator-tooltip.not-translator-tooltip-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Tooltip arrow */
+.not-translator-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 20px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  border-top: 1px solid #e5e7eb;
+  transform: rotate(45deg);
+}
+
+.not-translator-tooltip.tooltip-bottom::before {
+  top: auto;
+  bottom: -6px;
+  transform: rotate(225deg);
+}
+
+/* Tooltip header */
+.not-translator-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.not-translator-tooltip-word {
+  font-weight: 600;
+  font-size: 16px;
+  color: #111827;
+}
+
+.not-translator-tooltip-difficulty {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.not-translator-tooltip-difficulty.easy {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.not-translator-tooltip-difficulty.medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.not-translator-tooltip-difficulty.hard {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Tooltip content */
+.not-translator-tooltip-translation {
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #374151;
+}
+
+.not-translator-tooltip-phrase {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #f3e8ff;
+  color: #7c3aed;
+  border-radius: 4px;
+}
+
+.not-translator-tooltip-grammar {
+  margin-top: 8px;
+  padding: 8px;
+  font-size: 13px;
+  background: #f9fafb;
+  border-radius: 4px;
+  color: #4b5563;
+}
+
+.not-translator-tooltip-grammar-label {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+/* Tooltip actions */
+.not-translator-tooltip-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.not-translator-mark-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.not-translator-mark-btn.known {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.not-translator-mark-btn.known:hover {
+  background: #bbf7d0;
+}
+
+.not-translator-mark-btn.unknown {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.not-translator-mark-btn.unknown:hover {
+  background: #fecaca;
+}
+
+.not-translator-mark-btn.add {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.not-translator-mark-btn.add:hover {
+  background: #bfdbfe;
+}
+
+/* Loading state */
+.not-translator-tooltip-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  color: #6b7280;
+}
+
+.not-translator-tooltip-loading::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: not-translator-spin 0.8s linear infinite;
+}
+
+@keyframes not-translator-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state */
+.not-translator-tooltip-error {
+  padding: 12px;
+  color: #b91c1c;
+  text-align: center;
+}
+
+/* Close button */
+.not-translator-tooltip-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.not-translator-tooltip-close:hover {
+  color: #4b5563;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .not-translator-tooltip {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f3f4f6;
+  }
+
+  .not-translator-tooltip::before {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .not-translator-tooltip-header {
+    border-color: #374151;
+  }
+
+  .not-translator-tooltip-word {
+    color: #f9fafb;
+  }
+
+  .not-translator-tooltip-translation {
+    color: #d1d5db;
+  }
+
+  .not-translator-tooltip-grammar {
+    background: #111827;
+    color: #9ca3af;
+  }
+
+  .not-translator-tooltip-actions {
+    border-color: #374151;
+  }
+}
+
+/* ========== 翻译显示模式样式 ========== */
+
+/* 行内翻译模式 - 译文显示在原文后 */
+.not-translator-inline-translation {
+  display: inline;
+  margin-left: 4px;
+  padding: 2px 6px;
+  font-size: 0.9em;
+  color: #1f2937;
+  background-color: #e0f2fe;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* 双文对照模式 */
+.not-translator-bilingual-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+}
+
+.not-translator-original-line {
+  font-size: 1em;
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+.not-translator-translation-line {
+  font-size: 0.95em;
+  line-height: 1.6;
+  color: #4b5563;
+  font-style: italic;
+  border-top: 1px dashed #d1d5db;
+  padding-top: 8px;
+}
+
+/* 双文对照中的高亮词 - 原文 */
+.not-translator-highlighted-word {
+  background-color: #fef08a;
+  border-bottom: 2px solid #eab308;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.not-translator-highlighted-word:hover {
+  background-color: #fde047;
+  transform: translateY(-1px);
+}
+
+/* 双文对照中的高亮词 - 译文 */
+.not-translator-highlighted-translation {
+  background-color: #dbeafe;
+  border-bottom: 2px solid #3b82f6;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+/* 鼠标悬停在原文高亮词时，对应的译文高亮词也高亮 */
+.not-translator-highlighted-word:hover ~ * .not-translator-highlighted-translation[data-index] {
+  background-color: #bfdbfe;
+}
+
+/* JavaScript 控制的悬停联动效果 */
+.not-translator-highlighted-word.not-translator-hover-linked,
+.not-translator-highlighted-translation.not-translator-hover-linked {
+  background-color: #93c5fd !important;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
+}
+
+/* 全文翻译模式 */
+.not-translator-full-translate-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #fefce8;
+  border: 1px solid #fde047;
+  border-radius: 8px;
+}
+
+.not-translator-original-text {
+  font-size: 1em;
+  line-height: 1.6;
+  color: #1f2937;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #fde047;
+}
+
+.not-translator-full-translation {
+  font-size: 0.95em;
+  line-height: 1.7;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* 全文翻译模式中的图标 */
+.not-translator-full-translate-container::before {
+  content: '📖';
+  font-size: 1.2em;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+/* 处理过的段落标记 */
+.not-translator-processed {
+  position: relative;
+}
+
+/* 难度指示器（可选） */
+.not-translator-highlight[data-difficulty="1"],
+.not-translator-highlight[data-difficulty="2"],
+.not-translator-highlight[data-difficulty="3"] {
+  background-color: #dcfce7;
+  border-bottom-color: #22c55e;
+}
+
+.not-translator-highlight[data-difficulty="4"],
+.not-translator-highlight[data-difficulty="5"],
+.not-translator-highlight[data-difficulty="6"],
+.not-translator-highlight[data-difficulty="7"] {
+  background-color: #fef08a;
+  border-bottom-color: #eab308;
+}
+
+.not-translator-highlight[data-difficulty="8"],
+.not-translator-highlight[data-difficulty="9"],
+.not-translator-highlight[data-difficulty="10"] {
+  background-color: #fecaca;
+  border-bottom-color: #ef4444;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .not-translator-bilingual-container {
+    padding: 8px;
+  }
+
+  .not-translator-full-translate-container {
+    padding: 12px;
+  }
+
+  .not-translator-inline-translation {
+    font-size: 0.85em;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .not-translator-tooltip {
+    display: none !important;
+  }
+
+  .not-translator-highlight {
+    background-color: #f3f4f6 !important;
+    border-bottom: 1px solid #9ca3af;
+  }
+
+  .not-translator-inline-translation {
+    background-color: transparent;
+    border: 1px solid #d1d5db;
+  }
+}
+
+/* 暗色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .not-translator-bilingual-container {
+    background-color: #1f2937;
+    border-left-color: #60a5fa;
+  }
+
+  .not-translator-original-line {
+    color: #f3f4f6;
+  }
+
+  .not-translator-translation-line {
+    color: #d1d5db;
+    border-top-color: #4b5563;
+  }
+
+  .not-translator-full-translate-container {
+    background-color: #1f2937;
+    border-color: #4b5563;
+  }
+
+  .not-translator-original-text {
+    color: #f3f4f6;
+    border-bottom-color: #4b5563;
+  }
+
+  .not-translator-full-translation {
+    color: #e5e7eb;
+  }
+
+  .not-translator-inline-translation {
+    color: #f3f4f6;
+    background-color: #1e40af;
+  }
+}

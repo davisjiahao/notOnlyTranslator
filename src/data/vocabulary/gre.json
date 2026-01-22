@@ -1,0 +1,21 @@
+{
+  "examType": "gre",
+  "baseVocabulary": 12000,
+  "description": "GRE考试核心词汇",
+  "words": [
+    "abate", "abdicate", "aberrant", "abeyance", "abhor", "abject", "abjure", "abnegate",
+    "abortive", "abridge", "abrogate", "abscond", "absolve", "abstemious", "abstinence", "abstruse",
+    "abysmal", "accede", "accentuate", "accessible", "acclaim", "acclimate", "accolade", "accomplice",
+    "accost", "accretion", "accrue", "acerbic", "acme", "acorn", "acquiesce", "acquittal",
+    "acrid", "acrimonious", "acuity", "acumen", "adamant", "addendum", "addle", "address",
+    "adept", "adhere", "adherent", "adjacent", "adjourn", "adjunct", "admonish", "adorn",
+    "adroit", "adulation", "adulterate", "advent", "adventitious", "adversary", "adversity", "advocacy",
+    "advocate", "aegis", "aesthetic", "affable", "affected", "affinity", "affirmation", "afflict",
+    "affluent", "aftermath", "agenda", "agent", "aggregate", "aghast", "agile", "agitate",
+    "agnostic", "agrarian", "alacrity", "alchemy", "alias", "alienate", "allay", "allege",
+    "allegiance", "allegory", "alleviate", "allocate", "alloy", "allude", "allure", "allusion",
+    "aloft", "altercation", "altruism", "amalgamate", "ambiguous", "ambivalent", "amble", "ameliorate",
+    "amenable", "amend", "amiable", "amicable", "amiss", "amnesty", "amoral", "amorphous",
+    "anachronism", "analgesic", "analogous", "anarchist", "anarchy", "anathema", "anchor", "anecdote"
+  ]
+}

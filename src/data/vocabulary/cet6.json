@@ -1,0 +1,20 @@
+{
+  "examType": "cet6",
+  "baseVocabulary": 6000,
+  "description": "大学英语六级核心词汇",
+  "words": [
+    "abide", "abnormal", "abolition", "abrupt", "absurd", "abundance", "accessible", "accessory",
+    "accommodate", "accompaniment", "accordingly", "accountability", "accountant", "accumulation", "accusation", "addicted",
+    "addiction", "additionally", "adherent", "adhesive", "adjustable", "administration", "administrative", "admirable",
+    "admirably", "adolescence", "adoption", "adore", "advancement", "advantageous", "adventurous", "adversary",
+    "adversity", "advocacy", "aesthetic", "affectionate", "affiliation", "affirm", "affordable", "aftermath",
+    "aggravate", "aggregate", "aggression", "agitate", "agony", "agreeable", "agricultural", "ailment",
+    "airborne", "aisle", "alienate", "alignment", "alleviate", "alliance", "allocate", "allowance",
+    "allude", "allure", "ally", "alongside", "alternate", "alternative", "altitude", "aluminum",
+    "amateur", "ambassador", "ambiguous", "ambition", "ambitious", "amendment", "amiable", "amid",
+    "ammunition", "amplify", "analogous", "analogy", "analysis", "analytical", "anarchist", "anarchy",
+    "ancestor", "ancestry", "anchor", "anecdote", "angular", "animated", "animation", "anniversary",
+    "announcement", "annoy", "annual", "anonymous", "antagonist", "Antarctic", "antenna", "anthology",
+    "anthropology", "antibiotic", "anticipate", "antique", "antiquity", "anxiety", "anxious", "apartheid"
+  ]
+}
