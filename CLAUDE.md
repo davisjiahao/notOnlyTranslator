@@ -91,3 +91,22 @@ Translation service in `src/background/translation.ts` supports three providers:
 - Custom (any OpenAI-compatible API endpoint)
 
 Prompts and API endpoints defined in `src/shared/constants/index.ts`.
+
+## Browser Automation Testing
+
+本项目已配置 Playwright MCP，可以使用浏览器自动化进行端到端测试：
+
+**测试流程：**
+1. `npm run build` - 编译插件到 `dist` 目录
+2. 使用 Playwright MCP 工具启动浏览器并加载扩展
+3. 导航到测试页面验证翻译功能
+4. 截图保存测试结果
+
+**可用的 Playwright MCP 工具：**
+- `browser_navigate` - 导航到指定 URL
+- `browser_click` - 点击页面元素
+- `browser_type` - 输入文本
+- `browser_screenshot` - 截图
+- `browser_evaluate` - 执行 JavaScript
+
+**注意：** Playwright MCP 已在项目级别配置（见 `~/.claude.json`），Claude Code 重启后自动可用。

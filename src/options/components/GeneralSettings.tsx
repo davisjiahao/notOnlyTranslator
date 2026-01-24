@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { UserSettings, TranslationMode } from '@/shared/types';
 
 interface GeneralSettingsProps {
@@ -11,6 +12,49 @@ export default function GeneralSettings({
   onUpdate,
   isSaving,
 }: GeneralSettingsProps) {
+  const [newBlacklistItem, setNewBlacklistItem] = useState('');
+  const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null);
+
+  // 获取当前标签页 URL
+  useEffect(() => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.url) {
+        try {
+          const url = new URL(tabs[0].url);
+          setCurrentTabUrl(url.hostname);
+        } catch {
+          setCurrentTabUrl(null);
+        }
+      }
+    });
+  }, []);
+
+  const addToBlacklist = (item: string) => {
+    const trimmed = item.trim().toLowerCase();
+    if (!trimmed) return;
+
+    const currentList = settings.blacklist || [];
+    if (currentList.includes(trimmed)) {
+      alert('该网站已在黑名单中');
+      return;
+    }
+
+    onUpdate({ blacklist: [...currentList, trimmed] });
+    setNewBlacklistItem('');
+  };
+
+  const removeFromBlacklist = (item: string) => {
+    const currentList = settings.blacklist || [];
+    onUpdate({ blacklist: currentList.filter((i) => i !== item) });
+  };
+
+  const isCurrentPageBlacklisted = () => {
+    if (!currentTabUrl) return false;
+    return (settings.blacklist || []).some(
+      (pattern) => currentTabUrl === pattern || currentTabUrl.endsWith('.' + pattern)
+    );
+  };
+
   const translationModes: { value: TranslationMode; label: string; description: string }[] = [
     {
       value: 'inline-only',
@@ -215,6 +259,93 @@ export default function GeneralSettings({
             This is a sample text to preview font size. 这是预览字体大小的示例文本。
           </div>
         </div>
+      </div>
+
+      {/* Website Blacklist */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">网站黑名单</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          在黑名单中的网站将不会自动翻译。支持域名和通配符模式（如 *.example.com）。
+        </p>
+
+        {/* 快速添加当前页面 */}
+        {currentTabUrl && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <span className="text-gray-600">当前页面：</span>
+                <span className="font-medium text-gray-900">{currentTabUrl}</span>
+              </div>
+              {isCurrentPageBlacklisted() ? (
+                <button
+                  onClick={() => removeFromBlacklist(currentTabUrl)}
+                  disabled={isSaving}
+                  className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  从黑名单移除
+                </button>
+              ) : (
+                <button
+                  onClick={() => addToBlacklist(currentTabUrl)}
+                  disabled={isSaving}
+                  className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  加入黑名单
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 手动添加 */}
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={newBlacklistItem}
+            onChange={(e) => setNewBlacklistItem(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                addToBlacklist(newBlacklistItem);
+              }
+            }}
+            placeholder="输入域名，如 example.com"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <button
+            onClick={() => addToBlacklist(newBlacklistItem)}
+            disabled={isSaving || !newBlacklistItem.trim()}
+            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            添加
+          </button>
+        </div>
+
+        {/* 黑名单列表 */}
+        {(settings.blacklist || []).length > 0 ? (
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {(settings.blacklist || []).map((item) => (
+              <div
+                key={item}
+                className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg"
+              >
+                <span className="text-sm text-gray-700">{item}</span>
+                <button
+                  onClick={() => removeFromBlacklist(item)}
+                  disabled={isSaving}
+                  className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 text-center py-4">
+            黑名单为空
+          </div>
+        )}
       </div>
 
       {/* Data Management */}

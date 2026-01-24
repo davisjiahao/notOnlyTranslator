@@ -40,7 +40,9 @@
   ],
   "host_permissions": [
     "https://api.openai.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://*.volces.com/*",
+    "https://ark.cn-beijing.volces.com/*"
   ],
   "optional_host_permissions": [
     "http://*/*",

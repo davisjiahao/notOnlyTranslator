@@ -4,6 +4,7 @@ import type {
   UnknownWordEntry,
   TranslationResult,
   SyncStorageData,
+  ApiConfig,
 } from '@/shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE, STORAGE_KEYS } from '@/shared/constants';
 
@@ -60,13 +61,29 @@ export class StorageManager {
 
   /**
    * Get user settings from storage
+   * 如果有激活的 API 配置，会自动应用配置中的 provider、apiUrl、modelName
    */
   static async getSettings(): Promise<UserSettings> {
     const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.SETTINGS);
-    return {
+    const settings = {
       ...DEFAULT_SETTINGS,
       ...data[STORAGE_KEYS.SYNC.SETTINGS],
     };
+
+    // 如果有激活的 API 配置（或者只有一个配置时自动激活），应用配置中的值
+    if (settings.apiConfigs?.length > 0) {
+      const activeId = settings.activeApiConfigId || settings.apiConfigs[0].id;
+      const activeConfig = settings.apiConfigs.find(
+        (config: ApiConfig) => config.id === activeId
+      );
+      if (activeConfig) {
+        settings.apiProvider = activeConfig.provider;
+        settings.customApiUrl = activeConfig.apiUrl || '';
+        settings.customModelName = activeConfig.modelName || '';
+      }
+    }
+
+    return settings;
   }
 
   /**
@@ -80,9 +97,37 @@ export class StorageManager {
 
   /**
    * Get API key from storage
+   * 优先从当前激活的 API 配置中读取，如果没有则使用旧版的 apiKey 字段
    */
   static async getApiKey(): Promise<string> {
+    const settings = await this.getSettings();
+
+    console.log('StorageManager.getApiKey: 检查配置', {
+      activeApiConfigId: settings.activeApiConfigId,
+      apiConfigsCount: settings.apiConfigs?.length || 0,
+      apiConfigs: settings.apiConfigs?.map(c => ({ id: c.id, name: c.name, hasKey: !!c.apiKey })),
+    });
+
+    // 如果有激活的 API 配置，从配置中读取 API Key
+    if (settings.activeApiConfigId && settings.apiConfigs?.length > 0) {
+      const activeConfig = settings.apiConfigs.find(
+        (config) => config.id === settings.activeApiConfigId
+      );
+      console.log('StorageManager.getApiKey: 激活配置', {
+        found: !!activeConfig,
+        configId: activeConfig?.id,
+        hasApiKey: !!activeConfig?.apiKey,
+      });
+      if (activeConfig?.apiKey) {
+        return activeConfig.apiKey;
+      }
+    }
+
+    // 回退到旧版的 apiKey 字段
     const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.API_KEY);
+    console.log('StorageManager.getApiKey: 回退到旧版 apiKey', {
+      hasKey: !!data[STORAGE_KEYS.SYNC.API_KEY],
+    });
     return data[STORAGE_KEYS.SYNC.API_KEY] || '';
   }
 

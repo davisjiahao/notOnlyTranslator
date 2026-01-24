@@ -113,6 +113,57 @@ export default function App() {
     }
   };
 
+  // 一次性保存所有 API 配置相关设置（避免状态竞争）
+  const handleFullApiConfigUpdate = async (params: {
+    configs: import('@/shared/types').ApiConfig[];
+    activeId?: string;
+    provider?: UserSettings['apiProvider'];
+    apiKey?: string;
+    customApiUrl?: string;
+    customModelName?: string;
+  }) => {
+    setIsSaving(true);
+    try {
+      // 构建完整的设置更新
+      const settingsUpdates: Partial<UserSettings> = {
+        apiConfigs: params.configs,
+        activeApiConfigId: params.activeId,
+      };
+
+      // 如果提供了主设置，也一并更新
+      if (params.provider !== undefined) {
+        settingsUpdates.apiProvider = params.provider;
+      }
+      if (params.customApiUrl !== undefined) {
+        settingsUpdates.customApiUrl = params.customApiUrl;
+      }
+      if (params.customModelName !== undefined) {
+        settingsUpdates.customModelName = params.customModelName;
+      }
+
+      // 一次性更新所有设置
+      const newSettings = { ...settings, ...settingsUpdates };
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_SETTINGS',
+        payload: newSettings,
+      });
+      setSettings(newSettings);
+
+      // 如果提供了 API key，也保存到旧的位置（兼容性）
+      if (params.apiKey !== undefined) {
+        await chrome.storage.sync.set({ apiKey: params.apiKey });
+        setApiKey(params.apiKey);
+      }
+
+      showSaveMessage('API 配置已保存');
+    } catch (error) {
+      console.error('Failed to save API config:', error);
+      showSaveMessage('保存失败');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleTestComplete = async (estimatedVocabulary: number) => {
     if (!profile) return;
 
@@ -200,11 +251,17 @@ export default function App() {
                 provider={settings.apiProvider}
                 customApiUrl={settings.customApiUrl}
                 customModelName={settings.customModelName}
+                apiConfigs={settings.apiConfigs || []}
+                activeApiConfigId={settings.activeApiConfigId}
                 onApiKeyUpdate={handleApiKeyUpdate}
                 onProviderUpdate={(provider) => handleSettingsUpdate({ apiProvider: provider })}
                 onCustomSettingsUpdate={(url, model) =>
                   handleSettingsUpdate({ customApiUrl: url, customModelName: model })
                 }
+                onApiConfigsUpdate={(configs, activeId) =>
+                  handleSettingsUpdate({ apiConfigs: configs, activeApiConfigId: activeId })
+                }
+                onFullApiConfigUpdate={handleFullApiConfigUpdate}
                 isSaving={isSaving}
               />
             )}

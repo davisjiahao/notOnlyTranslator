@@ -1,25 +1,38 @@
 /* NotOnlyTranslator Content Script Styles */
 
-/* Highlighted words */
+/* 高亮词汇 - 简洁下划线风格 */
 .not-translator-highlight {
-  background-color: var(--not-translator-highlight-color, #fef08a);
-  border-radius: 2px;
+  background-color: transparent;
+  border-bottom: 1.5px solid var(--not-translator-highlight-color, #60a5fa);
+  border-radius: 0;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  padding: 0 2px;
-  margin: 0 -2px;
+  transition: all 0.15s ease;
+  padding: 0 1px;
+  margin: 0;
 }
 
 .not-translator-highlight:hover {
-  background-color: #fde047;
+  background-color: rgba(96, 165, 250, 0.15);
+  border-bottom-color: #3b82f6;
 }
 
+/* 已认识的词 - 绿色下划线 */
 .not-translator-highlight.not-translator-known {
-  background-color: #bbf7d0;
+  border-bottom-color: #86efac;
+  border-bottom-style: dashed;
 }
 
+.not-translator-highlight.not-translator-known:hover {
+  background-color: rgba(134, 239, 172, 0.15);
+}
+
+/* 未认识的词 - 紫色下划线 */
 .not-translator-highlight.not-translator-unknown {
-  background-color: #fecaca;
+  border-bottom-color: #c4b5fd;
+}
+
+.not-translator-highlight.not-translator-unknown:hover {
+  background-color: rgba(196, 181, 253, 0.15);
 }
 
 /* Tooltip container */
@@ -290,113 +303,117 @@
 /* 行内翻译模式 - 译文显示在原文后 */
 .not-translator-inline-translation {
   display: inline;
-  margin-left: 4px;
-  padding: 2px 6px;
-  font-size: 0.9em;
-  color: #1f2937;
-  background-color: #e0f2fe;
-  border-radius: 4px;
-  font-weight: 500;
+  margin-left: 2px;
+  padding: 0 2px;
+  font-size: 0.85em;
+  color: #6b7280;
+  background-color: transparent;
+  border-radius: 2px;
+  font-weight: 400;
+  line-height: inherit;
+  vertical-align: baseline;
 }
 
-/* 双文对照模式 */
+.not-translator-inline-translation::before {
+  content: '(';
+  color: #9ca3af;
+}
+
+.not-translator-inline-translation::after {
+  content: ')';
+  color: #9ca3af;
+}
+
+/* 双文对照模式 - 简洁风格 */
 .not-translator-bilingual-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 12px 0;
-  padding: 12px;
-  background-color: #f9fafb;
-  border-left: 3px solid #3b82f6;
-  border-radius: 4px;
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
+/* 原文行 - 保持原样，不加背景 */
 .not-translator-original-line {
   font-size: 1em;
-  line-height: 1.6;
-  color: #1f2937;
+  line-height: 1.8;
+  color: inherit;
+  margin-bottom: 4px;
 }
 
+/* 译文行 - 浅灰色背景，更轻柔 */
 .not-translator-translation-line {
-  font-size: 0.95em;
+  font-size: 0.9em;
   line-height: 1.6;
-  color: #4b5563;
-  font-style: italic;
-  border-top: 1px dashed #d1d5db;
-  padding-top: 8px;
+  color: #6b7280;
+  background-color: rgba(243, 244, 246, 0.6);
+  padding: 6px 10px;
+  margin: 4px 0 12px 0;
+  border-radius: 4px;
+  border-left: 2px solid #e5e7eb;
 }
 
-/* 双文对照中的高亮词 - 原文 */
+/* 双文对照中的高亮词 - 原文（柔和的下划线风格） */
 .not-translator-highlighted-word {
-  background-color: #fef08a;
-  border-bottom: 2px solid #eab308;
-  padding: 2px 4px;
-  border-radius: 2px;
-  font-weight: 500;
+  background-color: transparent;
+  border-bottom: 1.5px solid #60a5fa;
+  padding: 0 1px;
+  margin: 0;
+  border-radius: 0;
+  font-weight: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  text-decoration-skip-ink: auto;
 }
 
 .not-translator-highlighted-word:hover {
-  background-color: #fde047;
-  transform: translateY(-1px);
+  background-color: rgba(96, 165, 250, 0.15);
+  border-bottom-color: #3b82f6;
 }
 
-/* 双文对照中的高亮词 - 译文 */
+/* 双文对照中的高亮词 - 译文（柔和风格） */
 .not-translator-highlighted-translation {
-  background-color: #dbeafe;
-  border-bottom: 2px solid #3b82f6;
-  padding: 2px 4px;
+  background-color: rgba(96, 165, 250, 0.1);
+  border-bottom: 1px dashed #93c5fd;
+  padding: 0 2px;
   border-radius: 2px;
   font-weight: 500;
 }
 
-/* 鼠标悬停在原文高亮词时，对应的译文高亮词也高亮 */
-.not-translator-highlighted-word:hover ~ * .not-translator-highlighted-translation[data-index] {
-  background-color: #bfdbfe;
-}
-
 /* JavaScript 控制的悬停联动效果 */
-.not-translator-highlighted-word.not-translator-hover-linked,
+.not-translator-highlighted-word.not-translator-hover-linked {
+  background-color: rgba(96, 165, 250, 0.2) !important;
+  border-bottom-color: #3b82f6 !important;
+}
+
 .not-translator-highlighted-translation.not-translator-hover-linked {
-  background-color: #93c5fd !important;
-  box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
+  background-color: rgba(96, 165, 250, 0.25) !important;
+  border-bottom-style: solid !important;
 }
 
-/* 全文翻译模式 */
+/* 全文翻译模式 - 简洁风格 */
 .not-translator-full-translate-container {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin: 16px 0;
-  padding: 16px;
-  background-color: #fefce8;
-  border: 1px solid #fde047;
-  border-radius: 8px;
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
+/* 原文 - 保持原样 */
 .not-translator-original-text {
   font-size: 1em;
-  line-height: 1.6;
-  color: #1f2937;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #fde047;
+  line-height: 1.8;
+  color: inherit;
+  margin-bottom: 8px;
 }
 
+/* 全文译文 - 浅色背景 */
 .not-translator-full-translation {
-  font-size: 0.95em;
-  line-height: 1.7;
-  color: #374151;
-  font-weight: 500;
-}
-
-/* 全文翻译模式中的图标 */
-.not-translator-full-translate-container::before {
-  content: '📖';
-  font-size: 1.2em;
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  font-size: 0.9em;
+  line-height: 1.6;
+  color: #6b7280;
+  background-color: rgba(243, 244, 246, 0.6);
+  padding: 8px 12px;
+  margin: 4px 0 16px 0;
+  border-radius: 4px;
+  border-left: 2px solid #e5e7eb;
 }
 
 /* 处理过的段落标记 */
@@ -404,41 +421,58 @@
   position: relative;
 }
 
-/* 难度指示器（可选） */
+/* 难度指示器 - 更柔和的颜色 */
+/* 简单词汇 (1-3) - 浅绿色下划线 */
 .not-translator-highlight[data-difficulty="1"],
 .not-translator-highlight[data-difficulty="2"],
 .not-translator-highlight[data-difficulty="3"] {
-  background-color: #dcfce7;
-  border-bottom-color: #22c55e;
+  border-bottom-color: #86efac;
 }
 
+.not-translator-highlight[data-difficulty="1"]:hover,
+.not-translator-highlight[data-difficulty="2"]:hover,
+.not-translator-highlight[data-difficulty="3"]:hover {
+  background-color: rgba(134, 239, 172, 0.15);
+}
+
+/* 中等词汇 (4-7) - 浅蓝色下划线（默认） */
 .not-translator-highlight[data-difficulty="4"],
 .not-translator-highlight[data-difficulty="5"],
 .not-translator-highlight[data-difficulty="6"],
 .not-translator-highlight[data-difficulty="7"] {
-  background-color: #fef08a;
-  border-bottom-color: #eab308;
+  border-bottom-color: #60a5fa;
 }
 
+/* 困难词汇 (8-10) - 浅紫色下划线 */
 .not-translator-highlight[data-difficulty="8"],
 .not-translator-highlight[data-difficulty="9"],
 .not-translator-highlight[data-difficulty="10"] {
-  background-color: #fecaca;
-  border-bottom-color: #ef4444;
+  border-bottom-color: #c4b5fd;
+}
+
+.not-translator-highlight[data-difficulty="8"]:hover,
+.not-translator-highlight[data-difficulty="9"]:hover,
+.not-translator-highlight[data-difficulty="10"]:hover {
+  background-color: rgba(196, 181, 253, 0.15);
+}
+
+/* 短语高亮 - 用波浪下划线区分 */
+.not-translator-highlighted-word[data-is-phrase="true"],
+.not-translator-highlight[data-is-phrase="true"] {
+  border-bottom-style: wavy;
+  border-bottom-width: 1px;
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-  .not-translator-bilingual-container {
-    padding: 8px;
-  }
-
-  .not-translator-full-translate-container {
-    padding: 12px;
+  .not-translator-translation-line,
+  .not-translator-full-translation {
+    padding: 5px 8px;
+    font-size: 0.85em;
   }
 
   .not-translator-inline-translation {
-    font-size: 0.85em;
+    font-size: 0.8em;
   }
 }
 
@@ -448,49 +482,73 @@
     display: none !important;
   }
 
-  .not-translator-highlight {
-    background-color: #f3f4f6 !important;
-    border-bottom: 1px solid #9ca3af;
+  .not-translator-highlight,
+  .not-translator-highlighted-word {
+    border-bottom: 1px solid #666 !important;
+    background-color: transparent !important;
+  }
+
+  .not-translator-translation-line,
+  .not-translator-full-translation {
+    background-color: #f5f5f5 !important;
+    border-left-color: #999 !important;
   }
 
   .not-translator-inline-translation {
-    background-color: transparent;
-    border: 1px solid #d1d5db;
+    color: #666;
   }
 }
 
 /* 暗色模式支持 */
 @media (prefers-color-scheme: dark) {
-  .not-translator-bilingual-container {
-    background-color: #1f2937;
-    border-left-color: #60a5fa;
-  }
-
-  .not-translator-original-line {
-    color: #f3f4f6;
-  }
-
-  .not-translator-translation-line {
-    color: #d1d5db;
-    border-top-color: #4b5563;
-  }
-
-  .not-translator-full-translate-container {
-    background-color: #1f2937;
-    border-color: #4b5563;
-  }
-
+  /* 原文保持继承颜色 */
+  .not-translator-original-line,
   .not-translator-original-text {
-    color: #f3f4f6;
-    border-bottom-color: #4b5563;
+    color: inherit;
   }
 
+  /* 译文 - 深色背景下的浅色 */
+  .not-translator-translation-line,
   .not-translator-full-translation {
-    color: #e5e7eb;
+    color: #9ca3af;
+    background-color: rgba(55, 65, 81, 0.5);
+    border-left-color: #4b5563;
   }
 
+  /* 行内翻译 */
   .not-translator-inline-translation {
-    color: #f3f4f6;
-    background-color: #1e40af;
+    color: #9ca3af;
+  }
+
+  .not-translator-inline-translation::before,
+  .not-translator-inline-translation::after {
+    color: #6b7280;
+  }
+
+  /* 高亮词 - 暗色模式 */
+  .not-translator-highlighted-word {
+    border-bottom-color: #60a5fa;
+  }
+
+  .not-translator-highlighted-word:hover {
+    background-color: rgba(96, 165, 250, 0.2);
+  }
+
+  .not-translator-highlighted-translation {
+    background-color: rgba(96, 165, 250, 0.15);
+    border-bottom-color: #60a5fa;
+  }
+
+  /* 难度颜色 - 暗色模式 */
+  .not-translator-highlight[data-difficulty="1"]:hover,
+  .not-translator-highlight[data-difficulty="2"]:hover,
+  .not-translator-highlight[data-difficulty="3"]:hover {
+    background-color: rgba(134, 239, 172, 0.2);
+  }
+
+  .not-translator-highlight[data-difficulty="8"]:hover,
+  .not-translator-highlight[data-difficulty="9"]:hover,
+  .not-translator-highlight[data-difficulty="10"]:hover {
+    background-color: rgba(196, 181, 253, 0.2);
   }
 }

@@ -1,10 +1,23 @@
-import type { Message, MessageResponse, TranslationRequest, UnknownWordEntry } from '@/shared/types';
+import type {
+  Message,
+  MessageResponse,
+  TranslationRequest,
+  UnknownWordEntry,
+  BatchTranslationRequest,
+} from '@/shared/types';
 import { CONTEXT_MENU_IDS } from '@/shared/constants';
 import { StorageManager } from './storage';
 import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
+import { BatchTranslationService } from './batchTranslation';
+import { enhancedCache } from './enhancedCache';
 
 console.log('NotOnlyTranslator: Background service worker started');
+
+// 初始化增强缓存
+enhancedCache.initialize().then(() => {
+  console.log('NotOnlyTranslator: 增强缓存已初始化');
+});
 
 // Initialize context menus on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -142,6 +155,32 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
       }
     }
 
+    // 批量翻译请求处理
+    case 'BATCH_TRANSLATE_TEXT': {
+      try {
+        const request = message.payload as BatchTranslationRequest;
+        console.log('NotOnlyTranslator: 批量翻译请求，段落数:', request.paragraphs?.length);
+
+        // 获取用户配置
+        const userProfile = await StorageManager.getUserProfile();
+        request.userLevel = userProfile;
+
+        // 调用批量翻译服务
+        const response = await BatchTranslationService.translateBatch(request);
+
+        console.log('NotOnlyTranslator: 批量翻译完成', {
+          total: response.results.length,
+          apiCalls: response.apiCallCount,
+          cacheHits: response.cacheHitCount,
+        });
+
+        return { success: true, data: response };
+      } catch (error) {
+        console.error('NotOnlyTranslator: 批量翻译错误:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
     case 'MARK_WORD_KNOWN': {
       const { word, difficulty } = message.payload as {
         word: string;
@@ -189,6 +228,21 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
       const newSettings = message.payload as Partial<import('@/shared/types').UserSettings>;
       const currentSettings = await StorageManager.getSettings();
       await StorageManager.saveSettings({ ...currentSettings, ...newSettings });
+
+      // 通知所有标签页的 content script 设置已更新
+      try {
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATED' }).catch(() => {
+              // 忽略无法发送消息的标签页（如 chrome:// 页面）
+            });
+          }
+        }
+      } catch (error) {
+        console.error('NotOnlyTranslator: 通知标签页设置更新失败', error);
+      }
+
       return { success: true };
     }
 

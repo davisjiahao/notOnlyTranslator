@@ -10,6 +10,8 @@ import { Highlighter } from './highlighter';
 import { Tooltip } from './tooltip';
 import { MarkerService } from './marker';
 import { TranslationDisplay } from './translationDisplay';
+import { ViewportObserver, VisibleParagraph } from './viewportObserver';
+import { BatchTranslationManager } from './batchTranslationManager';
 
 /**
  * Content Script - main entry point for page interaction
@@ -21,6 +23,15 @@ class NotOnlyTranslator {
   private settings: UserSettings | null = null;
   private isEnabled: boolean = true;
   private observer: MutationObserver | null = null;
+
+  /** 可视区域观察器 - 用于批量翻译 */
+  private viewportObserver: ViewportObserver | null = null;
+
+  /** 批量翻译管理器 */
+  private batchManager: BatchTranslationManager | null = null;
+
+  /** 是否使用批量翻译模式 */
+  private useBatchMode: boolean = true;
 
   constructor() {
     console.log('NotOnlyTranslator: Content script loaded, starting initialization...');
@@ -72,6 +83,12 @@ class NotOnlyTranslator {
       return;
     }
 
+    // 检查当前页面是否在黑名单中
+    if (this.isCurrentPageBlacklisted()) {
+      console.log('NotOnlyTranslator: Current page is blacklisted, skipping');
+      return;
+    }
+
     // Setup event listeners
     this.setupEventListeners();
 
@@ -81,10 +98,63 @@ class NotOnlyTranslator {
     // Setup mutation observer for dynamic content
     this.setupMutationObserver();
 
+    // 初始化批量翻译组件
+    if (this.useBatchMode) {
+      this.initBatchTranslation();
+    }
+
     // Initial page scan (debounced)
     this.scanPage();
 
     console.log('NotOnlyTranslator initialized with settings:', this.settings);
+  }
+
+  /**
+   * 初始化批量翻译组件
+   * 包括可视区域观察器和批量翻译管理器
+   */
+  private initBatchTranslation(): void {
+    // 创建批量翻译管理器
+    this.batchManager = new BatchTranslationManager();
+    this.batchManager.setMode(this.settings?.translationMode || 'inline-only');
+
+    // 设置翻译完成回调
+    this.batchManager.setOnComplete((element, _result) => {
+      // 为翻译完成的元素设置点击处理
+      this.setupParagraphClickHandlers(element);
+      // 通知观察器该元素已处理
+      this.viewportObserver?.markAsProcessed(element);
+    });
+
+    // 创建可视区域观察器
+    this.viewportObserver = new ViewportObserver((paragraphs: VisibleParagraph[]) => {
+      // 当可视区域段落变化时，触发批量翻译
+      this.batchManager?.handleVisibleParagraphs(paragraphs);
+    });
+
+    console.log('NotOnlyTranslator: 批量翻译组件已初始化');
+  }
+
+  /**
+   * 检查当前页面是否在黑名单中
+   */
+  private isCurrentPageBlacklisted(): boolean {
+    if (!this.settings?.blacklist || this.settings.blacklist.length === 0) {
+      return false;
+    }
+
+    const currentHostname = window.location.hostname;
+    const currentUrl = window.location.href;
+
+    return this.settings.blacklist.some((pattern) => {
+      // 支持通配符匹配
+      if (pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$', 'i');
+        return regex.test(currentHostname) || regex.test(currentUrl);
+      }
+      // 精确匹配域名或 URL 包含
+      return currentHostname === pattern || currentHostname.endsWith('.' + pattern) || currentUrl.includes(pattern);
+    });
   }
 
   /**
@@ -102,6 +172,12 @@ class NotOnlyTranslator {
           '--not-translator-highlight-color',
           this.settings.highlightColor
         );
+
+        // 更新批量翻译管理器的翻译模式
+        if (this.batchManager) {
+          this.batchManager.setMode(this.settings.translationMode);
+        }
+
         console.log('NotOnlyTranslator: Settings loaded successfully');
       } else {
         console.warn('NotOnlyTranslator: Failed to load settings:', response.error);
@@ -113,44 +189,102 @@ class NotOnlyTranslator {
 
   /**
    * Setup event listeners for user interactions
+   *
+   * 设计原则：
+   * 1. 不拦截原文的点击事件，保持链接等原有功能
+   * 2. 使用选中（mouseup）来触发翻译弹窗
+   * 3. 只有在选中高亮词时才显示详细信息和操作按钮
    */
   private setupEventListeners(): void {
-    // Click on highlighted words
-    document.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-
-      if (target.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.showTooltipForHighlight(target);
-      }
-    });
-
-    // Double-click to translate selection
-    document.addEventListener('dblclick', async () => {
+    // 监听 mouseup 事件，检测用户是否选中了文本
+    document.addEventListener('mouseup', (e) => {
       if (!this.settings?.enabled) return;
 
-      const selection = window.getSelection();
-      const selectedText = selection?.toString().trim();
+      // 延迟一下让选区稳定
+      setTimeout(() => {
+        this.handleTextSelection(e);
+      }, 50);
+    });
 
-      if (selectedText && selectedText.length > 0 && selectedText.length < 100) {
-        // Wait a bit for selection to stabilize
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        const range = selection?.getRangeAt(0);
-        if (range) {
-          const rect = range.getBoundingClientRect();
-          const tempElement = document.createElement('span');
-          tempElement.style.position = 'absolute';
-          tempElement.style.left = `${rect.left}px`;
-          tempElement.style.top = `${rect.top}px`;
-          document.body.appendChild(tempElement);
-
-          await this.translateSelection(selectedText, tempElement);
-          document.body.removeChild(tempElement);
-        }
+    // 点击其他地方时隐藏 tooltip
+    document.addEventListener('mousedown', (e) => {
+      const target = e.target as HTMLElement;
+      // 如果点击的不是 tooltip 内部，则隐藏
+      if (!target.closest('.not-translator-tooltip')) {
+        this.tooltip.hide();
       }
     });
+  }
+
+  /**
+   * 处理文本选中事件
+   * 当用户选中高亮词或普通文本时触发
+   */
+  private handleTextSelection(_e: MouseEvent): void {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText || selectedText.length === 0) return;
+
+    // 检查选中的内容是否在高亮词内或包含高亮词
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+
+    // 找到最近的高亮元素
+    let highlightElement: HTMLElement | null = null;
+
+    if (container.nodeType === Node.TEXT_NODE) {
+      const parent = container.parentElement;
+      if (parent?.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
+        highlightElement = parent;
+      }
+    } else if (container instanceof HTMLElement) {
+      if (container.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
+        highlightElement = container;
+      } else {
+        highlightElement = container.querySelector(`.${CSS_CLASSES.HIGHLIGHT}`);
+      }
+    }
+
+    // 如果选中的是高亮词，显示详细信息
+    if (highlightElement) {
+      const word = highlightElement.dataset.word || highlightElement.textContent?.replace(/\(.*\)$/, '').trim() || '';
+      const translation = highlightElement.dataset.translation || '';
+      const difficulty = parseInt(highlightElement.dataset.difficulty || '5', 10);
+      const isPhrase = highlightElement.dataset.isPhrase === 'true';
+
+      if (translation) {
+        this.tooltip.showWord(highlightElement, {
+          original: word,
+          translation,
+          position: [0, 0],
+          difficulty,
+          isPhrase,
+        });
+      } else {
+        // 没有翻译数据时，获取翻译
+        this.tooltip.showLoading(highlightElement);
+        this.translateSelection(word, highlightElement);
+      }
+    } else if (selectedText.length > 1 && selectedText.length < 100) {
+      // 选中的是普通文本，提供翻译选项
+      const rect = range.getBoundingClientRect();
+      const tempElement = document.createElement('span');
+      tempElement.style.position = 'absolute';
+      tempElement.style.left = `${rect.left + window.scrollX}px`;
+      tempElement.style.top = `${rect.bottom + window.scrollY}px`;
+      tempElement.style.pointerEvents = 'none';
+      document.body.appendChild(tempElement);
+
+      this.translateSelection(selectedText, tempElement).finally(() => {
+        setTimeout(() => {
+          if (document.body.contains(tempElement)) {
+            document.body.removeChild(tempElement);
+          }
+        }, 100);
+      });
+    }
   }
 
   /**
@@ -180,7 +314,7 @@ class NotOnlyTranslator {
             break;
 
           case 'SETTINGS_UPDATED':
-            this.loadSettings();
+            this.handleSettingsUpdated();
             sendResponse({ success: true });
             break;
 
@@ -199,28 +333,66 @@ class NotOnlyTranslator {
 
   /**
    * Setup mutation observer for dynamic content
+   * 当检测到新内容时，将其注册到可视区域观察器（批量模式）
+   * 或触发页面扫描（非批量模式）
    */
   private setupMutationObserver(): void {
     const debouncedScan = debounce(() => this.scanPage(), 1000);
 
     this.observer = new MutationObserver((mutations) => {
-      // Check if any meaningful content was added
-      const hasNewContent = mutations.some((mutation) => {
-        return Array.from(mutation.addedNodes).some((node) => {
+      // 收集新添加的内容元素
+      const newElements: HTMLElement[] = [];
+
+      mutations.forEach((mutation) => {
+        Array.from(mutation.addedNodes).forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             const el = node as HTMLElement;
-            return (
-              el.textContent &&
-              el.textContent.length > 50 &&
-              !el.classList.contains(CSS_CLASSES.TOOLTIP) &&
-              !el.classList.contains(CSS_CLASSES.HIGHLIGHT)
+
+            // 跳过翻译相关的元素
+            if (
+              el.classList.contains(CSS_CLASSES.TOOLTIP) ||
+              el.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
+              el.classList.contains('not-translator-processed')
+            ) {
+              return;
+            }
+
+            // 查找新元素中的段落
+            const paragraphs = el.querySelectorAll<HTMLElement>(
+              'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption'
             );
+
+            paragraphs.forEach((p) => {
+              if (p.textContent && p.textContent.trim().length >= 50) {
+                newElements.push(p);
+              }
+            });
+
+            // 如果元素本身是有效段落
+            if (el.textContent && el.textContent.trim().length >= 50) {
+              const tagName = el.tagName.toLowerCase();
+              if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'blockquote', 'figcaption'].includes(tagName)) {
+                newElements.push(el);
+              }
+            }
           }
-          return false;
         });
       });
 
-      if (hasNewContent && this.settings?.autoHighlight) {
+      // 如果没有新内容或自动高亮被禁用，跳过
+      if (newElements.length === 0 || !this.settings?.autoHighlight) {
+        return;
+      }
+
+      console.log(`NotOnlyTranslator: MutationObserver 检测到 ${newElements.length} 个新元素`);
+
+      // 批量模式：直接注册到观察器
+      if (this.useBatchMode && this.viewportObserver) {
+        this.viewportObserver.observeAll(newElements);
+        // 触发检查当前可视区域
+        this.viewportObserver.checkCurrentViewport();
+      } else {
+        // 非批量模式：触发防抖扫描
         debouncedScan();
       }
     });
@@ -233,6 +405,8 @@ class NotOnlyTranslator {
 
   /**
    * Scan page for content to translate
+   * 使用批量翻译模式时，将段落注册到可视区域观察器
+   * 非批量模式时，使用原有的逐段翻译逻辑
    */
   private async scanPage(): Promise<void> {
     if (!this.isEnabled) {
@@ -251,6 +425,29 @@ class NotOnlyTranslator {
     const paragraphs = this.getParagraphs();
     console.log(`NotOnlyTranslator: Found ${paragraphs.length} paragraphs to scan`);
 
+    // 批量翻译模式：使用可视区域观察器
+    if (this.useBatchMode && this.viewportObserver && this.batchManager) {
+      // 更新翻译模式
+      this.batchManager.setMode(mode);
+
+      // 将所有段落注册到观察器
+      this.viewportObserver.observeAll(paragraphs);
+
+      // 立即检查当前可视区域
+      this.viewportObserver.checkCurrentViewport();
+
+      console.log('NotOnlyTranslator: 批量模式扫描完成，已注册到观察器');
+      return;
+    }
+
+    // 非批量模式：使用原有的逐段翻译逻辑（保持向后兼容）
+    await this.scanPageSequential(paragraphs, mode);
+  }
+
+  /**
+   * 顺序扫描页面（原有逻辑，保持向后兼容）
+   */
+  private async scanPageSequential(paragraphs: HTMLElement[], mode: string): Promise<void> {
     for (const paragraph of paragraphs) {
       // Skip already processed paragraphs
       if (TranslationDisplay.isProcessed(paragraph)) continue;
@@ -277,7 +474,7 @@ class NotOnlyTranslator {
         // Apply translation based on mode
         if (result.words.length > 0 || result.fullText) {
           console.log(`NotOnlyTranslator: Applying translation to paragraph with mode: ${mode}`);
-          TranslationDisplay.applyTranslation(paragraph, result, mode);
+          TranslationDisplay.applyTranslation(paragraph, result, mode as import('@/shared/types').TranslationMode);
 
           // Setup click handlers for highlighted words in the paragraph
           this.setupParagraphClickHandlers(paragraph);
@@ -293,50 +490,33 @@ class NotOnlyTranslator {
   }
 
   /**
-   * Setup click handlers for highlighted words in a paragraph
+   * Setup handlers for highlighted words in a paragraph
+   *
+   * 注意：不再添加点击事件，避免干扰原有链接等功能
+   * 用户需要选中（select）高亮词才会触发翻译弹窗
    */
   private setupParagraphClickHandlers(paragraph: HTMLElement): void {
-    const highlightedWords = paragraph.querySelectorAll(`.${CSS_CLASSES.HIGHLIGHT}`);
-
-    highlightedWords.forEach((element) => {
-      element.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const target = e.target as HTMLElement;
-        const word = target.textContent?.trim() || '';
-        const translation = target.dataset.translation || '';
-        const difficulty = parseInt(target.dataset.difficulty || '5', 10);
-
-        // Show tooltip for more details
-        if (translation) {
-          this.tooltip.showWord(target, {
-            original: word,
-            translation,
-            position: [0, 0],
-            difficulty,
-            isPhrase: false,
-          });
-        } else {
-          // Fetch translation if not available
-          this.showTooltipForHighlight(target);
-        }
-      });
-    });
-
-    // Setup hover effect for bilingual mode - link original and translation highlights
+    // 只设置悬停效果，不添加点击事件
+    // 点击/选中由全局 handleTextSelection 处理
     this.setupBilingualHoverEffects(paragraph);
   }
 
   /**
    * Setup hover effects for bilingual mode to link original and translation highlights
+   * 注意：译文行现在在段落后面，需要从相邻元素中查找
    */
   private setupBilingualHoverEffects(paragraph: HTMLElement): void {
     const originalHighlights = paragraph.querySelectorAll('.not-translator-highlighted-word');
 
+    // 查找段落后面的译文行
+    const translationLine = paragraph.nextElementSibling;
+    if (!translationLine?.classList.contains('not-translator-translation-line')) {
+      return;
+    }
+
     originalHighlights.forEach((original) => {
       const index = original.getAttribute('data-index');
-      const corresponding = paragraph.querySelector(`.not-translator-highlighted-translation[data-index="${index}"]`);
+      const corresponding = translationLine.querySelector(`.not-translator-highlighted-translation[data-index="${index}"]`);
 
       if (corresponding) {
         original.addEventListener('mouseenter', () => {
@@ -438,30 +618,6 @@ class NotOnlyTranslator {
     }
 
     return response.data as TranslationResult;
-  }
-
-  /**
-   * Show tooltip for a highlighted word
-   */
-  private showTooltipForHighlight(element: HTMLElement): void {
-    const word = element.dataset.word || element.textContent || '';
-    const translation = element.dataset.translation || '';
-    const difficulty = parseInt(element.dataset.difficulty || '5', 10);
-    const isPhrase = element.dataset.isPhrase === 'true';
-
-    if (translation) {
-      this.tooltip.showWord(element, {
-        original: word,
-        translation,
-        position: [0, 0],
-        difficulty,
-        isPhrase,
-      });
-    } else {
-      // Need to fetch translation
-      this.tooltip.showLoading(element);
-      this.translateSelection(word, element);
-    }
   }
 
   /**
@@ -584,6 +740,38 @@ class NotOnlyTranslator {
   }
 
   /**
+   * 处理设置更新（包括翻译模式切换）
+   */
+  private async handleSettingsUpdated(): Promise<void> {
+    const oldMode = this.settings?.translationMode;
+    await this.loadSettings();
+    const newMode = this.settings?.translationMode;
+
+    // 如果翻译模式改变了，需要清除已处理的段落并重新翻译
+    if (oldMode !== newMode) {
+      console.log(`NotOnlyTranslator: 翻译模式从 ${oldMode} 切换为 ${newMode}`);
+
+      // 清除所有已翻译的内容
+      this.clearAllTranslations();
+
+      // 重置批量翻译管理器的缓存状态
+      if (this.batchManager) {
+        this.batchManager.clearProcessedCache();
+      }
+
+      // 重置可视区域观察器的追踪状态
+      if (this.viewportObserver) {
+        this.viewportObserver.resetTracking();
+      }
+
+      // 重新扫描页面
+      if (this.isEnabled) {
+        this.scanPage();
+      }
+    }
+  }
+
+  /**
    * Toggle enabled state
    */
   private toggleEnabled(): void {
@@ -594,7 +782,13 @@ class NotOnlyTranslator {
       this.tooltip.hide();
       // Clear all translation displays
       this.clearAllTranslations();
+
+      // 禁用批量翻译组件
+      this.viewportObserver?.disable();
+      this.batchManager?.cancelAll();
     } else {
+      // 重新启用批量翻译组件
+      this.viewportObserver?.enable();
       this.scanPage();
     }
   }
@@ -631,9 +825,18 @@ class NotOnlyTranslator {
    * Cleanup
    */
   destroy(): void {
+    // 清理 MutationObserver
     this.observer?.disconnect();
+
+    // 清理批量翻译组件
+    this.viewportObserver?.destroy();
+    this.batchManager?.cancelAll();
+
+    // 清理高亮和提示框
     this.highlighter.clearAllHighlights();
     this.tooltip.destroy();
+
+    console.log('NotOnlyTranslator: 已销毁');
   }
 }
 
@@ -644,8 +847,8 @@ export function onExecute() {
   if (!translator) {
     translator = new NotOnlyTranslator();
 
-    // Cleanup on unload
-    window.addEventListener('unload', () => {
+    // Cleanup on page hide (unload is deprecated)
+    window.addEventListener('pagehide', () => {
       translator?.destroy();
       translator = null;
     });

@@ -1,4 +1,4 @@
-import type { ExamType, UserSettings } from '../types';
+import type { ExamType, UserSettings, BatchTranslationConfig } from '../types';
 
 // Vocabulary size estimates for different exam levels
 export const EXAM_VOCABULARY_SIZES: Record<ExamType, number> = {
@@ -69,6 +69,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
   apiProvider: 'openai',
   customApiUrl: '',
   customModelName: '',
+  blacklist: [],
+  apiConfigs: [],
+  activeApiConfigId: undefined,
 };
 
 // Default user profile
@@ -160,3 +163,78 @@ export const API_ENDPOINTS = {
   OPENAI: 'https://api.openai.com/v1/chat/completions',
   ANTHROPIC: 'https://api.anthropic.com/v1/messages',
 };
+
+// ========== 批量翻译配置 ==========
+
+/**
+ * 批量翻译默认配置
+ */
+export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
+  /** 单批最大段落数 */
+  maxParagraphsPerBatch: 10,
+  /** 单批最大字符数 */
+  maxCharsPerBatch: 8000,
+  /** 防抖延迟（毫秒） */
+  debounceDelay: 300,
+  /** 缓存最大条目数 */
+  maxCacheEntries: 500,
+  /** 缓存过期时间（7天，毫秒） */
+  cacheExpireTime: 7 * 24 * 60 * 60 * 1000,
+};
+
+/**
+ * 批量翻译提示词模板
+ * 使用 [PARA_n] 标记区分不同段落
+ */
+export const BATCH_TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手。用户的英语水平约为 {vocabulary_size} 词汇量（相当于{exam_level}水平）。
+
+请分析以下多个英文段落（用 [PARA_n] 标记区分），找出每个段落中可能超出用户水平的：
+1. 单词（超出{exam_level}词汇范围的）
+2. 短语/习语
+3. 复杂语法结构的句子
+
+对于每个识别出的内容，提供：
+- 中文翻译
+- 难度等级（1-10）
+- 如果是语法结构，简要说明语法点
+
+同时提供每个段落的完整中文翻译。
+
+段落内容：
+{paragraphs}
+
+请以JSON格式返回结果，格式如下：
+{
+  "paragraphs": [
+    {
+      "id": "[PARA_n]中的n",
+      "fullText": "该段落的完整中文翻译",
+      "words": [
+        {
+          "original": "词汇原文",
+          "translation": "中文翻译",
+          "position": [起始位置, 结束位置],
+          "difficulty": 难度等级1-10,
+          "isPhrase": 是否为短语
+        }
+      ],
+      "sentences": [
+        {
+          "original": "复杂句子原文",
+          "translation": "中文翻译",
+          "grammarNote": "语法说明（可选）"
+        }
+      ]
+    }
+  ]
+}`;
+
+/**
+ * 段落缓存存储键
+ */
+export const PARAGRAPH_CACHE_KEY = 'paragraphCache';
+
+/**
+ * 缓存版本号，用于迁移
+ */
+export const CACHE_VERSION = 1;
