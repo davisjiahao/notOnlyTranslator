@@ -432,28 +432,43 @@
 .not-translator-highlight[data-difficulty="1"]:hover,
 .not-translator-highlight[data-difficulty="2"]:hover,
 .not-translator-highlight[data-difficulty="3"]:hover {
-  background-color: rgba(134, 239, 172, 0.15);
+  background-color: rgba(134, 239, 172, 0.25);
 }
 
-/* 中等词汇 (4-7) - 浅蓝色下划线（默认） */
+/* 中等词汇 (4-6) - 浅蓝色下划线 */
 .not-translator-highlight[data-difficulty="4"],
 .not-translator-highlight[data-difficulty="5"],
-.not-translator-highlight[data-difficulty="6"],
-.not-translator-highlight[data-difficulty="7"] {
+.not-translator-highlight[data-difficulty="6"] {
   border-bottom-color: #60a5fa;
 }
 
-/* 困难词汇 (8-10) - 浅紫色下划线 */
-.not-translator-highlight[data-difficulty="8"],
-.not-translator-highlight[data-difficulty="9"],
-.not-translator-highlight[data-difficulty="10"] {
-  border-bottom-color: #c4b5fd;
+.not-translator-highlight[data-difficulty="4"]:hover,
+.not-translator-highlight[data-difficulty="5"]:hover,
+.not-translator-highlight[data-difficulty="6"]:hover {
+  background-color: rgba(96, 165, 250, 0.25);
 }
 
-.not-translator-highlight[data-difficulty="8"]:hover,
+/* 困难词汇 (7-8) - 靛蓝色下划线 */
+.not-translator-highlight[data-difficulty="7"],
+.not-translator-highlight[data-difficulty="8"] {
+  border-bottom-color: #818cf8;
+}
+
+.not-translator-highlight[data-difficulty="7"]:hover,
+.not-translator-highlight[data-difficulty="8"]:hover {
+  background-color: rgba(129, 140, 248, 0.25);
+}
+
+/* 极难词汇 (9-10) - 紫色/粉色下划线 */
+.not-translator-highlight[data-difficulty="9"],
+.not-translator-highlight[data-difficulty="10"] {
+  border-bottom-color: #c084fc;
+  border-bottom-width: 2px;
+}
+
 .not-translator-highlight[data-difficulty="9"]:hover,
 .not-translator-highlight[data-difficulty="10"]:hover {
-  background-color: rgba(196, 181, 253, 0.15);
+  background-color: rgba(192, 132, 252, 0.25);
 }
 
 /* 短语高亮 - 用波浪下划线区分 */
@@ -461,6 +476,24 @@
 .not-translator-highlight[data-is-phrase="true"] {
   border-bottom-style: wavy;
   border-bottom-width: 1px;
+}
+
+/* 段落 Loading 效果 */
+.not-translator-paragraph-loading {
+  position: relative;
+}
+
+.not-translator-paragraph-loading::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: not-translator-spin 1s linear infinite;
+  vertical-align: middle;
 }
 
 /* 响应式调整 */
@@ -497,6 +530,10 @@
   .not-translator-inline-translation {
     color: #666;
   }
+
+  .not-translator-paragraph-loading::after {
+    display: none !important;
+  }
 }
 
 /* 暗色模式支持 */
@@ -510,9 +547,10 @@
   /* 译文 - 深色背景下的浅色 */
   .not-translator-translation-line,
   .not-translator-full-translation {
-    color: #9ca3af;
-    background-color: rgba(55, 65, 81, 0.5);
-    border-left-color: #4b5563;
+    color: #e5e7eb !important; /* 亮灰色文字 */
+    background-color: #1f2937 !important; /* 深灰色不透明背景 */
+    border-left-color: #60a5fa;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   /* 行内翻译 */
@@ -550,5 +588,10 @@
   .not-translator-highlight[data-difficulty="9"]:hover,
   .not-translator-highlight[data-difficulty="10"]:hover {
     background-color: rgba(196, 181, 253, 0.2);
+  }
+
+  .not-translator-paragraph-loading::after {
+    border-color: #4b5563;
+    border-top-color: #60a5fa;
   }
 }

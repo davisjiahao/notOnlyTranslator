@@ -192,6 +192,11 @@ export class BatchTranslationManager {
   private async processBatch(paragraphs: PendingParagraph[]): Promise<void> {
     console.log(`BatchTranslationManager: 处理批次，${paragraphs.length} 个段落`);
 
+    // 显示 Loading 状态
+    paragraphs.forEach(p => {
+      TranslationDisplay.showLoading(p.element);
+    });
+
     // 构建批量请求
     const request: BatchTranslationRequest = {
       paragraphs: paragraphs.map((p) => ({
@@ -224,6 +229,11 @@ export class BatchTranslationManager {
     } catch (error) {
       console.error('BatchTranslationManager: 请求失败', error);
       this.markParagraphsComplete(paragraphs);
+    } finally {
+      // 移除 Loading 状态
+      paragraphs.forEach(p => {
+        TranslationDisplay.removeLoading(p.element);
+      });
     }
   }
 

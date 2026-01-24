@@ -67,6 +67,14 @@ export class Tooltip {
       }
     });
 
+    // Hover trigger (Cmd/Ctrl + Hover)
+    document.addEventListener('mouseover', (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.target as HTMLElement).classList.contains(CSS_CLASSES.HIGHLIGHT)) {
+         // Trigger click logic to show tooltip
+         (e.target as HTMLElement).click();
+      }
+    });
+
     // Hide on scroll
     document.addEventListener('scroll', () => this.hide(), true);
 

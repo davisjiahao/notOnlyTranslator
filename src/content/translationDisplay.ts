@@ -318,4 +318,18 @@ export class TranslationDisplay {
       element.dataset.originalHtml = element.innerHTML;
     }
   }
+
+  /**
+   * 显示加载中状态
+   */
+  static showLoading(element: HTMLElement): void {
+    element.classList.add('not-translator-paragraph-loading');
+  }
+
+  /**
+   * 移除加载中状态
+   */
+  static removeLoading(element: HTMLElement): void {
+    element.classList.remove('not-translator-paragraph-loading');
+  }
 }

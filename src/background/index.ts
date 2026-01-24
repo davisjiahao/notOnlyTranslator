@@ -11,13 +11,15 @@ import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
 import { BatchTranslationService } from './batchTranslation';
 import { enhancedCache } from './enhancedCache';
+import { frequencyManager } from './frequencyManager';
 
 console.log('NotOnlyTranslator: Background service worker started');
 
-// 初始化增强缓存
-enhancedCache.initialize().then(() => {
-  console.log('NotOnlyTranslator: 增强缓存已初始化');
-});
+// 初始化核心服务
+Promise.all([
+  enhancedCache.initialize().then(() => console.log('NotOnlyTranslator: 增强缓存已初始化')),
+  frequencyManager.initialize().then(() => console.log('NotOnlyTranslator: 词频管理器已初始化'))
+]).catch(err => console.error('NotOnlyTranslator: 初始化失败', err));
 
 // Initialize context menus on install
 chrome.runtime.onInstalled.addListener(() => {

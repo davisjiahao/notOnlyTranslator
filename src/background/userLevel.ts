@@ -1,6 +1,7 @@
 import type { ExamType, UserProfile } from '@/shared/types';
 import { calculateVocabularySize, updateVocabularyEstimate } from '@/shared/utils';
 import { StorageManager } from './storage';
+import { frequencyManager } from './frequencyManager';
 
 /**
  * User Level Manager - handles vocabulary estimation and level updates
@@ -95,12 +96,13 @@ export class UserLevelManager {
   }
 
   /**
-   * Get word difficulty estimate based on user profile
+   * Get word difficulty estimate based on user profile and frequency data
    */
   static estimateWordDifficulty(
     word: string,
     userProfile: UserProfile
   ): number {
+    // 1. Check User Personal History first
     // Check if word is in known words
     if (userProfile.knownWords.includes(word.toLowerCase())) {
       return 1; // Very easy for this user
@@ -114,18 +116,34 @@ export class UserLevelManager {
       return 10; // Confirmed difficult for this user
     }
 
-    // Estimate based on word characteristics
-    // This is a simple heuristic - real implementation would use word frequency data
-    const wordLength = word.length;
-    let difficulty = 5; // Default medium difficulty
+    // 2. Use Frequency Manager (Data-driven)
+    // This uses the "COCA-like" simulated frequency tables
+    const frequencyDifficulty = frequencyManager.getDifficulty(word);
 
-    // Longer words tend to be harder
-    if (wordLength > 10) difficulty += 2;
-    else if (wordLength > 7) difficulty += 1;
-    else if (wordLength < 4) difficulty -= 1;
+    // 3. Apply Heuristics (Rule-based adjustment)
+    const lowerWord = word.toLowerCase();
+    const wordLength = word.length;
+    let adjustment = 0;
+
+    // Heuristic: Very short words are usually easier
+    if (wordLength <= 3 && frequencyDifficulty > 3) adjustment -= 2;
+
+    // Heuristic: Long words but with simple suffixes
+    if (wordLength > 10) {
+      if (lowerWord.endsWith('ing') || lowerWord.endsWith('ed') || lowerWord.endsWith('ly') || lowerWord.endsWith('ment')) {
+        adjustment -= 1;
+      } else {
+        // Truly long complex word
+        adjustment += 1;
+      }
+    }
+
+    // Combine Frequency + Heuristics
+    // Weight the frequency score heavily as it's data-backed
+    let finalDifficulty = frequencyDifficulty + adjustment;
 
     // Clamp to 1-10 range
-    return Math.max(1, Math.min(10, difficulty));
+    return Math.max(1, Math.min(10, Math.round(finalDifficulty)));
   }
 
   /**

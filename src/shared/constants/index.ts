@@ -171,9 +171,9 @@ export const API_ENDPOINTS = {
  */
 export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
   /** 单批最大段落数 */
-  maxParagraphsPerBatch: 10,
+  maxParagraphsPerBatch: 20,
   /** 单批最大字符数 */
-  maxCharsPerBatch: 8000,
+  maxCharsPerBatch: 12000,
   /** 防抖延迟（毫秒） */
   debounceDelay: 300,
   /** 缓存最大条目数 */

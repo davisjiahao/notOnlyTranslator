@@ -12,9 +12,10 @@ import {
   API_ENDPOINTS,
   DEFAULT_BATCH_CONFIG,
 } from '@/shared/constants';
-import { normalizeText } from '@/shared/utils';
+import { normalizeText, getChineseRatio } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { enhancedCache } from './enhancedCache';
+import { frequencyManager } from './frequencyManager';
 
 /**
  * 批量翻译服务
@@ -80,9 +81,49 @@ export class BatchTranslationService {
     }
 
     // 获取需要翻译的段落
-    const toTranslate = paragraphsWithHash.filter((p) => cacheMisses.includes(p.textHash));
+    let toTranslate = paragraphsWithHash.filter((p) => cacheMisses.includes(p.textHash));
 
-    console.log(`BatchTranslationService: 缓存命中 ${cacheHits.size} 个，需翻译 ${toTranslate.length} 个`);
+    // 过滤掉中文占比过高的段落（>20%）
+    // 同时也过滤掉本地判定为"太简单"的段落
+    const skippedParagraphs: BatchParagraphResult[] = [];
+    toTranslate = toTranslate.filter(p => {
+      // 1. 检查中文占比
+      const chineseRatio = getChineseRatio(p.text);
+      if (chineseRatio > 0.2) {
+        console.log(`BatchTranslationService: 跳过中文占比过高的段落 (${(chineseRatio * 100).toFixed(1)}%)`, p.id);
+        skippedParagraphs.push({
+          id: p.id,
+          result: this.createEmptyResult(),
+          cached: false
+        });
+        return false;
+      }
+
+      // 2. 本地静态过滤 (Local Static Filtering)
+      // 如果段落中所有单词都在用户的舒适区内，则跳过 API 调用
+      // 注意：这假设用户不需要"全文翻译"功能，只需要"生词高亮"
+      const hasPotentialUnknown = frequencyManager.hasPotentialUnknownWords(
+        p.text,
+        userProfile.estimatedVocabulary
+      );
+
+      if (!hasPotentialUnknown) {
+        console.log('BatchTranslationService: 跳过简单段落 (本地过滤)', p.id);
+        skippedParagraphs.push({
+          id: p.id,
+          result: this.createEmptyResult(), // 返回空结果，即无高亮
+          cached: false
+        });
+        return false;
+      }
+
+      return true;
+    });
+
+    // 将跳过的结果加入结果集
+    results.push(...skippedParagraphs);
+
+    console.log(`BatchTranslationService: 缓存命中 ${cacheHits.size} 个，跳过 ${skippedParagraphs.length} 个，需翻译 ${toTranslate.length} 个`);
 
     // 如果有需要翻译的段落，调用API
     if (toTranslate.length > 0) {

@@ -68,8 +68,8 @@ export class ViewportObserver {
     const options: IntersectionObserverInit = {
       // 使用视口作为根
       root: null,
-      // 扩展边界，提前加载即将进入视口的内容
-      rootMargin: '100px 0px 100px 0px',
+      // 扩展边界，提前加载即将进入视口的内容 (增加到 800px 以实现更早的预加载)
+      rootMargin: '800px 0px 800px 0px',
       // 可见度阈值
       threshold: [0, 0.1],
     };
