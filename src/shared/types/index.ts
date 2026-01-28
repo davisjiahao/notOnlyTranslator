@@ -48,9 +48,17 @@ export interface TranslatedSentence {
   grammarNote?: string;
 }
 
+export interface GrammarPoint {
+  original: string;
+  explanation: string;
+  position: [number, number];
+  type?: string;
+}
+
 export interface TranslationResult {
   words: TranslatedWord[];
   sentences: TranslatedSentence[];
+  grammarPoints?: GrammarPoint[]; // New field for segment-based grammar learning
   fullText?: string;  // 完整译文（用于双文对照和全文翻译模式）
   cached?: boolean;
 }

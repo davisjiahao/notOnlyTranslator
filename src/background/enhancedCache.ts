@@ -167,8 +167,8 @@ export class EnhancedCacheManager {
 
     this.memoryCache.set(textHash, entry);
 
-    // 如果超出限制，执行LRU淘汰
-    if (this.memoryCache.size > DEFAULT_BATCH_CONFIG.maxCacheEntries) {
+    // 提前检查是否需要淘汰（95% 容量时触发）
+    if (this.shouldEvict()) {
       await this.evictLRU();
     }
 
@@ -203,8 +203,8 @@ export class EnhancedCacheManager {
       this.memoryCache.set(textHash, entry);
     }
 
-    // 如果超出限制，执行LRU淘汰
-    while (this.memoryCache.size > DEFAULT_BATCH_CONFIG.maxCacheEntries) {
+    // 批量添加后检查一次是否需要淘汰
+    if (this.shouldEvict()) {
       await this.evictLRU();
     }
 
@@ -215,24 +215,48 @@ export class EnhancedCacheManager {
   }
 
   /**
-   * LRU淘汰：删除最近最少使用的条目
+   * LRU批量淘汰：一次删除最旧的 10% 条目
+   *
+   * 优化说明：
+   * - 批量淘汰比单条淘汰更高效（减少频繁触发淘汰的开销）
+   * - 预留一定空间，避免每次添加都触发淘汰
+   * - 淘汰后缓存使用率约为 90%
    */
   private async evictLRU(): Promise<void> {
-    // 找到访问时间最早的条目
-    let oldestKey: string | null = null;
-    let oldestTime = Infinity;
+    const currentSize = this.memoryCache.size;
+    const maxEntries = DEFAULT_BATCH_CONFIG.maxCacheEntries;
 
-    for (const [key, entry] of this.memoryCache) {
-      if (entry.lastAccessedAt < oldestTime) {
-        oldestTime = entry.lastAccessedAt;
-        oldestKey = key;
-      }
+    // 计算需要淘汰的数量（至少 10%，确保腾出足够空间）
+    const evictCount = Math.max(
+      Math.ceil(maxEntries * 0.1),  // 至少 10%
+      currentSize - maxEntries + 1   // 确保淘汰后不超限
+    );
+
+    if (evictCount <= 0) return;
+
+    // 将所有条目按 lastAccessedAt 排序
+    const entries = Array.from(this.memoryCache.entries())
+      .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+
+    // 删除最旧的条目
+    const keysToDelete = entries.slice(0, evictCount).map(([key]) => key);
+
+    for (const key of keysToDelete) {
+      this.memoryCache.delete(key);
     }
 
-    if (oldestKey) {
-      this.memoryCache.delete(oldestKey);
-      console.log(`EnhancedCacheManager: LRU淘汰 ${oldestKey}`);
-    }
+    console.log(
+      `EnhancedCacheManager: LRU批量淘汰 ${keysToDelete.length} 条`,
+      `缓存从 ${currentSize} 减少到 ${this.memoryCache.size}`
+    );
+  }
+
+  /**
+   * 检查是否需要淘汰
+   * 当缓存达到 95% 容量时触发淘汰，提前腾出空间
+   */
+  private shouldEvict(): boolean {
+    return this.memoryCache.size >= DEFAULT_BATCH_CONFIG.maxCacheEntries * 0.95;
   }
 
   /**

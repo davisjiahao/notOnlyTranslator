@@ -249,6 +249,21 @@ class NotOnlyTranslator {
 
     // 如果选中的是高亮词，显示详细信息
     if (highlightElement) {
+      // 检查是否是语法高亮
+      if (highlightElement.classList.contains('not-translator-grammar-highlight')) {
+        const explanation = highlightElement.dataset.grammarExplanation || '';
+        const type = highlightElement.dataset.grammarType || '语法点';
+        const original = highlightElement.dataset.grammarOriginal || highlightElement.textContent || '';
+
+        this.tooltip.showGrammar(highlightElement, {
+          original,
+          explanation,
+          type,
+          position: [0, 0]
+        });
+        return;
+      }
+
       const word = highlightElement.dataset.word || highlightElement.textContent?.replace(/\(.*\)$/, '').trim() || '';
       const translation = highlightElement.dataset.translation || '';
       const difficulty = parseInt(highlightElement.dataset.difficulty || '5', 10);

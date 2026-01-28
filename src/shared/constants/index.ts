@@ -90,12 +90,11 @@ export const TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手。用
 请分析以下英文文本，找出可能超出用户水平的：
 1. 单词（超出{exam_level}词汇范围的）
 2. 短语/习语
-3. 复杂语法结构的句子
+3. 复杂语法结构（如倒装句、虚拟语气、复杂从句等）
 
 对于每个识别出的内容，提供：
 - 中文翻译
 - 难度等级（1-10）
-- 如果是语法结构，简要说明语法点
 
 同时提供整段文本的完整中文翻译。
 
@@ -123,8 +122,18 @@ export const TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手。用
       "translation": "中文翻译",
       "grammarNote": "语法说明（可选）"
     }
+  ],
+  "grammarPoints": [
+    {
+      "original": "语法结构原文片段（如 had I known, were it not for 等）",
+      "explanation": "语法解释（如：这是虚拟语气的倒装结构，表示与过去事实相反的假设）",
+      "type": "语法类型（如：虚拟语气、倒装句、定语从句、强调句等）",
+      "position": [起始位置, 结束位置]
+    }
   ]
-}`;
+}
+
+注意：grammarPoints 用于标注文本中的特殊语法结构，帮助学习者理解复杂语法。只有当文本中存在值得学习的语法点时才需要返回，普通简单句不需要标注。`;
 
 // Storage keys
 export const STORAGE_KEYS = {
@@ -168,12 +177,17 @@ export const API_ENDPOINTS = {
 
 /**
  * 批量翻译默认配置
+ *
+ * 注意：maxParagraphsPerBatch 设为 15（而非 20）的原因：
+ * - 减少 LLM 处理多个段落时的混淆和幻觉风险
+ * - 单次请求 token 消耗更可控
+ * - 在保持效率的同时提高翻译准确性
  */
 export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
-  /** 单批最大段落数 */
-  maxParagraphsPerBatch: 20,
+  /** 单批最大段落数（15 个段落是准确性与效率的平衡点） */
+  maxParagraphsPerBatch: 15,
   /** 单批最大字符数 */
-  maxCharsPerBatch: 12000,
+  maxCharsPerBatch: 10000,
   /** 防抖延迟（毫秒） */
   debounceDelay: 300,
   /** 缓存最大条目数 */
@@ -191,12 +205,11 @@ export const BATCH_TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手
 请分析以下多个英文段落（用 [PARA_n] 标记区分），找出每个段落中可能超出用户水平的：
 1. 单词（超出{exam_level}词汇范围的）
 2. 短语/习语
-3. 复杂语法结构的句子
+3. 复杂语法结构（如倒装句、虚拟语气、复杂从句等）
 
 对于每个识别出的内容，提供：
 - 中文翻译
 - 难度等级（1-10）
-- 如果是语法结构，简要说明语法点
 
 同时提供每个段落的完整中文翻译。
 
@@ -224,10 +237,20 @@ export const BATCH_TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手
           "translation": "中文翻译",
           "grammarNote": "语法说明（可选）"
         }
+      ],
+      "grammarPoints": [
+        {
+          "original": "语法结构原文片段",
+          "explanation": "语法解释",
+          "type": "语法类型（如：虚拟语气、倒装句、定语从句等）",
+          "position": [起始位置, 结束位置]
+        }
       ]
     }
   ]
-}`;
+}
+
+注意：grammarPoints 用于标注文本中的特殊语法结构，帮助学习者理解复杂语法。只有当段落中存在值得学习的语法点时才需要返回，普通简单句不需要标注。`;
 
 /**
  * 段落缓存存储键

@@ -14,11 +14,22 @@ export interface TooltipCallbacks {
 
 /**
  * Tooltip - manages the translation tooltip display
+ *
+ * 交互改进：
+ * - 支持"钉住"功能，钉住后滚动时 tooltip 跟随目标元素
+ * - 滚动时自动更新位置（如果钉住）或延迟隐藏（给用户反应时间）
+ * - 快捷键 P 可以切换钉住状态
  */
 export class Tooltip {
   private element: HTMLElement | null = null;
   private callbacks: TooltipCallbacks;
   private currentWord: string | null = null;
+  /** 当前 tooltip 关联的目标元素 */
+  private currentTarget: HTMLElement | null = null;
+  /** 是否已钉住（钉住后滚动不会隐藏） */
+  private isPinned: boolean = false;
+  /** 滚动隐藏的防抖定时器 */
+  private scrollHideTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(callbacks: TooltipCallbacks) {
     this.callbacks = callbacks;
@@ -41,7 +52,10 @@ export class Tooltip {
     tooltip.id = 'not-translator-tooltip';
     tooltip.className = CSS_CLASSES.TOOLTIP;
     tooltip.innerHTML = `
-      <button class="${CSS_CLASSES.TOOLTIP}-close">&times;</button>
+      <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
+        <button class="${CSS_CLASSES.TOOLTIP}-pin" title="钉住 (P)">📌</button>
+        <button class="${CSS_CLASSES.TOOLTIP}-close" title="关闭 (Esc)">&times;</button>
+      </div>
       <div class="${CSS_CLASSES.TOOLTIP}-content"></div>
     `;
 
@@ -51,6 +65,13 @@ export class Tooltip {
     // Close button handler
     const closeBtn = tooltip.querySelector(`.${CSS_CLASSES.TOOLTIP}-close`);
     closeBtn?.addEventListener('click', () => this.hide());
+
+    // Pin button handler
+    const pinBtn = tooltip.querySelector(`.${CSS_CLASSES.TOOLTIP}-pin`);
+    pinBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.togglePin();
+    });
   }
 
   /**
@@ -62,7 +83,10 @@ export class Tooltip {
       if (!this.element?.contains(e.target as Node)) {
         const target = e.target as HTMLElement;
         if (!target.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
-          this.hide();
+          // 如果已钉住，不因为点击外部而隐藏
+          if (!this.isPinned) {
+            this.hide();
+          }
         }
       }
     });
@@ -75,15 +99,102 @@ export class Tooltip {
       }
     });
 
-    // Hide on scroll
-    document.addEventListener('scroll', () => this.hide(), true);
+    // 滚动处理：钉住时更新位置，未钉住时延迟隐藏
+    document.addEventListener('scroll', () => this.handleScroll(), true);
 
-    // Hide on escape key
+    // Hide on escape key, and handle action shortcuts
     document.addEventListener('keydown', (e) => {
+      if (!this.isVisible()) return;
+
       if (e.key === 'Escape') {
         this.hide();
+        return;
+      }
+
+      // Action shortcuts (only when not typing in input fields)
+      const activeEl = document.activeElement;
+      if (
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        (activeEl as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (key === 'k') {
+        // Mark Known
+        const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+        btn?.click();
+      } else if (key === 'u') {
+        // Mark Unknown
+        const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.unknown`) as HTMLElement;
+        btn?.click();
+      } else if (key === 'a') {
+        // Add to Vocabulary
+        const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.add`) as HTMLElement;
+        btn?.click();
+      } else if (key === 'p') {
+        // Toggle Pin
+        this.togglePin();
       }
     });
+  }
+
+  /**
+   * 处理滚动事件
+   * - 已钉住：更新 tooltip 位置跟随目标元素
+   * - 未钉住：延迟 300ms 后隐藏（给用户反应时间）
+   */
+  private handleScroll(): void {
+    if (!this.isVisible()) return;
+
+    if (this.isPinned && this.currentTarget) {
+      // 钉住状态：更新位置跟随目标
+      this.positionTooltip(this.currentTarget);
+    } else {
+      // 未钉住：延迟隐藏
+      if (this.scrollHideTimeout) {
+        clearTimeout(this.scrollHideTimeout);
+      }
+      this.scrollHideTimeout = setTimeout(() => {
+        if (!this.isPinned) {
+          this.hide();
+        }
+      }, 300);
+    }
+  }
+
+  /**
+   * 切换钉住状态
+   */
+  togglePin(): void {
+    this.isPinned = !this.isPinned;
+    this.updatePinButtonState();
+
+    if (this.isPinned) {
+      console.log('Tooltip: 已钉住');
+    } else {
+      console.log('Tooltip: 已取消钉住');
+    }
+  }
+
+  /**
+   * 更新钉住按钮的视觉状态
+   */
+  private updatePinButtonState(): void {
+    const pinBtn = this.element?.querySelector(`.${CSS_CLASSES.TOOLTIP}-pin`) as HTMLElement;
+    if (pinBtn) {
+      if (this.isPinned) {
+        pinBtn.classList.add('pinned');
+        pinBtn.textContent = '📍'; // 改变图标表示已钉住
+        pinBtn.title = '取消钉住 (P)';
+      } else {
+        pinBtn.classList.remove('pinned');
+        pinBtn.textContent = '📌';
+        pinBtn.title = '钉住 (P)';
+      }
+    }
   }
 
   /**
@@ -96,6 +207,10 @@ export class Tooltip {
     if (!this.element) return;
 
     this.currentWord = data.original;
+    this.currentTarget = targetElement;
+    // 显示新 tooltip 时重置钉住状态
+    this.isPinned = false;
+    this.updatePinButtonState();
 
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
@@ -122,14 +237,14 @@ export class Tooltip {
       ${data.isPhrase ? `<span class="${CSS_CLASSES.TOOLTIP}-phrase">短语</span>` : ''}
       <div class="${CSS_CLASSES.TOOLTIP}-translation">${data.translation}</div>
       <div class="${CSS_CLASSES.TOOLTIP}-actions">
-        <button class="${CSS_CLASSES.MARK_BUTTON} known" data-action="known">
-          <span>认识</span>
+        <button class="${CSS_CLASSES.MARK_BUTTON} known" data-action="known" title="快捷键: K">
+          <span>认识</span> <span class="shortcut-hint">(K)</span>
         </button>
-        <button class="${CSS_CLASSES.MARK_BUTTON} unknown" data-action="unknown">
-          <span>不认识</span>
+        <button class="${CSS_CLASSES.MARK_BUTTON} unknown" data-action="unknown" title="快捷键: U">
+          <span>不认识</span> <span class="shortcut-hint">(U)</span>
         </button>
-        <button class="${CSS_CLASSES.MARK_BUTTON} add" data-action="add">
-          <span>加入生词本</span>
+        <button class="${CSS_CLASSES.MARK_BUTTON} add" data-action="add" title="快捷键: A">
+          <span>加入生词本</span> <span class="shortcut-hint">(A)</span>
         </button>
       </div>
     `;
@@ -152,6 +267,9 @@ export class Tooltip {
     if (!this.element) return;
 
     this.currentWord = null;
+    this.currentTarget = targetElement;
+    this.isPinned = false;
+    this.updatePinButtonState();
 
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
@@ -179,10 +297,42 @@ export class Tooltip {
   }
 
   /**
+   * Show tooltip for grammar explanation
+   */
+  showGrammar(
+    targetElement: HTMLElement,
+    data: { original: string; explanation: string; type: string; position: [number, number] }
+  ): void {
+    if (!this.element) return;
+
+    this.currentWord = null;
+    this.currentTarget = targetElement;
+    this.isPinned = false;
+    this.updatePinButtonState();
+
+    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
+    if (!content) return;
+
+    content.innerHTML = `
+      <div class="${CSS_CLASSES.TOOLTIP}-header">
+        <span class="${CSS_CLASSES.TOOLTIP}-word">${data.type}</span>
+      </div>
+      <div class="text-xs text-gray-500 mb-2 italic">"${data.original}"</div>
+      <div class="${CSS_CLASSES.TOOLTIP}-translation">${data.explanation}</div>
+    `;
+
+    // Position and show
+    this.positionTooltip(targetElement);
+    this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
+  }
+
+  /**
    * Show loading state
    */
   showLoading(targetElement: HTMLElement): void {
     if (!this.element) return;
+
+    this.currentTarget = targetElement;
 
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
@@ -202,6 +352,8 @@ export class Tooltip {
    */
   showError(targetElement: HTMLElement, message: string): void {
     if (!this.element) return;
+
+    this.currentTarget = targetElement;
 
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
@@ -223,6 +375,15 @@ export class Tooltip {
     if (this.element) {
       this.element.classList.remove(CSS_CLASSES.TOOLTIP_VISIBLE);
       this.currentWord = null;
+      this.currentTarget = null;
+      this.isPinned = false;
+      this.updatePinButtonState();
+
+      // 清除滚动隐藏定时器
+      if (this.scrollHideTimeout) {
+        clearTimeout(this.scrollHideTimeout);
+        this.scrollHideTimeout = null;
+      }
     }
   }
 

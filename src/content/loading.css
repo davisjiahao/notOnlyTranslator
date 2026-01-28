@@ -1,0 +1,30 @@
+/* Loading Spinner Styling */
+.not-translator-loading-spinner {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  vertical-align: middle;
+  color: #93c5fd;
+  opacity: 0.4; /* 进一步降低透明度 */
+}
+
+.not-translator-loading-spinner svg {
+  width: 10px; /* 缩小到 10px */
+  height: 10px;
+  animation: not-translator-spin 1s linear infinite;
+}
+
+@keyframes not-translator-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Ensure paragraph has relative positioning for potential absolute loading overlays */
+.not-translator-paragraph-loading {
+  /* position: relative; */ /* Optional: depending on layout needs */
+  transition: opacity 0.3s ease;
+}

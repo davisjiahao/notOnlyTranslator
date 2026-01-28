@@ -37,6 +37,100 @@ export class TranslationDisplay {
         this.applyFullTranslateModeNonInvasive(paragraph, result);
         break;
     }
+
+    // 无论什么模式，如果识别出了具体的语法点，都进行波浪线高亮（非侵入式）
+    if (result.grammarPoints && result.grammarPoints.length > 0) {
+      this.applyGrammarHighlights(paragraph, result.grammarPoints);
+    }
+  }
+
+  /**
+   * 应用语法高亮（波浪线）
+   */
+  private static applyGrammarHighlights(
+    paragraph: HTMLElement,
+    grammarPoints: import('@/shared/types').GrammarPoint[]
+  ): void {
+    // 按长度倒序排列，先包装长的，避免短的匹配破坏长结构的 DOM 查找
+    const sortedPoints = [...grammarPoints].sort((a, b) => b.original.length - a.original.length);
+
+    for (const point of sortedPoints) {
+      this.wrapGrammarInText(paragraph, point);
+    }
+  }
+
+  /**
+   * 包装语法点（行内注解模式）
+   *
+   * 改进：直接在语法高亮后面显示解释，无需点击
+   * 格式：原文 [语法类型: 解释]
+   */
+  private static wrapGrammarInText(
+    paragraph: HTMLElement,
+    point: import('@/shared/types').GrammarPoint
+  ): void {
+    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, null);
+    let currentNode: Text | null;
+    let found = false;
+
+    while ((currentNode = walker.nextNode() as Text | null) && !found) {
+      const nodeText = currentNode.textContent || '';
+      const index = nodeText.toLowerCase().indexOf(point.original.toLowerCase());
+
+      if (index !== -1) {
+        const parent = currentNode.parentNode;
+        if (!parent || (parent as HTMLElement).classList?.contains('not-translator-highlight')) continue;
+        if ((parent as HTMLElement).classList?.contains('not-translator-grammar-highlight')) continue;
+
+        const beforeText = nodeText.slice(0, index);
+        const matchedText = nodeText.slice(index, index + point.original.length);
+        const afterText = nodeText.slice(index + point.original.length);
+
+        // 1. 创建语法高亮 span (波浪线部分)
+        const grammarSpan = document.createElement('span');
+        grammarSpan.className = 'not-translator-grammar-highlight';
+        grammarSpan.dataset.grammarExplanation = point.explanation;
+        grammarSpan.dataset.grammarType = point.type || '语法点';
+        grammarSpan.dataset.grammarOriginal = point.original;
+        grammarSpan.textContent = matchedText;
+
+        // 2. 创建独立的注解标签 (解释部分)
+        const annotationSpan = document.createElement('span');
+        annotationSpan.className = 'not-translator-grammar-annotation';
+        // 格式：[类型: 解释]
+        const shortType = this.shortenGrammarType(point.type || '语法');
+        annotationSpan.textContent = `${shortType}: ${point.explanation}`;
+        annotationSpan.title = `${point.type}: ${point.explanation}`;
+
+        const fragment = document.createDocumentFragment();
+        if (beforeText) fragment.appendChild(document.createTextNode(beforeText));
+        fragment.appendChild(grammarSpan);
+        fragment.appendChild(annotationSpan); // 作为兄弟节点插入，而非子节点
+        if (afterText) fragment.appendChild(document.createTextNode(afterText));
+
+        parent.replaceChild(fragment, currentNode);
+        found = true;
+      }
+    }
+  }
+
+  /**
+   * 缩短语法类型名称
+   */
+  private static shortenGrammarType(type: string): string {
+    const shortNames: Record<string, string> = {
+      '虚拟语气': '虚拟',
+      '倒装句': '倒装',
+      '定语从句': '定从',
+      '状语从句': '状从',
+      '名词性从句': '名从',
+      '强调句': '强调',
+      '独立主格': '独立主格',
+      '分词结构': '分词',
+      '不定式': '不定式',
+      '动名词': '动名词',
+    };
+    return shortNames[type] || type;
   }
 
   /**
@@ -321,9 +415,27 @@ export class TranslationDisplay {
 
   /**
    * 显示加载中状态
+   * 使用一个独立的 Loading 元素，而不是修改段落本身
    */
   static showLoading(element: HTMLElement): void {
+    if (element.querySelector('.not-translator-loading-spinner')) return;
+
+    // 标记段落正在处理
     element.classList.add('not-translator-paragraph-loading');
+
+    // 创建 Loading 指示器
+    const spinner = document.createElement('span');
+    spinner.className = 'not-translator-loading-spinner';
+    spinner.innerHTML = `
+      <svg class="animate-spin" viewBox="0 0 24 24" fill="none" style="width: 10px; height: 10px;">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    `;
+
+    // 根据元素类型决定插入位置
+    // 标题类元素插在后面，段落类元素插在开头或结尾
+    element.appendChild(spinner);
   }
 
   /**
@@ -331,5 +443,9 @@ export class TranslationDisplay {
    */
   static removeLoading(element: HTMLElement): void {
     element.classList.remove('not-translator-paragraph-loading');
+    const spinner = element.querySelector('.not-translator-loading-spinner');
+    if (spinner) {
+      spinner.remove();
+    }
   }
 }

@@ -140,7 +140,7 @@ export class UserLevelManager {
 
     // Combine Frequency + Heuristics
     // Weight the frequency score heavily as it's data-backed
-    let finalDifficulty = frequencyDifficulty + adjustment;
+    const finalDifficulty = frequencyDifficulty + adjustment;
 
     // Clamp to 1-10 range
     return Math.max(1, Math.min(10, Math.round(finalDifficulty)));

@@ -208,6 +208,14 @@
   background: #bfdbfe;
 }
 
+/* Shortcut hints */
+.shortcut-hint {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 2px;
+  font-weight: normal;
+}
+
 /* Loading state */
 .not-translator-tooltip-loading {
   display: flex;
@@ -241,13 +249,49 @@
   text-align: center;
 }
 
+/* Tooltip toolbar (pin + close buttons) */
+.not-translator-tooltip-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+/* Pin button */
+.not-translator-tooltip-pin {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+
+.not-translator-tooltip-pin:hover {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 1;
+}
+
+.not-translator-tooltip-pin.pinned {
+  color: #3b82f6;
+  opacity: 1;
+  background: rgba(59, 130, 246, 0.1);
+}
+
 /* Close button */
 .not-translator-tooltip-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,11 +300,13 @@
   font-size: 16px;
   color: #9ca3af;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
+  border-radius: 4px;
 }
 
 .not-translator-tooltip-close:hover {
   color: #4b5563;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* Dark mode support */
@@ -295,6 +341,22 @@
 
   .not-translator-tooltip-actions {
     border-color: #374151;
+  }
+
+  .not-translator-tooltip-pin,
+  .not-translator-tooltip-close {
+    color: #6b7280;
+  }
+
+  .not-translator-tooltip-pin:hover,
+  .not-translator-tooltip-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #d1d5db;
+  }
+
+  .not-translator-tooltip-pin.pinned {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.2);
   }
 }
 
@@ -496,8 +558,67 @@
   vertical-align: middle;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
+/* 语法高亮 - 紫色波浪线风格 */
+.not-translator-grammar-highlight {
+  background-color: transparent;
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #a78bfa; /* 紫色 */
+  text-underline-offset: 4px;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.not-translator-grammar-highlight:hover {
+  background-color: rgba(167, 139, 250, 0.1);
+  text-decoration-color: #8b5cf6;
+}
+
+/* 语法行内注解 - 直接显示解释 */
+.not-translator-grammar-annotation {
+  display: inline;
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: #7c3aed;
+  background: linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);
+  border-radius: 4px;
+  border: 1px solid #ddd6fe;
+  white-space: nowrap;
+  vertical-align: baseline;
+  line-height: 1.4;
+}
+
+.not-translator-grammar-annotation::before {
+  content: '📝 ';
+  font-size: 0.9em;
+}
+
+/* 悬停时高亮注解 */
+.not-translator-grammar-highlight:hover .not-translator-grammar-annotation {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-color: #c4b5fd;
+}
+
+/* Tooltip Grammar Header */
+.not-translator-tooltip-grammar-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.not-translator-tooltip-grammar-tag {
+  font-size: 10px;
+  background: #f3e8ff;
+  color: #7c3aed;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
   .not-translator-translation-line,
   .not-translator-full-translation {
     padding: 5px 8px;
@@ -588,6 +709,18 @@
   .not-translator-highlight[data-difficulty="9"]:hover,
   .not-translator-highlight[data-difficulty="10"]:hover {
     background-color: rgba(196, 181, 253, 0.2);
+  }
+
+  /* 语法注解 - 暗色模式 */
+  .not-translator-grammar-annotation {
+    color: #c4b5fd;
+    background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+    border-color: #4c1d95;
+  }
+
+  .not-translator-grammar-highlight:hover .not-translator-grammar-annotation {
+    background: linear-gradient(135deg, #3730a3 0%, #4c1d95 100%);
+    border-color: #6d28d9;
   }
 
   .not-translator-paragraph-loading::after {

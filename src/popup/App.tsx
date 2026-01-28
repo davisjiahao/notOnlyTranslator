@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 import ApiSwitcher from './components/ApiSwitcher';
+import { StatsCharts } from './components/StatsCharts';
 
 interface Stats {
   estimatedVocabulary: number;
@@ -135,9 +136,9 @@ export default function App() {
   const isSiteTranslationEnabled = settings && (!settings.blacklist?.includes(currentHostname));
 
   return (
-    <div className="bg-gray-50 w-[320px] h-[450px] flex flex-col font-sans text-gray-900">
+    <div className="bg-gray-50 w-[360px] h-[600px] flex flex-col font-sans text-gray-900 overflow-y-auto custom-scrollbar">
       {/* Header with Global Toggle */}
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm z-10">
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm z-10 sticky top-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-primary-600 rounded-md flex items-center justify-center text-white font-bold text-xs">
             N
@@ -161,7 +162,7 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-3 flex flex-col gap-3 overflow-hidden">
+      <main className="flex-1 p-3 flex flex-col gap-3">
 
         {/* Status Card */}
         <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex items-center justify-between">
@@ -185,11 +186,64 @@ export default function App() {
 
         {/* API Switcher */}
         {settings && (
-          <ApiSwitcher
-            settings={settings}
-            onUpdateSettings={updateSettings}
-            onOpenOptions={openOptions}
-          />
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 space-y-3">
+            {/* Mode Selector */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-gray-500 font-medium">翻译模式</label>
+              <div className="grid grid-cols-3 gap-2 bg-gray-50 p-1 rounded-lg">
+                <button
+                  onClick={() => updateSettings({ translationMode: 'inline-only' })}
+                  className={`text-xs py-1.5 px-2 rounded-md transition-all ${
+                    settings.translationMode === 'inline-only'
+                      ? 'bg-white text-primary-600 shadow-sm font-medium'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  生词高亮
+                </button>
+                <button
+                  onClick={() => updateSettings({ translationMode: 'bilingual' })}
+                  className={`text-xs py-1.5 px-2 rounded-md transition-all ${
+                    settings.translationMode === 'bilingual'
+                      ? 'bg-white text-primary-600 shadow-sm font-medium'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  双语对照
+                </button>
+                <button
+                  onClick={() => updateSettings({ translationMode: 'full-translate' })}
+                  className={`text-xs py-1.5 px-2 rounded-md transition-all ${
+                    settings.translationMode === 'full-translate'
+                      ? 'bg-white text-primary-600 shadow-sm font-medium'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  全文翻译
+                </button>
+              </div>
+            </div>
+
+            <div className="h-px bg-gray-100"></div>
+
+            <ApiSwitcher
+              settings={settings}
+              onUpdateSettings={updateSettings}
+              onOpenOptions={openOptions}
+            />
+          </div>
+        )}
+
+        {/* Charts Section - ADDED HERE */}
+        {stats && (
+          <div className="overflow-hidden">
+             <StatsCharts
+               vocabularySize={stats.estimatedVocabulary}
+               knownCount={stats.knownWordsCount}
+               unknownCount={stats.unknownWordsCount}
+               confidence={stats.confidence}
+             />
+          </div>
         )}
 
         {/* Site Toggle */}

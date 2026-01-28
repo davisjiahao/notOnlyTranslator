@@ -111,12 +111,18 @@ export class FrequencyManager {
   }
 
   /**
-   * Check if text contains any potential unknown words for the user
+   * Check if text contains enough potential unknown words to warrant API translation
    * Used for local static filtering before API calls
+   *
+   * 优化说明：
+   * - 不再只要有一个难词就调用 API
+   * - 引入难词比例阈值：难词占比 >= 5% 才调用 API
+   * - 同时考虑绝对数量：至少有 2 个难词才调用
+   * - 这样可以显著减少对简单段落的 API 调用
    *
    * @param text The text to analyze
    * @param userVocabularySize Estimated user vocabulary size
-   * @returns true if text might contain difficult words, false if all words are likely known
+   * @returns true if text needs API translation, false if can be skipped
    */
   hasPotentialUnknownWords(text: string, userVocabularySize: number): boolean {
     if (!this.initialized || !text) return true; // Fail safe: assume it needs translation
@@ -126,7 +132,8 @@ export class FrequencyManager {
       .replace(/[^\w\s']/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .split(' ');
+      .split(' ')
+      .filter(w => w.length > 0);
 
     if (words.length === 0) return false;
 
@@ -141,20 +148,89 @@ export class FrequencyManager {
     else if (userVocabularySize < 8000) threshold = 5;
     else threshold = 7;
 
-    // Check each word
+    // Count difficult words
+    let difficultWordCount = 0;
+    let validWordCount = 0;
+
     for (const word of words) {
       // Skip numbers and very short words
       if (/^\d+$/.test(word) || word.length <= 2) continue;
 
+      validWordCount++;
       const difficulty = this.getDifficulty(word);
       if (difficulty >= threshold) {
-        // Found a word that is harder than the threshold
-        return true;
+        difficultWordCount++;
       }
     }
 
-    // All words passed the filter (are easier than threshold)
-    return false;
+    // 如果没有有效单词，不需要翻译
+    if (validWordCount === 0) return false;
+
+    // 判断条件改进：
+    // 1. 只要有 1 个难词就发起翻译（保证翻译覆盖率，不再要求 5% 比例）
+    // 2. 依然保留对极短内容的过滤（如只有 1-2 个词且不是难词的情况）
+    const shouldTranslate = difficultWordCount >= 1;
+
+    return shouldTranslate;
+  }
+
+  /**
+   * 获取段落的难词分析详情（用于调试和统计）
+   */
+  analyzeText(text: string, userVocabularySize: number): {
+    totalWords: number;
+    validWords: number;
+    difficultWords: number;
+    difficultRatio: number;
+    threshold: number;
+    shouldTranslate: boolean;
+  } {
+    if (!this.initialized || !text) {
+      return {
+        totalWords: 0,
+        validWords: 0,
+        difficultWords: 0,
+        difficultRatio: 0,
+        threshold: 5,
+        shouldTranslate: true,
+      };
+    }
+
+    const words = text
+      .replace(/[^\w\s']/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(w => w.length > 0);
+
+    let threshold = 3;
+    if (userVocabularySize < 3000) threshold = 2;
+    else if (userVocabularySize < 5000) threshold = 3;
+    else if (userVocabularySize < 8000) threshold = 5;
+    else threshold = 7;
+
+    let difficultWordCount = 0;
+    let validWordCount = 0;
+
+    for (const word of words) {
+      if (/^\d+$/.test(word) || word.length <= 2) continue;
+      validWordCount++;
+      if (this.getDifficulty(word) >= threshold) {
+        difficultWordCount++;
+      }
+    }
+
+    const difficultRatio = validWordCount > 0 ? difficultWordCount / validWordCount : 0;
+    const shouldTranslate = difficultWordCount >= 1;
+
+    return {
+      totalWords: words.length,
+      validWords: validWordCount,
+      difficultWords: difficultWordCount,
+      difficultRatio,
+      threshold,
+      shouldTranslate,
+    };
   }
 }
 

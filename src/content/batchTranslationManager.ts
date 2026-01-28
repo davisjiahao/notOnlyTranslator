@@ -32,262 +32,171 @@ interface PendingParagraph extends VisibleParagraph {
  *
  * 职责：
  * - 收集可视区域内的段落
- * - 过滤已缓存的段落
  * - 将多个段落合并为批量请求
- * - 分发翻译结果到对应段落
+ * - 并发处理翻译批次（解决滑动时的堵塞问题）
+ * - 分发翻译结果
  */
 export class BatchTranslationManager {
-  /** 翻译模式 */
   private mode: TranslationMode = 'inline-only';
-
-  /** 当前页面URL */
   private pageUrl: string;
-
-  /** 正在处理中的段落 */
-  private processingParagraphs: Map<string, PendingParagraph> = new Map();
-
-  /** 翻译完成回调 */
   private onComplete: TranslationCompleteCallback | null = null;
 
-  /** 是否正在进行批量请求 */
-  private isRequesting: boolean = false;
-
-  /** 等待处理的段落队列 */
+  /** 正在处理中的段落 ID 集合 */
+  private processingParagraphIds: Set<string> = new Set();
+  /** 待处理的段落队列 */
   private pendingQueue: PendingParagraph[] = [];
+
+  /** 当前活跃的并发请求数 */
+  private activeRequests = 0;
+  /** 最大并发批次数 */
+  private readonly MAX_CONCURRENT_BATCHES = 3;
 
   constructor() {
     this.pageUrl = window.location.href;
   }
 
   /**
-   * 设置翻译模式
-   */
-  setMode(mode: TranslationMode): void {
-    this.mode = mode;
-  }
-
-  /**
-   * 设置翻译完成回调
-   */
-  setOnComplete(callback: TranslationCompleteCallback): void {
-    this.onComplete = callback;
-  }
-
-  /**
    * 处理可视区域段落变化
-   * 由 ViewportObserver 调用
    */
   async handleVisibleParagraphs(paragraphs: VisibleParagraph[]): Promise<void> {
     if (paragraphs.length === 0) return;
 
-    console.log(`BatchTranslationManager: 收到 ${paragraphs.length} 个可视段落`);
-
-    // 过滤掉已经在处理中的段落
+    // 过滤掉已在处理中或已翻译过的段落
     const newParagraphs = paragraphs.filter((p) => {
-      // 检查是否已在处理中
-      if (this.processingParagraphs.has(p.id)) {
-        return false;
-      }
-      // 检查元素是否已处理
-      if (p.element.classList.contains('not-translator-processed')) {
-        return false;
-      }
+      if (this.processingParagraphIds.has(p.id)) return false;
+      if (p.element.classList.contains('not-translator-processed')) return false;
       return true;
     });
 
-    if (newParagraphs.length === 0) {
-      console.log('BatchTranslationManager: 没有新段落需要处理');
-      return;
-    }
+    if (newParagraphs.length === 0) return;
 
-    // 添加到待处理队列
     const now = Date.now();
     for (const p of newParagraphs) {
-      const pending: PendingParagraph = {
-        ...p,
-        requestedAt: now,
-      };
-      this.pendingQueue.push(pending);
-      this.processingParagraphs.set(p.id, pending);
+      const pending: PendingParagraph = { ...p, requestedAt: now };
+      // LIFO 模式：优先处理新进入视口的段落
+      this.pendingQueue.unshift(pending);
+      this.processingParagraphIds.add(p.id);
     }
 
-    console.log(`BatchTranslationManager: 添加 ${newParagraphs.length} 个段落到队列`);
-
-    // 触发批量处理
-    this.processPendingQueue();
+    // 启动处理循环（如果未达到并发上限）
+    this.processNextBatches();
   }
 
   /**
-   * 处理待处理队列
+   * 调度并执行并发批次
    */
-  private async processPendingQueue(): Promise<void> {
-    // 如果已经在处理中，跳过
-    if (this.isRequesting || this.pendingQueue.length === 0) {
+  private async processNextBatches(): Promise<void> {
+    if (this.pendingQueue.length === 0 || this.activeRequests >= this.MAX_CONCURRENT_BATCHES) {
       return;
     }
 
-    this.isRequesting = true;
+    // 只要有并发名额且队列不为空，就继续发起请求
+    while (this.activeRequests < this.MAX_CONCURRENT_BATCHES && this.pendingQueue.length > 0) {
+      // 提取一批段落
+      const batch = this.extractNextBatch();
+      if (batch.length === 0) break;
 
-    try {
-      // 按照配置限制分批
-      const batches = this.splitIntoBatches(this.pendingQueue);
-
-      // 清空待处理队列
-      this.pendingQueue = [];
-
-      // 处理每一批
-      for (const batch of batches) {
-        await this.processBatch(batch);
-      }
-    } catch (error) {
-      console.error('BatchTranslationManager: 处理队列失败', error);
-    } finally {
-      this.isRequesting = false;
-
-      // 如果队列中有新的待处理项，继续处理
-      if (this.pendingQueue.length > 0) {
-        this.processPendingQueue();
-      }
-    }
-  }
-
-  /**
-   * 将段落分批
-   */
-  private splitIntoBatches(paragraphs: PendingParagraph[]): PendingParagraph[][] {
-    const batches: PendingParagraph[][] = [];
-    let currentBatch: PendingParagraph[] = [];
-    let currentChars = 0;
-
-    for (const para of paragraphs) {
-      const paraLength = para.text.length;
-
-      // 检查是否需要开启新批次
-      if (
-        currentBatch.length >= DEFAULT_BATCH_CONFIG.maxParagraphsPerBatch ||
-        currentChars + paraLength > DEFAULT_BATCH_CONFIG.maxCharsPerBatch
-      ) {
-        if (currentBatch.length > 0) {
-          batches.push(currentBatch);
-          currentBatch = [];
-          currentChars = 0;
-        }
-      }
-
-      currentBatch.push(para);
-      currentChars += paraLength;
-    }
-
-    // 添加最后一批
-    if (currentBatch.length > 0) {
-      batches.push(currentBatch);
-    }
-
-    return batches;
-  }
-
-  /**
-   * 处理单批段落
-   */
-  private async processBatch(paragraphs: PendingParagraph[]): Promise<void> {
-    console.log(`BatchTranslationManager: 处理批次，${paragraphs.length} 个段落`);
-
-    // 显示 Loading 状态
-    paragraphs.forEach(p => {
-      TranslationDisplay.showLoading(p.element);
-    });
-
-    // 构建批量请求
-    const request: BatchTranslationRequest = {
-      paragraphs: paragraphs.map((p) => ({
-        id: p.id,
-        text: p.text,
-        elementPath: p.elementPath,
-      })),
-      mode: this.mode,
-      pageUrl: this.pageUrl,
-    };
-
-    try {
-      // 发送批量翻译请求到后台
-      const response = await this.sendBatchRequest(request);
-
-      if (response.success && response.data) {
-        const batchResponse = response.data as BatchTranslationResponse;
-        console.log('BatchTranslationManager: 批量翻译完成', {
-          results: batchResponse.results.length,
-          cacheHits: batchResponse.cacheHitCount,
-        });
-
-        // 分发结果
-        this.distributeResults(paragraphs, batchResponse.results);
-      } else {
-        console.error('BatchTranslationManager: 批量翻译失败', response.error);
-        // 标记段落为处理完成（避免重复请求）
-        this.markParagraphsComplete(paragraphs);
-      }
-    } catch (error) {
-      console.error('BatchTranslationManager: 请求失败', error);
-      this.markParagraphsComplete(paragraphs);
-    } finally {
-      // 移除 Loading 状态
-      paragraphs.forEach(p => {
-        TranslationDisplay.removeLoading(p.element);
+      // 异步执行批次（不使用 await，以实现并发）
+      this.activeRequests++;
+      this.processBatch(batch).finally(() => {
+        this.activeRequests--;
+        // 一个批次完成后，递归尝试处理下一个批次
+        this.processNextBatches();
       });
     }
   }
 
   /**
-   * 分发翻译结果到对应段落
+   * 从队列中提取符合配置限制的一批段落
    */
-  private distributeResults(
-    paragraphs: PendingParagraph[],
-    results: BatchParagraphResult[]
-  ): void {
-    // 创建ID到结果的映射
-    const resultMap = new Map<string, BatchParagraphResult>();
-    for (const result of results) {
-      resultMap.set(result.id, result);
-    }
+  private extractNextBatch(): PendingParagraph[] {
+    const batch: PendingParagraph[] = [];
+    let currentChars = 0;
 
-    // 应用翻译结果到每个段落
-    for (const para of paragraphs) {
-      const result = resultMap.get(para.id);
+    while (this.pendingQueue.length > 0) {
+      const next = this.pendingQueue[0];
+      const nextLen = next.text.length;
 
-      if (result && result.result) {
-        // 检查元素是否仍然在DOM中
-        if (!document.body.contains(para.element)) {
-          console.log(`BatchTranslationManager: 元素已从DOM移除，跳过 ${para.id}`);
-          continue;
-        }
-
-        // 保存原始文本
-        TranslationDisplay.saveOriginalText(para.element);
-
-        // 应用翻译
-        if (result.result.words.length > 0 || result.result.fullText) {
-          TranslationDisplay.applyTranslation(para.element, result.result, this.mode);
-
-          // 触发回调
-          if (this.onComplete) {
-            this.onComplete(para.element, result.result);
-          }
-
-          console.log(`BatchTranslationManager: 已应用翻译到 ${para.id}${result.cached ? ' (缓存)' : ''}`);
-        }
+      // 检查批次限制
+      if (
+        batch.length >= DEFAULT_BATCH_CONFIG.maxParagraphsPerBatch ||
+        currentChars + nextLen > DEFAULT_BATCH_CONFIG.maxCharsPerBatch
+      ) {
+        break;
       }
 
-      // 从处理中集合移除
-      this.processingParagraphs.delete(para.id);
+      batch.push(this.pendingQueue.shift()!);
+      currentChars += nextLen;
+    }
+
+    return batch;
+  }
+
+  /**
+   * 处理单批段落（发送到后台并应用结果）
+   */
+  private async processBatch(paragraphs: PendingParagraph[]): Promise<void> {
+    console.log(`BatchTranslationManager: 并发处理批次 (${paragraphs.length} 段)`);
+
+    // 显示 Loading
+    paragraphs.forEach(p => TranslationDisplay.showLoading(p.element));
+
+    const request: BatchTranslationRequest = {
+      paragraphs: paragraphs.map(p => ({ id: p.id, text: p.text, elementPath: p.elementPath })),
+      mode: this.mode,
+      pageUrl: this.pageUrl,
+    };
+
+    try {
+      const response = await this.sendBatchRequest(request);
+
+      if (response.success && response.data) {
+        this.distributeResults(paragraphs, response.data.results);
+      } else {
+        console.error('BatchTranslationManager: 批量翻译失败', response.error);
+        this.clearParagraphsStatus(paragraphs);
+      }
+    } catch (error) {
+      console.error('BatchTranslationManager: 网络异常', error);
+      this.clearParagraphsStatus(paragraphs);
+    } finally {
+      // 确保移除 Loading
+      paragraphs.forEach(p => TranslationDisplay.removeLoading(p.element));
     }
   }
 
   /**
-   * 标记段落为处理完成
+   * 分发结果并渲染
    */
-  private markParagraphsComplete(paragraphs: PendingParagraph[]): void {
+  private distributeResults(paragraphs: PendingParagraph[], results: BatchParagraphResult[]): void {
+    const resultMap = new Map(results.map(r => [r.id, r]));
+
     for (const para of paragraphs) {
-      this.processingParagraphs.delete(para.id);
+      const result = resultMap.get(para.id);
+      TranslationDisplay.removeLoading(para.element);
+
+      if (result && result.result) {
+        if (!document.body.contains(para.element)) continue;
+
+        TranslationDisplay.saveOriginalText(para.element);
+
+        if (result.result.words.length > 0 || result.result.fullText || (result.result.grammarPoints?.length || 0) > 0) {
+          TranslationDisplay.applyTranslation(para.element, result.result, this.mode);
+          if (this.onComplete) this.onComplete(para.element, result.result);
+        } else {
+          // 无生词也标记为处理完成
+          para.element.classList.add('not-translator-processed');
+        }
+      }
+    }
+  }
+
+  /**
+   * 清除失败段落的处理状态，允许重试
+   */
+  private clearParagraphsStatus(paragraphs: PendingParagraph[]): void {
+    for (const para of paragraphs) {
+      this.processingParagraphIds.delete(para.id);
     }
   }
 

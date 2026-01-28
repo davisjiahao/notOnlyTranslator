@@ -12,10 +12,32 @@ import {
   API_ENDPOINTS,
   DEFAULT_BATCH_CONFIG,
 } from '@/shared/constants';
-import { normalizeText, getChineseRatio } from '@/shared/utils';
+import {
+  normalizeText,
+  getChineseRatio,
+  retryWithBackoff,
+  ApiError,
+  type RetryOptions,
+} from '@/shared/utils';
 import { StorageManager } from './storage';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
+
+/**
+ * 批量翻译的重试配置（比单段翻译稍长，因为请求更大）
+ */
+const BATCH_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 3,
+  initialDelay: 1500,
+  backoffMultiplier: 2,
+  maxDelay: 20000,
+  onRetry: (error, attempt, delay) => {
+    console.warn(
+      `BatchTranslationService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,
+      error.message
+    );
+  },
+};
 
 /**
  * 批量翻译服务
@@ -202,7 +224,7 @@ export class BatchTranslationService {
   }
 
   /**
-   * 调用OpenAI API
+   * 调用OpenAI API（带重试机制）
    */
   private static async callOpenAI(
     prompt: string,
@@ -212,40 +234,49 @@ export class BatchTranslationService {
     const apiUrl = settings.customApiUrl || API_ENDPOINTS.OPENAI;
     const modelName = settings.customModelName || 'gpt-4o-mini';
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an English learning assistant. Always respond with valid JSON.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    return retryWithBackoff(async () => {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an English learning assistant. Always respond with valid JSON.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'OpenAI API request failed');
-    }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || `OpenAI API request failed (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
 
-    const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+
+      if (!content) {
+        throw new ApiError('Empty response from OpenAI', undefined, true);
+      }
+
+      return content;
+    }, BATCH_RETRY_OPTIONS);
   }
 
   /**
-   * 调用Anthropic API
+   * 调用Anthropic API（带重试机制）
    */
   private static async callAnthropic(
     prompt: string,
@@ -255,36 +286,45 @@ export class BatchTranslationService {
     const apiUrl = settings.customApiUrl || API_ENDPOINTS.ANTHROPIC;
     const modelName = settings.customModelName || 'claude-3-haiku-20240307';
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: modelName,
-        max_tokens: 8192,
-        messages: [
-          {
-            role: 'user',
-            content: prompt + '\n\nPlease respond with valid JSON only.',
-          },
-        ],
-      }),
-    });
+    return retryWithBackoff(async () => {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: modelName,
+          max_tokens: 8192,
+          messages: [
+            {
+              role: 'user',
+              content: prompt + '\n\nPlease respond with valid JSON only.',
+            },
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Anthropic API request failed');
-    }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || `Anthropic API request failed (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
 
-    const data = await response.json();
-    return data.content[0]?.text || '';
+      const data = await response.json();
+      const content = data.content[0]?.text;
+
+      if (!content) {
+        throw new ApiError('Empty response from Anthropic', undefined, true);
+      }
+
+      return content;
+    }, BATCH_RETRY_OPTIONS);
   }
 
   /**
-   * 调用自定义API
+   * 调用自定义API（带重试机制）
    */
   private static async callCustomAPI(
     prompt: string,
@@ -297,39 +337,57 @@ export class BatchTranslationService {
 
     const modelName = settings.customModelName || 'gpt-3.5-turbo';
 
-    const response = await fetch(settings.customApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an English learning assistant. Always respond with valid JSON.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.3,
-      }),
-    });
+    return retryWithBackoff(async () => {
+      const response = await fetch(settings.customApiUrl!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an English learning assistant. Always respond with valid JSON.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.3,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Custom API request failed: ${errorText}`);
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new ApiError(
+          `Custom API request failed: ${errorText}`,
+          response.status,
+          response.status >= 500 || response.status === 429
+        );
+      }
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || data.content?.[0]?.text || '';
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || data.content?.[0]?.text;
+
+      if (!content) {
+        throw new ApiError('Empty response from custom API', undefined, true);
+      }
+
+      return content;
+    }, BATCH_RETRY_OPTIONS);
   }
 
   /**
-   * 解析批量翻译响应
+   * 解析批量翻译响应（增强校验）
+   *
+   * 校验内容：
+   * - JSON 格式有效性
+   * - paragraphs 数组存在性
+   * - 段落 ID 完整性检查
+   * - 段落内容有效性校验
    */
   private static parseBatchResponse(
     content: string,
@@ -343,30 +401,94 @@ export class BatchTranslationService {
         jsonStr = jsonMatch[1];
       }
 
-      const parsed = JSON.parse(jsonStr.trim());
-
-      // 验证响应格式
-      if (!parsed.paragraphs || !Array.isArray(parsed.paragraphs)) {
-        console.error('BatchTranslationService: 响应格式无效，缺少paragraphs数组');
+      // 尝试解析 JSON
+      let parsed: { paragraphs?: unknown[] };
+      try {
+        parsed = JSON.parse(jsonStr.trim());
+      } catch (parseError) {
+        console.error('BatchTranslationService: JSON 解析失败', parseError);
+        console.error('BatchTranslationService: 原始响应内容:', content.substring(0, 500));
         return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
       }
 
-      // 转换为TranslationResult数组
-      const results: TranslationResult[] = [];
+      // 验证响应格式
+      if (!parsed.paragraphs || !Array.isArray(parsed.paragraphs)) {
+        console.error('BatchTranslationService: 响应格式无效，缺少 paragraphs 数组');
+        console.error('BatchTranslationService: 响应结构:', Object.keys(parsed));
+        return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
+      }
 
-      for (let i = 0; i < expectedCount; i++) {
-        const para = parsed.paragraphs.find(
-          (p: Record<string, unknown>) => String(p.id) === String(i)
-        );
+      // 收集返回的段落 ID
+      const returnedIds = new Set<string>();
+      const paragraphsById = new Map<string, Record<string, unknown>>();
 
-        if (para) {
-          results.push(this.parseParaResult(para));
-        } else {
-          results.push(this.createEmptyResult());
+      for (const para of parsed.paragraphs) {
+        if (para && typeof para === 'object' && 'id' in para) {
+          const id = String((para as Record<string, unknown>).id);
+          returnedIds.add(id);
+          paragraphsById.set(id, para as Record<string, unknown>);
         }
       }
 
-      console.log(`BatchTranslationService: 解析完成，${results.length} 个结果`);
+      // 检查缺失的段落 ID
+      const missingIds: string[] = [];
+      for (let i = 0; i < expectedCount; i++) {
+        if (!returnedIds.has(String(i))) {
+          missingIds.push(String(i));
+        }
+      }
+
+      if (missingIds.length > 0) {
+        console.warn(
+          `BatchTranslationService: 响应中缺少 ${missingIds.length} 个段落`,
+          `缺失 ID: [${missingIds.join(', ')}]`,
+          `期望 ${expectedCount} 个，实际返回 ${returnedIds.size} 个`
+        );
+      }
+
+      // 检查多余的段落 ID（可能是 LLM 幻觉）
+      const extraIds = Array.from(returnedIds).filter(
+        id => parseInt(id, 10) >= expectedCount || parseInt(id, 10) < 0 || isNaN(parseInt(id, 10))
+      );
+      if (extraIds.length > 0) {
+        console.warn(
+          `BatchTranslationService: 响应中包含无效/多余的段落 ID: [${extraIds.join(', ')}]`
+        );
+      }
+
+      // 转换为 TranslationResult 数组
+      const results: TranslationResult[] = [];
+      let successCount = 0;
+      let emptyCount = 0;
+
+      for (let i = 0; i < expectedCount; i++) {
+        const para = paragraphsById.get(String(i));
+
+        if (para) {
+          const result = this.parseParaResult(para);
+          results.push(result);
+
+          // 统计有效结果
+          if (result.words.length > 0 || result.fullText) {
+            successCount++;
+          } else {
+            emptyCount++;
+          }
+        } else {
+          results.push(this.createEmptyResult());
+          emptyCount++;
+        }
+      }
+
+      // 输出详细的解析统计
+      console.log(
+        `BatchTranslationService: 解析完成`,
+        `总计 ${expectedCount} 个段落`,
+        `成功 ${successCount} 个`,
+        `空结果 ${emptyCount} 个`,
+        `缺失 ${missingIds.length} 个`
+      );
+
       return results;
     } catch (error) {
       console.error('BatchTranslationService: 解析响应失败', error);
@@ -381,6 +503,7 @@ export class BatchTranslationService {
     const result: TranslationResult = {
       words: [],
       sentences: [],
+      grammarPoints: [],
       fullText: para.fullText ? String(para.fullText) : undefined,
     };
 
@@ -399,6 +522,15 @@ export class BatchTranslationService {
         original: String(s.original || ''),
         translation: String(s.translation || ''),
         grammarNote: s.grammarNote ? String(s.grammarNote) : undefined,
+      }));
+    }
+
+    if (Array.isArray(para.grammarPoints)) {
+      result.grammarPoints = para.grammarPoints.map((g: Record<string, unknown>) => ({
+        original: String(g.original || ''),
+        explanation: String(g.explanation || ''),
+        type: String(g.type || '语法点'),
+        position: Array.isArray(g.position) ? g.position as [number, number] : [0, 0],
       }));
     }
 

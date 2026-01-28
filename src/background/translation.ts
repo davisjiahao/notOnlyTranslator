@@ -8,8 +8,30 @@ import {
   EXAM_DISPLAY_NAMES,
   API_ENDPOINTS,
 } from '@/shared/constants';
-import { generateCacheKey, normalizeText } from '@/shared/utils';
+import {
+  generateCacheKey,
+  normalizeText,
+  retryWithBackoff,
+  ApiError,
+  type RetryOptions,
+} from '@/shared/utils';
 import { StorageManager } from './storage';
+
+/**
+ * 默认的重试配置
+ */
+const DEFAULT_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 3,
+  initialDelay: 1000,
+  backoffMultiplier: 2,
+  maxDelay: 15000,
+  onRetry: (error, attempt, delay) => {
+    console.warn(
+      `TranslationService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,
+      error.message
+    );
+  },
+};
 
 /**
  * Translation Service - handles LLM API calls for translation
@@ -87,7 +109,7 @@ export class TranslationService {
   }
 
   /**
-   * Call OpenAI API
+   * Call OpenAI API（带重试机制）
    */
   private static async callOpenAI(
     prompt: string,
@@ -97,47 +119,52 @@ export class TranslationService {
     const apiUrl = settings.customApiUrl || API_ENDPOINTS.OPENAI;
     const modelName = settings.customModelName || 'gpt-4o-mini';
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an English learning assistant. Always respond with valid JSON.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    const content = await retryWithBackoff(async () => {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are an English learning assistant. Always respond with valid JSON.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'OpenAI API request failed');
-    }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || `OpenAI API request failed (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+      const data = await response.json();
+      const responseContent = data.choices[0]?.message?.content;
 
-    if (!content) {
-      throw new Error('Empty response from OpenAI');
-    }
+      if (!responseContent) {
+        throw new ApiError('Empty response from OpenAI', undefined, true);
+      }
+
+      return responseContent;
+    }, DEFAULT_RETRY_OPTIONS);
 
     return this.parseResponse(content);
   }
 
   /**
-   * Call Anthropic API
+   * Call Anthropic API（带重试机制）
    */
   private static async callAnthropic(
     prompt: string,
@@ -147,42 +174,47 @@ export class TranslationService {
     const apiUrl = settings.customApiUrl || API_ENDPOINTS.ANTHROPIC;
     const modelName = settings.customModelName || 'claude-3-haiku-20240307';
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: modelName,
-        max_tokens: 4096,
-        messages: [
-          {
-            role: 'user',
-            content: prompt + '\n\nPlease respond with valid JSON only.',
-          },
-        ],
-      }),
-    });
+    const content = await retryWithBackoff(async () => {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: modelName,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: 'user',
+              content: prompt + '\n\nPlease respond with valid JSON only.',
+            },
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Anthropic API request failed');
-    }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || `Anthropic API request failed (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
 
-    const data = await response.json();
-    const content = data.content[0]?.text;
+      const data = await response.json();
+      const responseContent = data.content[0]?.text;
 
-    if (!content) {
-      throw new Error('Empty response from Anthropic');
-    }
+      if (!responseContent) {
+        throw new ApiError('Empty response from Anthropic', undefined, true);
+      }
+
+      return responseContent;
+    }, DEFAULT_RETRY_OPTIONS);
 
     return this.parseResponse(content);
   }
 
   /**
-   * Call Custom API (OpenAI-compatible format)
+   * Call Custom API (OpenAI-compatible format)（带重试机制）
    */
   private static async callCustomAPI(
     prompt: string,
@@ -215,36 +247,45 @@ export class TranslationService {
       ],
       temperature: 0.3,
     };
-    console.log('TranslationService: Sending request...');
 
-    const response = await fetch(settings.customApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    const content = await retryWithBackoff(async () => {
+      console.log('TranslationService: Sending request...');
 
-    console.log('TranslationService: Response status:', response.status, response.statusText);
+      const response = await fetch(settings.customApiUrl!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('TranslationService: API error:', errorText);
-      throw new Error(`Custom API request failed: ${errorText}`);
-    }
+      console.log('TranslationService: Response status:', response.status, response.statusText);
 
-    const data = await response.json();
-    console.log('TranslationService: API response data:', JSON.stringify(data).substring(0, 500));
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('TranslationService: API error:', errorText);
+        throw new ApiError(
+          `Custom API request failed: ${errorText}`,
+          response.status,
+          response.status >= 500 || response.status === 429
+        );
+      }
 
-    const content = data.choices?.[0]?.message?.content || data.content?.[0]?.text;
+      const data = await response.json();
+      console.log('TranslationService: API response data:', JSON.stringify(data).substring(0, 500));
 
-    if (!content) {
-      console.error('TranslationService: Empty content in response');
-      throw new Error('Empty response from custom API');
-    }
+      const responseContent = data.choices?.[0]?.message?.content || data.content?.[0]?.text;
 
-    console.log('TranslationService: Content to parse:', content.substring(0, 300));
+      if (!responseContent) {
+        console.error('TranslationService: Empty content in response');
+        throw new ApiError('Empty response from custom API', undefined, true);
+      }
+
+      console.log('TranslationService: Content to parse:', responseContent.substring(0, 300));
+      return responseContent;
+    }, DEFAULT_RETRY_OPTIONS);
+
     return this.parseResponse(content);
   }
 
@@ -266,6 +307,7 @@ export class TranslationService {
       const result: TranslationResult = {
         words: [],
         sentences: [],
+        grammarPoints: [],
         fullText: parsed.fullText ? String(parsed.fullText) : undefined,
       };
 
@@ -287,6 +329,15 @@ export class TranslationService {
         }));
       }
 
+      if (Array.isArray(parsed.grammarPoints)) {
+        result.grammarPoints = parsed.grammarPoints.map((g: Record<string, unknown>) => ({
+          original: String(g.original || ''),
+          explanation: String(g.explanation || ''),
+          type: String(g.type || '语法点'),
+          position: Array.isArray(g.position) ? g.position as [number, number] : [0, 0],
+        }));
+      }
+
       return result;
     } catch (error) {
       console.error('Failed to parse LLM response:', error);
@@ -295,7 +346,7 @@ export class TranslationService {
   }
 
   /**
-   * Quick translate a single word/phrase (no caching)
+   * Quick translate a single word/phrase (no caching)（带重试机制）
    */
   static async quickTranslate(
     text: string,
@@ -304,54 +355,71 @@ export class TranslationService {
   ): Promise<string> {
     const prompt = `Translate the following English word or phrase to Chinese. Only respond with the translation, nothing else.\n\n${text}`;
 
+    // 快速翻译使用较短的重试配置
+    const quickRetryOptions: RetryOptions = {
+      ...DEFAULT_RETRY_OPTIONS,
+      maxRetries: 2,
+      initialDelay: 500,
+      onRetry: (error, attempt, delay) => {
+        console.warn(
+          `TranslationService.quickTranslate: 失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,
+          error.message
+        );
+      },
+    };
+
     if (settings.apiProvider === 'openai') {
       const apiUrl = settings.customApiUrl || API_ENDPOINTS.OPENAI;
       const modelName = settings.customModelName || 'gpt-4o-mini';
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 100,
-        }),
-      });
+      return retryWithBackoff(async () => {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: 100,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Translation request failed');
-      }
+        if (!response.ok) {
+          throw new ApiError('Translation request failed', response.status, response.status >= 500 || response.status === 429);
+        }
 
-      const data = await response.json();
-      return data.choices[0]?.message?.content || '';
+        const data = await response.json();
+        return data.choices[0]?.message?.content || '';
+      }, quickRetryOptions);
     } else if (settings.apiProvider === 'anthropic') {
       const apiUrl = settings.customApiUrl || API_ENDPOINTS.ANTHROPIC;
       const modelName = settings.customModelName || 'claude-3-haiku-20240307';
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: modelName,
-          max_tokens: 100,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
+      return retryWithBackoff(async () => {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: modelName,
+            max_tokens: 100,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Translation request failed');
-      }
+        if (!response.ok) {
+          throw new ApiError('Translation request failed', response.status, response.status >= 500 || response.status === 429);
+        }
 
-      const data = await response.json();
-      return data.content[0]?.text || '';
+        const data = await response.json();
+        return data.content[0]?.text || '';
+      }, quickRetryOptions);
     } else {
       // Custom API
       if (!settings.customApiUrl) {
@@ -360,26 +428,28 @@ export class TranslationService {
 
       const modelName = settings.customModelName || 'gpt-3.5-turbo';
 
-      const response = await fetch(settings.customApiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 100,
-        }),
-      });
+      return retryWithBackoff(async () => {
+        const response = await fetch(settings.customApiUrl!, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: 100,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Translation request failed');
-      }
+        if (!response.ok) {
+          throw new ApiError('Translation request failed', response.status, response.status >= 500 || response.status === 429);
+        }
 
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content || data.content?.[0]?.text || '';
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || data.content?.[0]?.text || '';
+      }, quickRetryOptions);
     }
   }
 }
