@@ -1,26 +1,35 @@
-import { useState } from 'react';
-import type { UserSettings, ApiConfig } from '@/shared/types';
+import { useState, useEffect, useCallback } from 'react';
+import type { ApiConfig, ApiProvider, ModelInfo } from '@/shared/types';
+import {
+  PROVIDER_CONFIGS,
+  PROVIDER_GROUPS,
+  getProviderConfig,
+  requiresSecondaryKey,
+} from '@/shared/constants/providers';
+import { getModels, testConnection } from '@/shared/services/modelService';
 
 /** API 配置完整更新参数 */
 interface ApiConfigUpdateParams {
   configs: ApiConfig[];
   activeId?: string;
-  provider?: UserSettings['apiProvider'];
+  provider?: ApiProvider;
   apiKey?: string;
   customApiUrl?: string;
   customModelName?: string;
+  secondaryApiKey?: string;
 }
 
 interface ApiSettingsProps {
   apiKey: string;
-  provider: UserSettings['apiProvider'];
+  provider: ApiProvider;
   customApiUrl?: string;
   customModelName?: string;
+  secondaryApiKey?: string;
   apiConfigs: ApiConfig[];
   activeApiConfigId?: string;
   onApiKeyUpdate: (key: string) => Promise<void>;
-  onProviderUpdate: (provider: UserSettings['apiProvider']) => void;
-  onCustomSettingsUpdate: (url: string, model: string) => void;
+  onProviderUpdate: (provider: ApiProvider) => void;
+  onCustomSettingsUpdate: (url: string, model: string, secondaryKey?: string) => void;
   onApiConfigsUpdate: (configs: ApiConfig[], activeId?: string) => void;
   /** 一次性保存所有 API 相关配置（避免状态竞争） */
   onFullApiConfigUpdate?: (params: ApiConfigUpdateParams) => Promise<void>;
@@ -32,6 +41,7 @@ export default function ApiSettings({
   provider,
   customApiUrl = '',
   customModelName = '',
+  secondaryApiKey = '',
   apiConfigs = [],
   activeApiConfigId,
   onApiKeyUpdate,
@@ -47,68 +57,95 @@ export default function ApiSettings({
 
   // 新配置的表单
   const [configName, setConfigName] = useState('');
-  const [configProvider, setConfigProvider] = useState<UserSettings['apiProvider']>('openai');
+  const [configProvider, setConfigProvider] = useState<ApiProvider>('openai');
   const [configApiKey, setConfigApiKey] = useState('');
+  const [configSecondaryKey, setConfigSecondaryKey] = useState('');
   const [configApiUrl, setConfigApiUrl] = useState('');
   const [configModelName, setConfigModelName] = useState('');
   const [showConfigKey, setShowConfigKey] = useState(false);
+  const [showSecondaryKey, setShowSecondaryKey] = useState(false);
   const [isTestingConfig, setIsTestingConfig] = useState(false);
   const [configTestResult, setConfigTestResult] = useState<'success' | 'error' | null>(null);
+  const [configTestError, setConfigTestError] = useState<string | null>(null);
 
-  // 通用 API 测试函数
-  const testApiConnection = async (
-    testProvider: UserSettings['apiProvider'],
-    testKey: string,
-    testUrl?: string,
-    testModel?: string
-  ): Promise<boolean> => {
-    try {
-      let endpoint: string;
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+  // 模型列表
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [useCustomModel, setUseCustomModel] = useState(false);
 
-      if (testProvider === 'openai') {
-        endpoint = testUrl || 'https://api.openai.com/v1/models';
-        headers['Authorization'] = `Bearer ${testKey}`;
-      } else if (testProvider === 'anthropic') {
-        endpoint = testUrl || 'https://api.anthropic.com/v1/messages';
-        headers['x-api-key'] = testKey;
-        headers['anthropic-version'] = '2023-06-01';
-      } else {
-        if (!testUrl) return false;
-        endpoint = testUrl;
-        headers['Authorization'] = `Bearer ${testKey}`;
-      }
+  // 获取当前供应商配置
+  const currentProviderConfig = getProviderConfig(configProvider);
 
-      const response = await fetch(endpoint, {
-        method: testProvider === 'openai' && !testUrl ? 'GET' : 'POST',
-        headers,
-        body: testProvider !== 'openai' || testUrl ? JSON.stringify({
-          model: testModel || (testProvider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-3.5-turbo'),
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'test' }],
-        }) : undefined,
-      });
-
-      return response.ok;
-    } catch {
-      return false;
+  // 加载模型列表
+  const loadModels = useCallback(async () => {
+    if (!configApiKey) {
+      setModels(currentProviderConfig.defaultModels);
+      return;
     }
-  };
+
+    setIsLoadingModels(true);
+    try {
+      const fetchedModels = await getModels(
+        configProvider,
+        configApiKey,
+        configApiUrl || undefined,
+        configSecondaryKey || undefined
+      );
+      setModels(fetchedModels);
+
+      // 如果当前模型不在列表中且不是自定义模式，设置为推荐模型
+      if (!useCustomModel && fetchedModels.length > 0) {
+        const currentModelExists = fetchedModels.some(m => m.id === configModelName);
+        if (!currentModelExists) {
+          const recommended = fetchedModels.find(m => m.isRecommended) || fetchedModels[0];
+          setConfigModelName(recommended.id);
+        }
+      }
+    } catch (error) {
+      console.error('加载模型列表失败:', error);
+      setModels(currentProviderConfig.defaultModels);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, [configApiKey, configProvider, configApiUrl, configSecondaryKey, currentProviderConfig, configModelName, useCustomModel]);
+
+  // 当供应商变化时重置模型列表
+  useEffect(() => {
+    setModels(currentProviderConfig.defaultModels);
+    if (!useCustomModel) {
+      setConfigModelName(currentProviderConfig.recommendedModel);
+    }
+  }, [configProvider, currentProviderConfig, useCustomModel]);
 
   // 测试新配置
   const testNewConfig = async () => {
     if (!configApiKey || (configProvider === 'custom' && !configApiUrl)) return;
+    if (requiresSecondaryKey(configProvider) && !configSecondaryKey) return;
 
     setIsTestingConfig(true);
     setConfigTestResult(null);
+    setConfigTestError(null);
 
     try {
-      const result = await testApiConnection(configProvider, configApiKey, configApiUrl, configModelName);
-      setConfigTestResult(result ? 'success' : 'error');
-    } catch {
+      const result = await testConnection(
+        configProvider,
+        configApiKey,
+        configModelName || undefined,
+        configApiUrl || undefined,
+        configSecondaryKey || undefined
+      );
+
+      if (result.success) {
+        setConfigTestResult('success');
+        // 测试成功后加载模型列表
+        await loadModels();
+      } else {
+        setConfigTestResult('error');
+        setConfigTestError(result.error || '连接测试失败');
+      }
+    } catch (error) {
       setConfigTestResult('error');
+      setConfigTestError(error instanceof Error ? error.message : '连接测试失败');
     } finally {
       setIsTestingConfig(false);
     }
@@ -130,6 +167,7 @@ export default function ApiSettings({
       apiKey: configApiKey,
       apiUrl: configApiUrl || undefined,
       modelName: configModelName || undefined,
+      secondaryApiKey: configSecondaryKey || undefined,
       tested: true,
       lastTestedAt: Date.now(),
       createdAt: editingConfig?.createdAt || Date.now(),
@@ -158,14 +196,15 @@ export default function ApiSettings({
         apiKey: shouldUpdateMainSettings ? configApiKey : undefined,
         customApiUrl: shouldUpdateMainSettings ? (configApiUrl || '') : undefined,
         customModelName: shouldUpdateMainSettings ? (configModelName || '') : undefined,
+        secondaryApiKey: shouldUpdateMainSettings ? (configSecondaryKey || '') : undefined,
       });
     } else {
       // 回退到旧的方式（兼容性）
       if (!editingConfig || activeApiConfigId === editingConfig.id) {
         onProviderUpdate(configProvider);
         await onApiKeyUpdate(configApiKey);
-        if (configApiUrl || configModelName) {
-          onCustomSettingsUpdate(configApiUrl || '', configModelName || '');
+        if (configApiUrl || configModelName || configSecondaryKey) {
+          onCustomSettingsUpdate(configApiUrl || '', configModelName || '', configSecondaryKey || '');
         }
       }
       onApiConfigsUpdate(newConfigs, newActiveId);
@@ -187,7 +226,6 @@ export default function ApiSettings({
   // 选择配置作为当前使用
   const selectConfig = async (config: ApiConfig) => {
     if (onFullApiConfigUpdate) {
-      // 使用一次性保存函数
       await onFullApiConfigUpdate({
         configs: apiConfigs,
         activeId: config.id,
@@ -195,13 +233,13 @@ export default function ApiSettings({
         apiKey: config.apiKey,
         customApiUrl: config.apiUrl || '',
         customModelName: config.modelName || '',
+        secondaryApiKey: config.secondaryApiKey || '',
       });
     } else {
-      // 回退到旧的方式
       await onApiKeyUpdate(config.apiKey);
       onProviderUpdate(config.provider);
-      if (config.apiUrl || config.modelName) {
-        onCustomSettingsUpdate(config.apiUrl || '', config.modelName || '');
+      if (config.apiUrl || config.modelName || config.secondaryApiKey) {
+        onCustomSettingsUpdate(config.apiUrl || '', config.modelName || '', config.secondaryApiKey || '');
       }
       onApiConfigsUpdate(apiConfigs, config.id);
     }
@@ -212,11 +250,16 @@ export default function ApiSettings({
     setConfigName('');
     setConfigProvider('openai');
     setConfigApiKey('');
+    setConfigSecondaryKey('');
     setConfigApiUrl('');
     setConfigModelName('');
     setConfigTestResult(null);
+    setConfigTestError(null);
     setEditingConfig(null);
     setShowConfigKey(false);
+    setShowSecondaryKey(false);
+    setUseCustomModel(false);
+    setModels([]);
   };
 
   // 开始编辑配置
@@ -225,29 +268,26 @@ export default function ApiSettings({
     setConfigName(config.name);
     setConfigProvider(config.provider);
     setConfigApiKey(config.apiKey);
+    setConfigSecondaryKey(config.secondaryApiKey || '');
     setConfigApiUrl(config.apiUrl || '');
     setConfigModelName(config.modelName || '');
     setConfigTestResult(config.tested ? 'success' : null);
     setEditMode('edit');
+
+    // 加载模型列表
+    if (config.tested) {
+      setIsLoadingModels(true);
+      getModels(config.provider, config.apiKey, config.apiUrl, config.secondaryApiKey)
+        .then(setModels)
+        .catch(() => setModels(getProviderConfig(config.provider).defaultModels))
+        .finally(() => setIsLoadingModels(false));
+    }
   };
 
-  const providers: { id: UserSettings['apiProvider']; name: string; description: string }[] = [
-    {
-      id: 'openai',
-      name: 'OpenAI',
-      description: '使用 GPT-4o-mini 模型，速度快，成本低',
-    },
-    {
-      id: 'anthropic',
-      name: 'Anthropic',
-      description: '使用 Claude 3 Haiku 模型，翻译质量高',
-    },
-    {
-      id: 'custom',
-      name: '自定义 API',
-      description: '使用兼容 OpenAI 格式的自定义 API 端点',
-    },
-  ];
+  // 获取供应商显示名称
+  const getProviderDisplayName = (providerId: ApiProvider): string => {
+    return PROVIDER_CONFIGS[providerId]?.name || providerId;
+  };
 
   // 只显示测试通过的配置
   const testedConfigs = apiConfigs.filter((c) => c.tested);
@@ -293,7 +333,7 @@ export default function ApiSettings({
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-900">{config.name}</span>
                         <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                          {config.provider === 'openai' ? 'OpenAI' : config.provider === 'anthropic' ? 'Anthropic' : '自定义'}
+                          {getProviderDisplayName(config.provider)}
                         </span>
                         {activeApiConfigId === config.id && (
                           <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
@@ -302,7 +342,7 @@ export default function ApiSettings({
                         )}
                       </div>
                       <div className="text-sm text-gray-500 mt-1">
-                        {config.apiUrl || (config.provider === 'openai' ? 'api.openai.com' : config.provider === 'anthropic' ? 'api.anthropic.com' : '未设置')}
+                        {config.apiUrl || PROVIDER_CONFIGS[config.provider]?.defaultEndpoint || '默认端点'}
                         {config.modelName && ` · ${config.modelName}`}
                       </div>
                     </button>
@@ -361,7 +401,7 @@ export default function ApiSettings({
             <div className="p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-medium text-gray-900">
-                  {provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : '自定义'}
+                  {getProviderDisplayName(provider)}
                 </span>
                 <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
                   当前使用
@@ -374,11 +414,12 @@ export default function ApiSettings({
 
             <button
               onClick={() => {
-                setConfigName(provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : '自定义 API');
+                setConfigName(getProviderDisplayName(provider));
                 setConfigProvider(provider);
                 setConfigApiKey(apiKey);
                 setConfigApiUrl(customApiUrl);
                 setConfigModelName(customModelName);
+                setConfigSecondaryKey(secondaryApiKey);
                 setConfigTestResult(null);
                 setEditMode('add');
               }}
@@ -448,7 +489,7 @@ export default function ApiSettings({
         )}
       </div>
 
-      {/* Provider selection */}
+      {/* Provider selection - 分组下拉框 */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           选择 API 服务商
@@ -456,13 +497,24 @@ export default function ApiSettings({
         <div className="relative">
           <select
             value={configProvider}
-            onChange={(e) => setConfigProvider(e.target.value as UserSettings['apiProvider'])}
+            onChange={(e) => {
+              setConfigProvider(e.target.value as ApiProvider);
+              setConfigTestResult(null);
+              setConfigTestError(null);
+            }}
             className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
           >
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} - {p.description}
-              </option>
+            {PROVIDER_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.providers.map((providerId) => {
+                  const providerConfig = PROVIDER_CONFIGS[providerId];
+                  return (
+                    <option key={providerId} value={providerId}>
+                      {providerConfig.name} - {providerConfig.description}
+                    </option>
+                  );
+                })}
+              </optgroup>
             ))}
           </select>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
@@ -471,13 +523,16 @@ export default function ApiSettings({
             </svg>
           </div>
         </div>
+        <p className="text-xs text-gray-500 mt-1">
+          {currentProviderConfig.description}
+        </p>
       </div>
 
       {/* Custom API URL */}
       {configProvider === 'custom' && (
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            API 端点 URL *
+            API 端点 URL <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -499,7 +554,7 @@ export default function ApiSettings({
             type="text"
             value={configApiUrl}
             onChange={(e) => setConfigApiUrl(e.target.value)}
-            placeholder={configProvider === 'openai' ? 'https://api.openai.com/v1/chat/completions' : 'https://api.anthropic.com/v1/messages'}
+            placeholder={currentProviderConfig.chatEndpoint}
             className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -508,31 +563,10 @@ export default function ApiSettings({
         </div>
       )}
 
-      {/* Model Name */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          模型名称 (可选)
-        </label>
-        <input
-          type="text"
-          value={configModelName}
-          onChange={(e) => setConfigModelName(e.target.value)}
-          placeholder={
-            configProvider === 'openai'
-              ? 'gpt-4o-mini'
-              : configProvider === 'anthropic'
-              ? 'claude-3-haiku-20240307'
-              : 'gpt-3.5-turbo'
-          }
-          className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-        />
-        <p className="text-xs text-gray-500 mt-1">留空使用默认模型</p>
-      </div>
-
       {/* API Key input */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          API 密钥 *
+          API 密钥 <span className="text-red-500">*</span>
         </label>
         <div className="relative">
           <input
@@ -542,7 +576,7 @@ export default function ApiSettings({
               setConfigApiKey(e.target.value);
               setConfigTestResult(null);
             }}
-            placeholder={`输入您的 ${configProvider === 'openai' ? 'OpenAI' : configProvider === 'anthropic' ? 'Anthropic' : ''} API 密钥`}
+            placeholder={currentProviderConfig.apiKeyPlaceholder}
             className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
           <button
@@ -562,19 +596,138 @@ export default function ApiSettings({
             )}
           </button>
         </div>
-        {configProvider !== 'custom' && (
+        {currentProviderConfig.docUrl && (
           <p className="text-xs text-gray-500 mt-2">
-            {configProvider === 'openai' ? (
-              <>
-                获取密钥: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">platform.openai.com</a>
-              </>
-            ) : (
-              <>
-                获取密钥: <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">console.anthropic.com</a>
-              </>
-            )}
+            获取密钥:{' '}
+            <a
+              href={currentProviderConfig.docUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 hover:underline"
+            >
+              {currentProviderConfig.docUrl}
+            </a>
           </p>
         )}
+      </div>
+
+      {/* Secondary Key (百度需要) */}
+      {requiresSecondaryKey(configProvider) && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Secret Key <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <input
+              type={showSecondaryKey ? 'text' : 'password'}
+              value={configSecondaryKey}
+              onChange={(e) => {
+                setConfigSecondaryKey(e.target.value);
+                setConfigTestResult(null);
+              }}
+              placeholder="输入 Secret Key"
+              className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSecondaryKey(!showSecondaryKey)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+            >
+              {showSecondaryKey ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            百度文心需要同时提供 API Key 和 Secret Key
+          </p>
+        </div>
+      )}
+
+      {/* Model selection */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            模型
+          </label>
+          <div className="flex items-center gap-2">
+            {configTestResult === 'success' && currentProviderConfig.modelsSupported && (
+              <button
+                onClick={loadModels}
+                disabled={isLoadingModels}
+                className="text-xs text-primary-600 hover:text-primary-700 disabled:opacity-50"
+              >
+                {isLoadingModels ? '加载中...' : '刷新列表'}
+              </button>
+            )}
+            <label className="flex items-center gap-1 text-xs text-gray-500">
+              <input
+                type="checkbox"
+                checked={useCustomModel}
+                onChange={(e) => {
+                  setUseCustomModel(e.target.checked);
+                  if (!e.target.checked && models.length > 0) {
+                    const recommended = models.find(m => m.isRecommended) || models[0];
+                    setConfigModelName(recommended.id);
+                  }
+                }}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              自定义模型
+            </label>
+          </div>
+        </div>
+
+        {useCustomModel ? (
+          <input
+            type="text"
+            value={configModelName}
+            onChange={(e) => setConfigModelName(e.target.value)}
+            placeholder="输入模型名称"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        ) : (
+          <div className="relative">
+            <select
+              value={configModelName}
+              onChange={(e) => setConfigModelName(e.target.value)}
+              disabled={isLoadingModels}
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white disabled:opacity-50"
+            >
+              {models.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                  {model.isRecommended ? ' (推荐)' : ''}
+                  {model.description ? ` - ${model.description}` : ''}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+              {isLoadingModels ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-gray-500 mt-1">
+          {configTestResult === 'success'
+            ? '测试成功后可获取最新模型列表'
+            : '请先测试连接以获取模型列表'}
+        </p>
       </div>
 
       {/* Test result */}
@@ -597,7 +750,7 @@ export default function ApiSettings({
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>API 连接失败，请检查密钥和端点</span>
+                <span>{configTestError || 'API 连接失败，请检查密钥和端点'}</span>
               </>
             )}
           </div>
@@ -608,7 +761,12 @@ export default function ApiSettings({
       <div className="flex gap-3">
         <button
           onClick={testNewConfig}
-          disabled={!configApiKey || isTestingConfig || (configProvider === 'custom' && !configApiUrl)}
+          disabled={
+            !configApiKey ||
+            isTestingConfig ||
+            (configProvider === 'custom' && !configApiUrl) ||
+            (requiresSecondaryKey(configProvider) && !configSecondaryKey)
+          }
           className="flex-1 py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isTestingConfig ? '测试中...' : '测试连接'}

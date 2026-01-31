@@ -1,6 +1,54 @@
 // User Profile Types
 export type ExamType = 'cet4' | 'cet6' | 'toefl' | 'ielts' | 'gre' | 'custom';
 
+// ========== API 供应商类型 ==========
+
+/**
+ * API 供应商标识
+ * - 国外：openai, anthropic, gemini, groq
+ * - 国内：deepseek, zhipu, alibaba, baidu
+ * - 自定义：custom
+ */
+export type ApiProvider =
+  | 'openai' | 'anthropic' | 'gemini' | 'groq'  // 国外
+  | 'deepseek' | 'zhipu' | 'alibaba' | 'baidu'  // 国内
+  | 'custom';
+
+/**
+ * API 格式类型
+ */
+export type ApiFormat = 'openai' | 'anthropic' | 'gemini' | 'dashscope' | 'baidu';
+
+/**
+ * 模型信息
+ */
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description?: string;
+  isRecommended?: boolean;
+}
+
+/**
+ * 供应商配置
+ */
+export interface ProviderConfig {
+  id: ApiProvider;
+  name: string;
+  description: string;
+  region: 'domestic' | 'international';
+  apiFormat: ApiFormat;
+  defaultEndpoint: string;
+  chatEndpoint: string;
+  modelsEndpoint?: string;
+  modelsSupported: boolean;
+  defaultModels: ModelInfo[];
+  recommendedModel: string;
+  authHeaderName?: string;
+  docUrl: string;
+  apiKeyPlaceholder: string;
+}
+
 export interface UnknownWordEntry {
   word: string;
   context: string;
@@ -67,10 +115,12 @@ export interface TranslationResult {
 export interface ApiConfig {
   id: string;
   name: string;
-  provider: 'openai' | 'anthropic' | 'custom';
+  provider: ApiProvider;
   apiKey: string;
   apiUrl?: string;
   modelName?: string;
+  /** 百度文心需要的 Secret Key */
+  secondaryApiKey?: string;
   /** 是否测试通过 */
   tested: boolean;
   /** 上次测试时间 */
@@ -87,9 +137,11 @@ export interface UserSettings {
   showDifficulty: boolean;
   highlightColor: string;
   fontSize: number;
-  apiProvider: 'openai' | 'anthropic' | 'custom';
+  apiProvider: ApiProvider;
   customApiUrl?: string;
   customModelName?: string;
+  /** 百度文心需要的 Secret Key */
+  secondaryApiKey?: string;
   /** 网站黑名单（不翻译的网站域名列表） */
   blacklist: string[];
   /** 多个 API 配置 */

@@ -1,5 +1,8 @@
 import type { ExamType, UserSettings, BatchTranslationConfig } from '../types';
 
+// 导出供应商配置
+export * from './providers';
+
 // Vocabulary size estimates for different exam levels
 export const EXAM_VOCABULARY_SIZES: Record<ExamType, number> = {
   cet4: 4500,
