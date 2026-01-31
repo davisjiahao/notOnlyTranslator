@@ -229,14 +229,28 @@ export class BatchTranslationManager {
    * 检查段落是否正在处理中
    */
   isProcessing(paragraphId: string): boolean {
-    return this.processingParagraphs.has(paragraphId);
+    return this.processingParagraphIds.has(paragraphId);
   }
 
   /**
    * 获取当前处理中的段落数量
    */
   getProcessingCount(): number {
-    return this.processingParagraphs.size;
+    return this.processingParagraphIds.size;
+  }
+
+  /**
+   * 设置翻译模式
+   */
+  setMode(mode: TranslationMode): void {
+    this.mode = mode;
+  }
+
+  /**
+   * 设置翻译完成回调
+   */
+  setOnComplete(callback: TranslationCompleteCallback): void {
+    this.onComplete = callback;
   }
 
   /**
@@ -244,7 +258,7 @@ export class BatchTranslationManager {
    */
   cancelAll(): void {
     this.pendingQueue = [];
-    this.processingParagraphs.clear();
+    this.processingParagraphIds.clear();
     console.log('BatchTranslationManager: 已取消所有待处理请求');
   }
 
@@ -253,15 +267,9 @@ export class BatchTranslationManager {
    * 避免因为某些原因导致段落一直处于处理中状态
    */
   cleanupStale(): void {
-    const now = Date.now();
-    const staleThreshold = 60000; // 60秒
-
-    for (const [id, para] of this.processingParagraphs) {
-      if (now - para.requestedAt > staleThreshold) {
-        this.processingParagraphs.delete(id);
-        console.log(`BatchTranslationManager: 清理过期段落 ${id}`);
-      }
-    }
+    // 由于目前无法追踪单个 ID 的请求时间，此方法暂不执行操作
+    // 可以在未来将 processingParagraphIds 改为 Map<string, number> 存储时间戳
+    console.log('BatchTranslationManager: cleanupStale 暂未实现');
   }
 
   /**
@@ -269,7 +277,7 @@ export class BatchTranslationManager {
    */
   clearProcessedCache(): void {
     this.pendingQueue = [];
-    this.processingParagraphs.clear();
+    this.processingParagraphIds.clear();
     console.log('BatchTranslationManager: 已清除处理缓存');
   }
 }
