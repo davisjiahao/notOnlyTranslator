@@ -233,7 +233,7 @@ export class BatchTranslationService {
       }
 
       // 2. 尝试解析并修复常见的 JSON 语法错误
-      let parsed: any;
+      let parsed: Record<string, unknown> | unknown[];
       try {
         parsed = JSON.parse(jsonStr);
       } catch (e) {
@@ -263,7 +263,7 @@ export class BatchTranslationService {
 
       // 4. 建立索引 (通过 id 匹配)
       const resultsById = new Map<string, TranslationResult>();
-      rawParagraphs.forEach((para: any, index: number) => {
+      rawParagraphs.forEach((para: Record<string, unknown>, index: number) => {
         if (!para || typeof para !== 'object') return;
         
         // 尝试获取 ID，如果没提供 ID 则根据顺序猜测
@@ -335,8 +335,9 @@ export class BatchTranslationService {
     // 移除末尾的逗号 (处理 [1, 2, ] 或 {a:1, })
     s = s.replace(/,\s*([\]}])/g, '$1');
     
-    // 修复可能存在的控制字符
-    s = s.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+    // 移除 JSON 中可能存在的控制字符（这是有意为之的行为）
+    // eslint-disable-next-line no-control-regex
+    s = s.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
     return s;
   }
