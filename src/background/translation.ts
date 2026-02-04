@@ -44,7 +44,8 @@ export class TranslationService {
       customModelName: settings.customModelName
     });
 
-    if (!apiKey) {
+    // Ollama 不需要 API Key
+    if (!apiKey && settings.apiProvider !== 'ollama') {
       throw new Error('API key not configured. Please set your API key in settings.');
     }
 

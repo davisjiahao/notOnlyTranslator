@@ -1,19 +1,39 @@
 <svg width="48" height="48" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <rect width="48" height="48" fill="url(#grad)" rx="7.199999999999999"/>
+
+  <rect width="48" height="48" fill="url(#bgGrad)" rx="9"/>
+
   <text
-    x="50%"
-    y="50%"
-    font-family="Arial, sans-serif"
-    font-size="21.6"
+    x="22"
+    y="31"
+    font-family="Georgia, serif"
+    font-size="27"
     font-weight="bold"
     fill="white"
     text-anchor="middle"
-    dominant-baseline="central"
-  >NT</text>
+  >A</text>
+
+  <rect x="10" y="34" width="23" height="3" rx="1.5" fill="url(#highlightGrad)"/>
+
+  <g transform="translate(33, 7)">
+    <path d="M4.5 9 L4.5 2.25 M2.25 4.5 L4.5 2.25 L6.75 4.5"
+          stroke="url(#arrowGrad)"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"/>
+  </g>
 </svg>

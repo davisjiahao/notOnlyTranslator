@@ -7,17 +7,19 @@ export type ExamType = 'cet4' | 'cet6' | 'toefl' | 'ielts' | 'gre' | 'custom';
  * API 供应商标识
  * - 国外：openai, anthropic, gemini, groq
  * - 国内：deepseek, zhipu, alibaba, baidu
+ * - 本地：ollama
  * - 自定义：custom
  */
 export type ApiProvider =
   | 'openai' | 'anthropic' | 'gemini' | 'groq'  // 国外
   | 'deepseek' | 'zhipu' | 'alibaba' | 'baidu'  // 国内
+  | 'ollama'  // 本地部署
   | 'custom';
 
 /**
  * API 格式类型
  */
-export type ApiFormat = 'openai' | 'anthropic' | 'gemini' | 'dashscope' | 'baidu';
+export type ApiFormat = 'openai' | 'anthropic' | 'gemini' | 'dashscope' | 'baidu' | 'ollama';
 
 /**
  * 模型信息

@@ -166,6 +166,28 @@ export const PROVIDER_CONFIGS: Record<ApiProvider, ProviderConfig> = {
     apiKeyPlaceholder: 'API Key',
   },
 
+  // ========== 本地部署 ==========
+  ollama: {
+    id: 'ollama',
+    name: 'Ollama',
+    description: '本地部署的 Ollama，支持 Llama、Qwen 等开源模型',
+    region: 'international',
+    apiFormat: 'ollama',
+    defaultEndpoint: 'http://localhost:11434',
+    chatEndpoint: 'http://localhost:11434/v1/chat/completions',  // 使用 OpenAI 兼容 API，避免 CORS 问题
+    modelsEndpoint: 'http://localhost:11434/api/tags',  // 原生模型列表端点
+    modelsSupported: true,
+    defaultModels: [
+      { id: 'qwen2.5:7b', name: 'Qwen 2.5 7B', description: '中文能力强，翻译质量高', isRecommended: true },
+      { id: 'qwen2.5:3b', name: 'Qwen 2.5 3B', description: '轻量快速，适合低配置' },
+      { id: 'llama3.1:8b', name: 'Llama 3.1 8B', description: '综合能力强' },
+      { id: 'gemma2:9b', name: 'Gemma 2 9B', description: 'Google 出品，质量稳定' },
+    ],
+    recommendedModel: 'qwen2.5:7b',
+    docUrl: 'https://ollama.ai/',
+    apiKeyPlaceholder: '留空或任意值',
+  },
+
   // ========== 自定义供应商 ==========
   custom: {
     id: 'custom',
@@ -202,6 +224,10 @@ export const PROVIDER_GROUPS: ProviderGroup[] = [
   {
     label: '国内供应商',
     providers: ['deepseek', 'zhipu', 'alibaba', 'baidu'],
+  },
+  {
+    label: '本地部署',
+    providers: ['ollama'],
   },
   {
     label: '自定义',

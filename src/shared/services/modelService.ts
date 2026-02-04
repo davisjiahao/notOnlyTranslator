@@ -28,6 +28,11 @@ export async function getModels(
     return config.defaultModels;
   }
 
+  // Ollama 不需要 API Key，其他供应商需要
+  if (!apiKey && provider !== 'ollama') {
+    return config.defaultModels;
+  }
+
   try {
     const models = await fetchModels(provider, apiKey, customEndpoint, secondaryKey);
     return models.length > 0 ? models : config.defaultModels;
@@ -77,6 +82,9 @@ async function fetchModels(
       // Gemini 使用 URL 参数传递 API Key
       modelsUrl = `${modelsUrl}?key=${apiKey}`;
       break;
+    case 'ollama':
+      // Ollama 不需要认证
+      break;
     default:
       // OpenAI 格式的供应商使用 Bearer token
       headers['Authorization'] = `Bearer ${apiKey}`;
@@ -117,6 +125,19 @@ function parseModelsResponse(provider: ApiProvider, data: unknown): ModelInfo[] 
       }));
   }
 
+  // Ollama 原生格式 (/api/tags)
+  if (provider === 'ollama') {
+    const ollamaData = data as { models?: Array<{ name: string; modified_at?: string; size?: number }> };
+    if (!ollamaData.models) return [];
+
+    return ollamaData.models.map(m => ({
+      id: m.name,
+      name: m.name,
+      description: m.size ? `${Math.round(m.size / 1024 / 1024 / 1024 * 10) / 10} GB` : undefined,
+      isRecommended: m.name === config.recommendedModel || m.name.startsWith('qwen'),
+    }));
+  }
+
   // OpenAI 兼容格式（包括 OpenAI、Groq、DeepSeek、智谱、阿里通义等）
   const openaiData = data as { data?: Array<{ id: string; name?: string }> };
   if (!openaiData.data) return [];
@@ -152,7 +173,8 @@ export async function testConnection(
   const config = getProviderConfig(provider);
 
   // 检查必要参数
-  if (!apiKey) {
+  // Ollama 不需要 API Key
+  if (!apiKey && provider !== 'ollama') {
     return { success: false, error: '请输入 API Key' };
   }
 
@@ -232,6 +254,16 @@ async function testChatAPI(
     case 'alibaba':
       // 阿里通义使用 DashScope 格式，但兼容 OpenAI 格式
       headers['Authorization'] = `Bearer ${apiKey}`;
+      body = JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 10,
+      });
+      break;
+
+    case 'ollama':
+      // Ollama 使用 OpenAI 兼容 API 格式
+      headers['Authorization'] = 'Bearer ollama';
       body = JSON.stringify({
         model,
         messages: [{ role: 'user', content: 'test' }],

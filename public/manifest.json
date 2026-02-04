@@ -4,16 +4,16 @@
   "version": "0.1.0",
   "description": "A smart English translation extension that adapts to your proficiency level",
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     },
     "default_title": "NotOnlyTranslator"
   },
@@ -42,7 +42,9 @@
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://*.volces.com/*",
-    "https://ark.cn-beijing.volces.com/*"
+    "https://ark.cn-beijing.volces.com/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
   ],
   "optional_host_permissions": [
     "http://*/*",

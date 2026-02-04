@@ -76,6 +76,8 @@ export class TranslationApiService {
           model,
           retryOptions
         );
+      case 'ollama':
+        return this.callOllamaFormat(prompt, apiKey, model, endpoint, retryOptions);
       default:
         throw new Error(`不支持的 API 格式: ${apiFormat}`);
     }
@@ -257,6 +259,62 @@ export class TranslationApiService {
   }
 
   /**
+   * 调用 Ollama API（使用 OpenAI 兼容格式）
+   * 使用 /v1/chat/completions 端点，避免 CORS 问题
+   */
+  private static async callOllamaFormat(
+    prompt: string,
+    _apiKey: string,
+    model: string,
+    endpoint: string,
+    retryOptions: RetryOptions
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Ollama 的 OpenAI 兼容 API 不需要认证，但需要提供 Authorization 头
+          'Authorization': 'Bearer ollama',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an English learning assistant. Always respond with valid JSON only, no markdown formatting.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.3,
+          // 注意：Ollama 的 OpenAI 兼容 API 不支持 response_format 参数
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          (errorData as { error?: { message?: string } }).error?.message ||
+          `Ollama API 请求失败 (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json();
+      // OpenAI 兼容格式响应：{ choices: [{ message: { content: "..." } }] }
+      const content = (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new ApiError('Ollama API 返回空响应', undefined, true);
+      }
+
+      return content;
+    }, retryOptions);
+  }
+
+  /**
    * 调用百度文心 API
    * 需要先获取 access token
    */
@@ -394,6 +452,8 @@ export class TranslationApiService {
         return this.quickTranslateGemini(prompt, apiKey, endpoint, quickRetryOptions);
       case 'baidu':
         return this.quickTranslateBaidu(prompt, apiKey, settings.secondaryApiKey || '', model, quickRetryOptions);
+      case 'ollama':
+        return this.quickTranslateOllama(prompt, apiKey, model, endpoint, quickRetryOptions);
       default:
         // OpenAI 兼容格式
         return this.quickTranslateOpenAI(prompt, apiKey, model, endpoint, quickRetryOptions);
@@ -530,6 +590,41 @@ export class TranslationApiService {
 
       const data = await response.json();
       return (data as { result?: string }).result || '';
+    }, retryOptions);
+  }
+
+  /**
+   * 快速翻译 - Ollama（使用 OpenAI 兼容格式）
+   */
+  private static async quickTranslateOllama(
+    prompt: string,
+    _apiKey: string,
+    model: string,
+    endpoint: string,
+    retryOptions: RetryOptions
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ollama',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 100,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json();
+      // OpenAI 兼容格式响应
+      return (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content || '';
     }, retryOptions);
   }
 }
