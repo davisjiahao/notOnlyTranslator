@@ -294,18 +294,17 @@ export class TranslationDisplay {
         continue;
       }
 
-      // 检查是否在需要保留的DOM元素内（链接、按钮等）
-      // 如果是，跳过标注以保留DOM结构
-      const preservableTags = ['A', 'BUTTON', 'STRONG', 'B', 'EM', 'I', 'CODE'];
+      // 检查是否在需要跳过的DOM元素内
+      // 注意：链接（A标签）内可以安全添加span标注，不会破坏链接功能
+      // 只对按钮和有onclick的元素跳过，避免干扰交互
+      const skipTags = ['BUTTON'];
       let shouldSkip = false;
       let checkNode: Node = currentNode;
 
-      // 向上查找是否有需要保留的父元素
       while (checkNode !== container && checkNode.parentNode) {
         const parentElement = checkNode.parentNode as HTMLElement;
-        if (preservableTags.includes(parentElement.tagName) ||
+        if (skipTags.includes(parentElement.tagName) ||
             parentElement.hasAttribute('onclick')) {
-          // 在链接、按钮等元素内，跳过标注以保留DOM结构
           shouldSkip = true;
           break;
         }

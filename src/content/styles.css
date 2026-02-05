@@ -507,6 +507,29 @@
   border-bottom-style: solid !important;
 }
 
+/* 链接内的生词标注样式 */
+a .not-translator-highlighted-translation,
+.not-translator-full-translated a .not-translator-highlighted-translation {
+  /* 继承链接颜色，但添加标注样式 */
+  color: inherit;
+  background-color: rgba(96, 165, 250, 0.15);
+  border-bottom: 1.5px solid currentColor;
+  text-decoration: none;
+}
+
+a .not-translator-highlighted-translation:hover,
+.not-translator-full-translated a .not-translator-highlighted-translation:hover {
+  background-color: rgba(96, 165, 250, 0.25);
+}
+
+/* 链接内的原文标注 */
+a .not-translator-inline-translation,
+.not-translator-full-translated a .not-translator-inline-translation {
+  color: #6b7280;
+  background-color: rgba(243, 244, 246, 0.95);
+  text-decoration: none;
+}
+
 /* 全文翻译模式 - 简洁风格 */
 .not-translator-full-translate-container {
   display: block;
