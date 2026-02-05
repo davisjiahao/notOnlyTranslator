@@ -1,6 +1,9 @@
 import type { ExamType, UserProfile, TranslationResult } from '../types';
 import { EXAM_VOCABULARY_SIZES, SCORE_MULTIPLIERS } from '../constants';
 
+// 导出日志服务
+export { logger } from './logger';
+
 /**
  * Calculate estimated vocabulary size based on exam type and score
  */

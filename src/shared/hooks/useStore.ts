@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { UserProfile, UserSettings, UnknownWordEntry } from '../types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '../constants';
+import { logger } from '../utils';
 
 interface AppState {
   // User Profile
@@ -60,7 +61,7 @@ export const useStore = create<AppState>((set, get) => {
         });
       }
     } catch (error) {
-      console.error('Failed to persist to storage:', error);
+      logger.error('Failed to persist to storage:', error);
     }
   };
 
@@ -222,7 +223,7 @@ export const useStore = create<AppState>((set, get) => {
           set({ isInitialized: true });
         }
       } catch (error) {
-        console.error('Failed to initialize store:', error);
+        logger.error('Failed to initialize store:', error);
         set({ isInitialized: true });
       } finally {
         set({ isLoading: false });

@@ -1,5 +1,6 @@
 import type { TranslatedWord, TranslatedSentence } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 
 export interface TooltipData {
   word?: TranslatedWord;
@@ -173,9 +174,9 @@ export class Tooltip {
     this.updatePinButtonState();
 
     if (this.isPinned) {
-      console.log('Tooltip: 已钉住');
+      logger.info('Tooltip: 已钉住');
     } else {
-      console.log('Tooltip: 已取消钉住');
+      logger.info('Tooltip: 已取消钉住');
     }
   }
 

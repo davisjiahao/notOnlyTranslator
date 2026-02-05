@@ -8,6 +8,7 @@ import type {
   TranslationResult,
 } from '@/shared/types';
 import { DEFAULT_BATCH_CONFIG } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 import type { VisibleParagraph } from './viewportObserver';
 import { TranslationDisplay } from './translationDisplay';
 
@@ -136,7 +137,7 @@ export class BatchTranslationManager {
    * 处理单批段落（发送到后台并应用结果）
    */
   private async processBatch(paragraphs: PendingParagraph[]): Promise<void> {
-    console.log(`BatchTranslationManager: 并发处理批次 (${paragraphs.length} 段)`);
+    logger.info(`BatchTranslationManager: 并发处理批次 (${paragraphs.length} 段)`);
 
     // 显示 Loading
     paragraphs.forEach(p => TranslationDisplay.showLoading(p.element));
@@ -153,11 +154,11 @@ export class BatchTranslationManager {
       if (response.success && response.data) {
         this.distributeResults(paragraphs, response.data.results);
       } else {
-        console.error('BatchTranslationManager: 批量翻译失败', response.error);
+        logger.error('BatchTranslationManager: 批量翻译失败', response.error);
         this.clearParagraphsStatus(paragraphs);
       }
     } catch (error) {
-      console.error('BatchTranslationManager: 网络异常', error);
+      logger.error('BatchTranslationManager: 网络异常', error);
       this.clearParagraphsStatus(paragraphs);
     } finally {
       // 确保移除 Loading
@@ -259,7 +260,7 @@ export class BatchTranslationManager {
   cancelAll(): void {
     this.pendingQueue = [];
     this.processingParagraphIds.clear();
-    console.log('BatchTranslationManager: 已取消所有待处理请求');
+    logger.info('BatchTranslationManager: 已取消所有待处理请求');
   }
 
   /**
@@ -269,7 +270,7 @@ export class BatchTranslationManager {
   cleanupStale(): void {
     // 由于目前无法追踪单个 ID 的请求时间，此方法暂不执行操作
     // 可以在未来将 processingParagraphIds 改为 Map<string, number> 存储时间戳
-    console.log('BatchTranslationManager: cleanupStale 暂未实现');
+    logger.info('BatchTranslationManager: cleanupStale 暂未实现');
   }
 
   /**
@@ -278,6 +279,6 @@ export class BatchTranslationManager {
   clearProcessedCache(): void {
     this.pendingQueue = [];
     this.processingParagraphIds.clear();
-    console.log('BatchTranslationManager: 已清除处理缓存');
+    logger.info('BatchTranslationManager: 已清除处理缓存');
   }
 }

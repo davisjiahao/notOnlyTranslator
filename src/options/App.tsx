@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 import LevelSelector from './components/LevelSelector';
 import QuickTest from './components/QuickTest';
 import ApiSettings from './components/ApiSettings';
@@ -50,7 +51,7 @@ export default function App() {
         setApiKey(data.apiKey);
       }
     } catch (error) {
-      console.error('Failed to load data:', error);
+      logger.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +75,7 @@ export default function App() {
       setProfile(newProfile);
       showSaveMessage('设置已保存');
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      logger.error('Failed to update profile:', error);
       showSaveMessage('保存失败');
     } finally {
       setIsSaving(false);
@@ -92,7 +93,7 @@ export default function App() {
       setSettings(newSettings);
       showSaveMessage('设置已保存');
     } catch (error) {
-      console.error('Failed to update settings:', error);
+      logger.error('Failed to update settings:', error);
       showSaveMessage('保存失败');
     } finally {
       setIsSaving(false);
@@ -106,7 +107,7 @@ export default function App() {
       setApiKey(key);
       showSaveMessage('API 密钥已保存');
     } catch (error) {
-      console.error('Failed to save API key:', error);
+      logger.error('Failed to save API key:', error);
       showSaveMessage('保存失败');
     } finally {
       setIsSaving(false);
@@ -157,7 +158,7 @@ export default function App() {
 
       showSaveMessage('API 配置已保存');
     } catch (error) {
-      console.error('Failed to save API config:', error);
+      logger.error('Failed to save API config:', error);
       showSaveMessage('保存失败');
     } finally {
       setIsSaving(false);

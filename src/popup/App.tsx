@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 import ApiSwitcher from './components/ApiSwitcher';
 import { StatsCharts } from './components/StatsCharts';
 
@@ -70,7 +71,7 @@ export default function App() {
         setSettings(settingsRes.data);
       }
     } catch (error) {
-      console.error('Failed to load data:', error);
+      logger.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
     }

@@ -7,6 +7,7 @@ import {
   requiresSecondaryKey,
 } from '@/shared/constants/providers';
 import { getModels, testConnection } from '@/shared/services/modelService';
+import { logger } from '@/shared/utils';
 
 /** API 配置完整更新参数 */
 interface ApiConfigUpdateParams {
@@ -102,7 +103,7 @@ export default function ApiSettings({
         }
       }
     } catch (error) {
-      console.error('加载模型列表失败:', error);
+      logger.error('加载模型列表失败:', error);
       setModels(currentProviderConfig.defaultModels);
     } finally {
       setIsLoadingModels(false);

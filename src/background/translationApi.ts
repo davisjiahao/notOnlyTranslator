@@ -1,6 +1,6 @@
 import type { UserSettings } from '@/shared/types';
 import { getProviderConfig, getChatEndpoint } from '@/shared/constants/providers';
-import { retryWithBackoff, ApiError, type RetryOptions } from '@/shared/utils';
+import { retryWithBackoff, ApiError, logger, type RetryOptions } from '@/shared/utils';
 
 /**
  * 默认重试配置
@@ -11,7 +11,7 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   backoffMultiplier: 2,
   maxDelay: 15000,
   onRetry: (error, attempt, delay) => {
-    console.warn(
+    logger.warn(
       `TranslationApiService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,
       error.message
     );
@@ -52,7 +52,7 @@ export class TranslationApiService {
     // 获取 API 端点
     const endpoint = getChatEndpoint(provider, model, settings.customApiUrl);
 
-    console.log(`TranslationApiService: 调用 ${config.name} API`, {
+    logger.info(`TranslationApiService: 调用 ${config.name} API`, {
       provider,
       model,
       endpoint: endpoint.substring(0, 50) + '...',

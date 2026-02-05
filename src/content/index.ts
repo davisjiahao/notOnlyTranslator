@@ -5,7 +5,7 @@ import type {
   UserSettings,
 } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
-import { debounce } from '@/shared/utils';
+import { debounce, logger } from '@/shared/utils';
 import { Highlighter } from './highlighter';
 import { Tooltip } from './tooltip';
 import { MarkerService } from './marker';
@@ -34,7 +34,7 @@ class NotOnlyTranslator {
   private useBatchMode: boolean = true;
 
   constructor() {
-    console.log('NotOnlyTranslator: Content script loaded, starting initialization...');
+    logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
 
     this.highlighter = new Highlighter();
     this.marker = new MarkerService();
@@ -69,29 +69,29 @@ class NotOnlyTranslator {
         break;
       }
       retryCount++;
-      console.log(`NotOnlyTranslator: Retrying settings load (${retryCount}/${maxRetries})...`);
+      logger.info(`NotOnlyTranslator: Retrying settings load (${retryCount}/${maxRetries})...`);
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     if (!this.settings) {
-      console.error('NotOnlyTranslator: Failed to load settings after retries');
+      logger.error('NotOnlyTranslator: Failed to load settings after retries');
       return;
     }
 
     if (!this.settings.enabled) {
-      console.log('NotOnlyTranslator: Extension is disabled');
+      logger.info('NotOnlyTranslator: Extension is disabled');
       return;
     }
 
     // 检查当前页面是否在黑名单中
     if (this.isCurrentPageBlacklisted()) {
-      console.log('NotOnlyTranslator: Current page is blacklisted, skipping');
+      logger.info('NotOnlyTranslator: Current page is blacklisted, skipping');
       return;
     }
 
     // 检查页面是否为中文页面
     if (this.isChinesePage()) {
-      console.log('NotOnlyTranslator: Current page is Chinese, skipping translation');
+      logger.info('NotOnlyTranslator: Current page is Chinese, skipping translation');
       return;
     }
 
@@ -112,7 +112,7 @@ class NotOnlyTranslator {
     // Initial page scan (debounced)
     this.scanPage();
 
-    console.log('NotOnlyTranslator initialized with settings:', this.settings);
+    logger.info('NotOnlyTranslator initialized with settings:', this.settings);
   }
 
   /**
@@ -138,7 +138,7 @@ class NotOnlyTranslator {
       this.batchManager?.handleVisibleParagraphs(paragraphs);
     });
 
-    console.log('NotOnlyTranslator: 批量翻译组件已初始化');
+    logger.info('NotOnlyTranslator: 批量翻译组件已初始化');
   }
 
   /**
@@ -173,7 +173,7 @@ class NotOnlyTranslator {
     // 1. 检查 HTML lang 属性
     const htmlLang = document.documentElement.lang?.toLowerCase() || '';
     if (htmlLang.startsWith('zh')) {
-      console.log(`NotOnlyTranslator: Detected Chinese page by lang attribute: ${htmlLang}`);
+      logger.info(`NotOnlyTranslator: Detected Chinese page by lang attribute: ${htmlLang}`);
       return true;
     }
 
@@ -181,7 +181,7 @@ class NotOnlyTranslator {
     const contentLangMeta = document.querySelector('meta[http-equiv="Content-Language"]');
     const contentLang = contentLangMeta?.getAttribute('content')?.toLowerCase() || '';
     if (contentLang.startsWith('zh')) {
-      console.log(`NotOnlyTranslator: Detected Chinese page by Content-Language: ${contentLang}`);
+      logger.info(`NotOnlyTranslator: Detected Chinese page by Content-Language: ${contentLang}`);
       return true;
     }
 
@@ -196,7 +196,7 @@ class NotOnlyTranslator {
     const threshold = 0.3; // 中文字符占比超过 30% 认为是中文页面
 
     if (chineseRatio > threshold) {
-      console.log(`NotOnlyTranslator: Detected Chinese page by content ratio: ${(chineseRatio * 100).toFixed(1)}%`);
+      logger.info(`NotOnlyTranslator: Detected Chinese page by content ratio: ${(chineseRatio * 100).toFixed(1)}%`);
       return true;
     }
 
@@ -285,12 +285,12 @@ class NotOnlyTranslator {
           this.batchManager.setMode(this.settings.translationMode);
         }
 
-        console.log('NotOnlyTranslator: Settings loaded successfully');
+        logger.info('NotOnlyTranslator: Settings loaded successfully');
       } else {
-        console.warn('NotOnlyTranslator: Failed to load settings:', response.error);
+        logger.warn('NotOnlyTranslator: Failed to load settings:', response.error);
       }
     } catch (error) {
-      console.error('NotOnlyTranslator: Error loading settings:', error);
+      logger.error('NotOnlyTranslator: Error loading settings:', error);
     }
   }
 
@@ -506,7 +506,7 @@ class NotOnlyTranslator {
         return;
       }
 
-      console.log(`NotOnlyTranslator: MutationObserver 检测到 ${newElements.length} 个新元素`);
+      logger.info(`NotOnlyTranslator: MutationObserver 检测到 ${newElements.length} 个新元素`);
 
       // 批量模式：直接注册到观察器
       if (this.useBatchMode && this.viewportObserver) {
@@ -532,20 +532,20 @@ class NotOnlyTranslator {
    */
   private async scanPage(): Promise<void> {
     if (!this.isEnabled) {
-      console.log('NotOnlyTranslator: Scan skipped - extension disabled');
+      logger.info('NotOnlyTranslator: Scan skipped - extension disabled');
       return;
     }
     if (!this.settings?.autoHighlight) {
-      console.log('NotOnlyTranslator: Scan skipped - autoHighlight disabled');
+      logger.info('NotOnlyTranslator: Scan skipped - autoHighlight disabled');
       return;
     }
 
     const mode = this.settings?.translationMode || 'inline-only';
-    console.log(`NotOnlyTranslator: Starting scan with mode: ${mode}`);
+    logger.info(`NotOnlyTranslator: Starting scan with mode: ${mode}`);
 
     // Get paragraphs to translate
     const paragraphs = this.getParagraphs();
-    console.log(`NotOnlyTranslator: Found ${paragraphs.length} paragraphs to scan`);
+    logger.info(`NotOnlyTranslator: Found ${paragraphs.length} paragraphs to scan`);
 
     // 批量翻译模式：使用可视区域观察器
     if (this.useBatchMode && this.viewportObserver && this.batchManager) {
@@ -558,7 +558,7 @@ class NotOnlyTranslator {
       // 立即检查当前可视区域
       this.viewportObserver.checkCurrentViewport();
 
-      console.log('NotOnlyTranslator: 批量模式扫描完成，已注册到观察器');
+      logger.info('NotOnlyTranslator: 批量模式扫描完成，已注册到观察器');
       return;
     }
 
@@ -578,14 +578,14 @@ class NotOnlyTranslator {
       if (text.length < 50) continue;
 
       try {
-        console.log(`NotOnlyTranslator: Translating paragraph (${text.length} chars):`, text.substring(0, 100) + '...');
+        logger.info(`NotOnlyTranslator: Translating paragraph (${text.length} chars):`, text.substring(0, 100) + '...');
 
         // Save original text before modifying
         TranslationDisplay.saveOriginalText(paragraph);
 
         const result = await this.translateText(text);
 
-        console.log('NotOnlyTranslator: Translation result received:', {
+        logger.info('NotOnlyTranslator: Translation result received:', {
           wordsCount: result.words?.length || 0,
           sentencesCount: result.sentences?.length || 0,
           hasFullText: !!result.fullText,
@@ -595,20 +595,20 @@ class NotOnlyTranslator {
 
         // Apply translation based on mode
         if (result.words.length > 0 || result.fullText) {
-          console.log(`NotOnlyTranslator: Applying translation to paragraph with mode: ${mode}`);
+          logger.info(`NotOnlyTranslator: Applying translation to paragraph with mode: ${mode}`);
           TranslationDisplay.applyTranslation(paragraph, result, mode as import('@/shared/types').TranslationMode);
 
           // Setup click handlers for highlighted words in the paragraph
           this.setupParagraphClickHandlers(paragraph);
-          console.log('NotOnlyTranslator: Translation applied successfully');
+          logger.info('NotOnlyTranslator: Translation applied successfully');
         } else {
-          console.log('NotOnlyTranslator: No words or fullText in result, skipping paragraph');
+          logger.info('NotOnlyTranslator: No words or fullText in result, skipping paragraph');
         }
       } catch (error) {
-        console.error('NotOnlyTranslator: Failed to translate content:', error);
+        logger.error('NotOnlyTranslator: Failed to translate content:', error);
       }
     }
-    console.log('NotOnlyTranslator: Scan completed');
+    logger.info('NotOnlyTranslator: Scan completed');
   }
 
   /**
@@ -717,7 +717,7 @@ class NotOnlyTranslator {
   private async translateText(text: string, context?: string): Promise<TranslationResult> {
     const mode = this.settings?.translationMode || 'inline-only';
 
-    console.log('NotOnlyTranslator: Sending TRANSLATE_TEXT message to background');
+    logger.info('NotOnlyTranslator: Sending TRANSLATE_TEXT message to background');
     const response = await this.sendMessage({
       type: 'TRANSLATE_TEXT',
       payload: {
@@ -727,7 +727,7 @@ class NotOnlyTranslator {
       },
     });
 
-    console.log('NotOnlyTranslator: Received response from background:', {
+    logger.info('NotOnlyTranslator: Received response from background:', {
       success: response.success,
       error: response.error,
       hasData: !!response.data,
@@ -777,7 +777,7 @@ class NotOnlyTranslator {
       await this.marker.markKnown(word);
       this.highlighter.markAsKnown(word);
     } catch (error) {
-      console.error('Failed to mark as known:', error);
+      logger.error('Failed to mark as known:', error);
     }
   }
 
@@ -793,7 +793,7 @@ class NotOnlyTranslator {
       await this.marker.markUnknown(word, translation, context);
       this.highlighter.markAsUnknown(word);
     } catch (error) {
-      console.error('Failed to mark as unknown:', error);
+      logger.error('Failed to mark as unknown:', error);
     }
   }
 
@@ -809,7 +809,7 @@ class NotOnlyTranslator {
       await this.marker.addToVocabulary(word, translation, context);
       this.highlighter.markAsUnknown(word);
     } catch (error) {
-      console.error('Failed to add to vocabulary:', error);
+      logger.error('Failed to add to vocabulary:', error);
     }
   }
 
@@ -871,7 +871,7 @@ class NotOnlyTranslator {
 
     // 如果翻译模式改变了，需要清除已处理的段落并重新翻译
     if (oldMode !== newMode) {
-      console.log(`NotOnlyTranslator: 翻译模式从 ${oldMode} 切换为 ${newMode}`);
+      logger.info(`NotOnlyTranslator: 翻译模式从 ${oldMode} 切换为 ${newMode}`);
 
       // 清除所有已翻译的内容
       this.clearAllTranslations();
@@ -958,7 +958,7 @@ class NotOnlyTranslator {
     this.highlighter.clearAllHighlights();
     this.tooltip.destroy();
 
-    console.log('NotOnlyTranslator: 已销毁');
+    logger.info('NotOnlyTranslator: 已销毁');
   }
 }
 

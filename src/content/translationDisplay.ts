@@ -1,5 +1,6 @@
 import type { TranslationResult, TranslationMode, TranslatedWord } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 
 /**
  * TranslationDisplay - 根据不同模式渲染翻译结果
@@ -245,7 +246,7 @@ export class TranslationDisplay {
       translationDiv.style.marginTop = '8px';
       translationDiv.style.marginBottom = computedStyle.marginBottom;
     } catch (e) {
-      console.warn('Failed to copy styles from original paragraph:', e);
+      logger.warn('Failed to copy styles from original paragraph:', e);
     }
 
     // 在段落后插入译文

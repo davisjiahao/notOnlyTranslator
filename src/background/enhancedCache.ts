@@ -9,6 +9,7 @@ import {
   PARAGRAPH_CACHE_KEY,
   CACHE_VERSION,
 } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 
 /**
  * 增强缓存管理器
@@ -41,7 +42,7 @@ export class EnhancedCacheManager {
 
       // 检查版本，必要时迁移
       if (storage.version !== CACHE_VERSION) {
-        console.log('EnhancedCacheManager: 缓存版本不匹配，清空缓存');
+        logger.info('EnhancedCacheManager: 缓存版本不匹配，清空缓存');
         await this.clearAll();
         this.initialized = true;
         return;
@@ -57,10 +58,10 @@ export class EnhancedCacheManager {
         this.memoryCache.set(hash, entry);
       }
 
-      console.log(`EnhancedCacheManager: 已加载 ${this.memoryCache.size} 条缓存`);
+      logger.info(`EnhancedCacheManager: 已加载 ${this.memoryCache.size} 条缓存`);
       this.initialized = true;
     } catch (error) {
-      console.error('EnhancedCacheManager: 初始化失败', error);
+      logger.error('EnhancedCacheManager: 初始化失败', error);
       this.initialized = true;
     }
   }
@@ -106,7 +107,7 @@ export class EnhancedCacheManager {
     entry.lastAccessedAt = now;
     this.memoryCache.set(textHash, entry);
 
-    console.log(`EnhancedCacheManager: 缓存命中 ${textHash}`);
+    logger.info(`EnhancedCacheManager: 缓存命中 ${textHash}`);
     return { ...entry.result, cached: true };
   }
 
@@ -140,7 +141,7 @@ export class EnhancedCacheManager {
       }
     }
 
-    console.log(`EnhancedCacheManager: 批量查询 ${textHashes.length} 条，命中 ${hits.size} 条`);
+    logger.info(`EnhancedCacheManager: 批量查询 ${textHashes.length} 条，命中 ${hits.size} 条`);
     return { hits, misses };
   }
 
@@ -211,7 +212,7 @@ export class EnhancedCacheManager {
     // 异步持久化到存储
     this.persistToStorage();
 
-    console.log(`EnhancedCacheManager: 批量缓存 ${entries.length} 条`);
+    logger.info(`EnhancedCacheManager: 批量缓存 ${entries.length} 条`);
   }
 
   /**
@@ -245,7 +246,7 @@ export class EnhancedCacheManager {
       this.memoryCache.delete(key);
     }
 
-    console.log(
+    logger.info(
       `EnhancedCacheManager: LRU批量淘汰 ${keysToDelete.length} 条`,
       `缓存从 ${currentSize} 减少到 ${this.memoryCache.size}`
     );
@@ -285,9 +286,9 @@ export class EnhancedCacheManager {
         };
 
         await chrome.storage.local.set({ [PARAGRAPH_CACHE_KEY]: storage });
-        console.log(`EnhancedCacheManager: 持久化 ${this.memoryCache.size} 条缓存`);
+        logger.info(`EnhancedCacheManager: 持久化 ${this.memoryCache.size} 条缓存`);
       } catch (error) {
-        console.error('EnhancedCacheManager: 持久化失败', error);
+        logger.error('EnhancedCacheManager: 持久化失败', error);
       }
     }, 1000);
   }
@@ -298,7 +299,7 @@ export class EnhancedCacheManager {
   async clearAll(): Promise<void> {
     this.memoryCache.clear();
     await chrome.storage.local.remove(PARAGRAPH_CACHE_KEY);
-    console.log('EnhancedCacheManager: 已清空所有缓存');
+    logger.info('EnhancedCacheManager: 已清空所有缓存');
   }
 
   /**
@@ -319,7 +320,7 @@ export class EnhancedCacheManager {
 
     if (cleanedCount > 0) {
       this.persistToStorage();
-      console.log(`EnhancedCacheManager: 清理 ${cleanedCount} 条过期缓存`);
+      logger.info(`EnhancedCacheManager: 清理 ${cleanedCount} 条过期缓存`);
     }
 
     return cleanedCount;

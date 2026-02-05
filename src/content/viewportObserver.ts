@@ -1,5 +1,5 @@
 import { DEFAULT_BATCH_CONFIG } from '@/shared/constants';
-import { debounce } from '@/shared/utils';
+import { debounce, logger } from '@/shared/utils';
 
 /**
  * 可视区域段落信息
@@ -78,7 +78,7 @@ export class ViewportObserver {
       this.handleIntersection(entries);
     }, options);
 
-    console.log('ViewportObserver: 已初始化');
+    logger.info('ViewportObserver: 已初始化');
   }
 
   /**
@@ -210,7 +210,7 @@ export class ViewportObserver {
     }
 
     if (paragraphsToTranslate.length > 0) {
-      console.log(`ViewportObserver: 通知 ${paragraphsToTranslate.length} 个可视段落`);
+      logger.info(`ViewportObserver: 通知 ${paragraphsToTranslate.length} 个可视段落`);
       this.callback(paragraphsToTranslate);
     }
   }
@@ -234,7 +234,7 @@ export class ViewportObserver {
     for (const element of elements) {
       this.observe(element);
     }
-    console.log(`ViewportObserver: 正在观察 ${this.observedElements.size} 个元素`);
+    logger.info(`ViewportObserver: 正在观察 ${this.observedElements.size} 个元素`);
   }
 
   /**
@@ -261,7 +261,7 @@ export class ViewportObserver {
    */
   enable(): void {
     this.enabled = true;
-    console.log('ViewportObserver: 已启用');
+    logger.info('ViewportObserver: 已启用');
   }
 
   /**
@@ -270,7 +270,7 @@ export class ViewportObserver {
   disable(): void {
     this.enabled = false;
     this.visibleParagraphs.clear();
-    console.log('ViewportObserver: 已禁用');
+    logger.info('ViewportObserver: 已禁用');
   }
 
   /**
@@ -316,7 +316,7 @@ export class ViewportObserver {
   resetTracking(): void {
     this.visibleParagraphs.clear();
     this.idCounter = 0;
-    console.log('ViewportObserver: 已重置追踪状态');
+    logger.info('ViewportObserver: 已重置追踪状态');
   }
 
   /**
@@ -331,6 +331,6 @@ export class ViewportObserver {
     this.observedElements.clear();
     this.visibleParagraphs.clear();
 
-    console.log('ViewportObserver: 已销毁');
+    logger.info('ViewportObserver: 已销毁');
   }
 }

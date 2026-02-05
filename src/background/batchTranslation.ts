@@ -14,6 +14,7 @@ import {
 import {
   normalizeText,
   getChineseRatio,
+  logger,
   type RetryOptions,
 } from '@/shared/utils';
 import { StorageManager } from './storage';
@@ -30,7 +31,7 @@ const BATCH_RETRY_OPTIONS: RetryOptions = {
   backoffMultiplier: 2,
   maxDelay: 20000,
   onRetry: (error, attempt, delay) => {
-    console.warn(
+    logger.warn(
       `BatchTranslationService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,
       error.message
     );
@@ -58,7 +59,7 @@ export class BatchTranslationService {
   ): Promise<BatchTranslationResponse> {
     const { paragraphs, mode, pageUrl } = request;
 
-    console.log(`BatchTranslationService: 收到批量翻译请求，${paragraphs.length} 个段落`);
+    logger.info(`BatchTranslationService: 收到批量翻译请求，${paragraphs.length} 个段落`);
 
     // 获取用户配置
     const userProfile = request.userLevel || (await StorageManager.getUserProfile());
@@ -66,7 +67,7 @@ export class BatchTranslationService {
     const apiKey = await StorageManager.getApiKey();
 
     // 调试日志
-    console.log('BatchTranslationService: 配置信息', {
+    logger.info('BatchTranslationService: 配置信息', {
       hasApiKey: !!apiKey,
       apiKeyPrefix: apiKey ? apiKey.substring(0, 8) + '...' : 'empty',
       activeApiConfigId: settings.activeApiConfigId,
@@ -113,7 +114,7 @@ export class BatchTranslationService {
       // 1. 检查中文占比
       const chineseRatio = getChineseRatio(p.text);
       if (chineseRatio > 0.2) {
-        console.log(`BatchTranslationService: 跳过中文占比过高的段落 (${(chineseRatio * 100).toFixed(1)}%)`, p.id);
+        logger.info(`BatchTranslationService: 跳过中文占比过高的段落 (${(chineseRatio * 100).toFixed(1)}%)`, p.id);
         skippedParagraphs.push({
           id: p.id,
           result: this.createEmptyResult(),
@@ -132,7 +133,7 @@ export class BatchTranslationService {
         );
 
         if (!hasPotentialUnknown) {
-          console.log('BatchTranslationService: 跳过简单段落 (本地过滤)', p.id);
+          logger.info('BatchTranslationService: 跳过简单段落 (本地过滤)', p.id);
           skippedParagraphs.push({
             id: p.id,
             result: this.createEmptyResult(), // 返回空结果，即无高亮
@@ -148,7 +149,7 @@ export class BatchTranslationService {
     // 将跳过的结果加入结果集
     results.push(...skippedParagraphs);
 
-    console.log(`BatchTranslationService: 缓存命中 ${cacheHits.size} 个，跳过 ${skippedParagraphs.length} 个，需翻译 ${toTranslate.length} 个`);
+    logger.info(`BatchTranslationService: 缓存命中 ${cacheHits.size} 个，跳过 ${skippedParagraphs.length} 个，需翻译 ${toTranslate.length} 个`);
 
     // 如果有需要翻译的段落，调用API
     if (toTranslate.length > 0) {
@@ -208,7 +209,7 @@ export class BatchTranslationService {
       .replace(/{exam_level}/g, EXAM_DISPLAY_NAMES[userProfile.examType])
       .replace('{paragraphs}', paragraphsText);
 
-    console.log('BatchTranslationService: 调用API，提示词长度:', prompt.length);
+    logger.info('BatchTranslationService: 调用API，提示词长度:', prompt.length);
 
     // 使用统一 API 服务调用
     const response = await TranslationApiService.call(prompt, apiKey, settings, BATCH_RETRY_OPTIONS);
@@ -228,7 +229,7 @@ export class BatchTranslationService {
       // 1. 提取 JSON 内容
       const jsonStr = this.extractJson(content);
       if (!jsonStr) {
-        console.error('BatchTranslationService: 无法从响应中提取 JSON');
+        logger.error('BatchTranslationService: 无法从响应中提取 JSON');
         return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
       }
 
@@ -241,7 +242,7 @@ export class BatchTranslationService {
         try {
           parsed = JSON.parse(repairedJson);
         } catch (repairedError) {
-          console.error('BatchTranslationService: JSON 解析失败且无法修复', repairedError);
+          logger.error('BatchTranslationService: JSON 解析失败且无法修复', repairedError);
           return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
         }
       }
@@ -257,7 +258,7 @@ export class BatchTranslationService {
         : (parsed.paragraphs || parsed.results || parsed.data || []);
 
       if (!Array.isArray(rawParagraphs)) {
-        console.error('BatchTranslationService: 响应中未找到有效的段落列表');
+        logger.error('BatchTranslationService: 响应中未找到有效的段落列表');
         return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
       }
 
@@ -293,10 +294,10 @@ export class BatchTranslationService {
         }
       }
 
-      console.log(`BatchTranslationService: 解析完成，成功挽救 ${foundCount}/${expectedCount} 个段落`);
+      logger.info(`BatchTranslationService: 解析完成，成功挽救 ${foundCount}/${expectedCount} 个段落`);
       return finalResults;
     } catch (error) {
-      console.error('BatchTranslationService: 解析响应发生致命错误', error);
+      logger.error('BatchTranslationService: 解析响应发生致命错误', error);
       return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
     }
   }
@@ -427,7 +428,7 @@ export class BatchTranslationService {
       batches.push(currentBatch);
     }
 
-    console.log(`BatchTranslationService: ${paragraphs.length} 个段落分为 ${batches.length} 批`);
+    logger.info(`BatchTranslationService: ${paragraphs.length} 个段落分为 ${batches.length} 批`);
     return batches;
   }
 }

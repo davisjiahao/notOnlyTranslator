@@ -1,5 +1,6 @@
 import type { ApiProvider, ModelInfo } from '../types';
 import { getProviderConfig, requiresSecondaryKey } from '../constants/providers';
+import { logger } from '../utils';
 
 /**
  * 模型服务
@@ -37,7 +38,7 @@ export async function getModels(
     const models = await fetchModels(provider, apiKey, customEndpoint, secondaryKey);
     return models.length > 0 ? models : config.defaultModels;
   } catch (error) {
-    console.warn(`获取 ${config.name} 模型列表失败，使用预定义列表:`, error);
+    logger.warn(`获取 ${config.name} 模型列表失败，使用预定义列表:`, error);
     return config.defaultModels;
   }
 }

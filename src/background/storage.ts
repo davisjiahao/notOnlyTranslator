@@ -7,6 +7,7 @@ import type {
   ApiConfig,
 } from '@/shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE, STORAGE_KEYS } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 
 /**
  * Storage Manager - handles all chrome.storage operations
@@ -102,7 +103,7 @@ export class StorageManager {
   static async getApiKey(): Promise<string> {
     const settings = await this.getSettings();
 
-    console.log('StorageManager.getApiKey: 检查配置', {
+    logger.info('StorageManager.getApiKey: 检查配置', {
       activeApiConfigId: settings.activeApiConfigId,
       apiConfigsCount: settings.apiConfigs?.length || 0,
       apiConfigs: settings.apiConfigs?.map(c => ({ id: c.id, name: c.name, hasKey: !!c.apiKey })),
@@ -113,7 +114,7 @@ export class StorageManager {
       const activeConfig = settings.apiConfigs.find(
         (config) => config.id === settings.activeApiConfigId
       );
-      console.log('StorageManager.getApiKey: 激活配置', {
+      logger.info('StorageManager.getApiKey: 激活配置', {
         found: !!activeConfig,
         configId: activeConfig?.id,
         hasApiKey: !!activeConfig?.apiKey,
@@ -125,7 +126,7 @@ export class StorageManager {
 
     // 回退到旧版的 apiKey 字段
     const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.API_KEY);
-    console.log('StorageManager.getApiKey: 回退到旧版 apiKey', {
+    logger.info('StorageManager.getApiKey: 回退到旧版 apiKey', {
       hasKey: !!data[STORAGE_KEYS.SYNC.API_KEY],
     });
     return data[STORAGE_KEYS.SYNC.API_KEY] || '';

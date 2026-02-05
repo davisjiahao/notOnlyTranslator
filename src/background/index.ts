@@ -6,6 +6,7 @@ import type {
   BatchTranslationRequest,
 } from '@/shared/types';
 import { CONTEXT_MENU_IDS } from '@/shared/constants';
+import { logger } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
@@ -13,13 +14,13 @@ import { BatchTranslationService } from './batchTranslation';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
 
-console.log('NotOnlyTranslator: Background service worker started');
+logger.info('NotOnlyTranslator: Background service worker started');
 
 // 初始化核心服务
 Promise.all([
-  enhancedCache.initialize().then(() => console.log('NotOnlyTranslator: 增强缓存已初始化')),
-  frequencyManager.initialize().then(() => console.log('NotOnlyTranslator: 词频管理器已初始化'))
-]).catch(err => console.error('NotOnlyTranslator: 初始化失败', err));
+  enhancedCache.initialize().then(() => logger.info('NotOnlyTranslator: 增强缓存已初始化')),
+  frequencyManager.initialize().then(() => logger.info('NotOnlyTranslator: 词频管理器已初始化'))
+]).catch(err => logger.error('NotOnlyTranslator: 初始化失败', err));
 
 // Initialize context menus on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -48,7 +49,7 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ['selection'],
   });
 
-  console.log('NotOnlyTranslator installed and context menus created');
+  logger.info('NotOnlyTranslator installed and context menus created');
 });
 
 // Handle context menu clicks
@@ -109,7 +110,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           payload: { word: selectedText, translation },
         });
       } catch (error) {
-        console.error('Failed to add to vocabulary:', error);
+        logger.error('Failed to add to vocabulary:', error);
       }
       break;
   }
@@ -137,22 +138,22 @@ chrome.runtime.onMessage.addListener(
 );
 
 async function handleMessage(message: Message): Promise<MessageResponse> {
-  console.log('NotOnlyTranslator: Received message:', message.type);
+  logger.info('NotOnlyTranslator: Received message:', message.type);
 
   switch (message.type) {
     case 'TRANSLATE_TEXT': {
       try {
         const request = message.payload as TranslationRequest;
         const userProfile = await StorageManager.getUserProfile();
-        console.log('NotOnlyTranslator: Translating text, length:', request.text?.length);
+        logger.info('NotOnlyTranslator: Translating text, length:', request.text?.length);
         const result = await TranslationService.translate({
           ...request,
           userLevel: userProfile,
         });
-        console.log('NotOnlyTranslator: Translation result:', result);
+        logger.info('NotOnlyTranslator: Translation result:', result);
         return { success: true, data: result };
       } catch (error) {
-        console.error('NotOnlyTranslator: Translation error:', error);
+        logger.error('NotOnlyTranslator: Translation error:', error);
         return { success: false, error: (error as Error).message };
       }
     }
@@ -161,7 +162,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
     case 'BATCH_TRANSLATE_TEXT': {
       try {
         const request = message.payload as BatchTranslationRequest;
-        console.log('NotOnlyTranslator: 批量翻译请求，段落数:', request.paragraphs?.length);
+        logger.info('NotOnlyTranslator: 批量翻译请求，段落数:', request.paragraphs?.length);
 
         // 获取用户配置
         const userProfile = await StorageManager.getUserProfile();
@@ -170,7 +171,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         // 调用批量翻译服务
         const response = await BatchTranslationService.translateBatch(request);
 
-        console.log('NotOnlyTranslator: 批量翻译完成', {
+        logger.info('NotOnlyTranslator: 批量翻译完成', {
           total: response.results.length,
           apiCalls: response.apiCallCount,
           cacheHits: response.cacheHitCount,
@@ -178,7 +179,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
 
         return { success: true, data: response };
       } catch (error) {
-        console.error('NotOnlyTranslator: 批量翻译错误:', error);
+        logger.error('NotOnlyTranslator: 批量翻译错误:', error);
         return { success: false, error: (error as Error).message };
       }
     }
@@ -242,7 +243,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
           }
         }
       } catch (error) {
-        console.error('NotOnlyTranslator: 通知标签页设置更新失败', error);
+        logger.error('NotOnlyTranslator: 通知标签页设置更新失败', error);
       }
 
       return { success: true };

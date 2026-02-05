@@ -4,6 +4,7 @@ import cet6Vocab from '@/data/vocabulary/cet6.json';
 import toeflVocab from '@/data/vocabulary/toefl.json';
 import ieltsVocab from '@/data/vocabulary/ielts.json';
 import greVocab from '@/data/vocabulary/gre.json';
+import { logger } from '@/shared/utils';
 
 type WordList = Set<string>;
 
@@ -49,9 +50,9 @@ export class FrequencyManager {
       this.wordSets.set('gre', new Set(greVocab.words));
 
       this.initialized = true;
-      console.log('FrequencyManager: Initialized with', this.wordSets.size, 'vocabularies');
+      logger.info('FrequencyManager: Initialized with', this.wordSets.size, 'vocabularies');
     } catch (error) {
-      console.error('FrequencyManager: Initialization failed', error);
+      logger.error('FrequencyManager: Initialization failed', error);
     }
   }
 

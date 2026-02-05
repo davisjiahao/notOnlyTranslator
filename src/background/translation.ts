@@ -10,6 +10,7 @@ import {
 import {
   generateCacheKey,
   normalizeText,
+  logger,
 } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { TranslationApiService } from './translationApi';
@@ -24,20 +25,20 @@ export class TranslationService {
    */
   static async translate(request: TranslationRequest): Promise<TranslationResult> {
     const { text, mode } = request;
-    console.log('TranslationService.translate called:', { textLength: text?.length, mode });
+    logger.info('TranslationService.translate called:', { textLength: text?.length, mode });
 
     // Check cache first
     const cacheKey = generateCacheKey(text, mode);
     const cached = await StorageManager.getCachedTranslation(cacheKey);
     if (cached) {
-      console.log('TranslationService: Returning cached result');
+      logger.info('TranslationService: Returning cached result');
       return cached;
     }
 
     // Get settings for API config
     const settings = await StorageManager.getSettings();
     const apiKey = await StorageManager.getApiKey();
-    console.log('TranslationService: Settings loaded:', {
+    logger.info('TranslationService: Settings loaded:', {
       apiProvider: settings.apiProvider,
       hasApiKey: !!apiKey,
       customApiUrl: settings.customApiUrl,
@@ -51,14 +52,14 @@ export class TranslationService {
 
     // Build prompt
     const prompt = this.buildPrompt(request);
-    console.log('TranslationService: Prompt built, length:', prompt.length);
+    logger.info('TranslationService: Prompt built, length:', prompt.length);
 
     // 使用统一 API 服务调用 LLM
-    console.log('TranslationService: Calling API provider:', settings.apiProvider);
+    logger.info('TranslationService: Calling API provider:', settings.apiProvider);
     const content = await TranslationApiService.call(prompt, apiKey, settings);
     const result = this.parseResponse(content);
 
-    console.log('TranslationService: API call completed, result:', {
+    logger.info('TranslationService: API call completed, result:', {
       wordsCount: result.words?.length,
       hasFullText: !!result.fullText
     });
@@ -133,7 +134,7 @@ export class TranslationService {
 
       return result;
     } catch (error) {
-      console.error('Failed to parse LLM response:', error);
+      logger.error('Failed to parse LLM response:', error);
       throw new Error('Failed to parse translation response');
     }
   }
