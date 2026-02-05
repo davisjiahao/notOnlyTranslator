@@ -268,6 +268,8 @@ export class TranslationDisplay {
    * 在译文中包裹单个生词
    * 格式：<span class="highlighted-translation">译文<span class="原文标注">原文</span></span>
    * 使用与对照翻译相同的样式类，确保样式一致
+   *
+   * 改进：保留DOM结构，不破坏链接、按钮等元素
    */
   private static wrapTranslationWord(
     container: HTMLElement,
@@ -289,6 +291,28 @@ export class TranslationDisplay {
 
       // 检查是否已经在标注内，避免重复包装
       if ((parent as HTMLElement).classList?.contains('not-translator-highlighted-translation')) {
+        continue;
+      }
+
+      // 检查是否在需要保留的DOM元素内（链接、按钮等）
+      // 如果是，跳过标注以保留DOM结构
+      const preservableTags = ['A', 'BUTTON', 'STRONG', 'B', 'EM', 'I', 'CODE'];
+      let shouldSkip = false;
+      let checkNode: Node = currentNode;
+
+      // 向上查找是否有需要保留的父元素
+      while (checkNode !== container && checkNode.parentNode) {
+        const parentElement = checkNode.parentNode as HTMLElement;
+        if (preservableTags.includes(parentElement.tagName) ||
+            parentElement.hasAttribute('onclick')) {
+          // 在链接、按钮等元素内，跳过标注以保留DOM结构
+          shouldSkip = true;
+          break;
+        }
+        checkNode = checkNode.parentNode;
+      }
+
+      if (shouldSkip) {
         continue;
       }
 
@@ -314,12 +338,14 @@ export class TranslationDisplay {
       originalSpan.textContent = word.original;
       wrapper.appendChild(originalSpan);
 
-      // 替换节点
+      // 如果需要在保留的DOM元素内操作，则不替换整个父元素
+      // 创建片段来替换当前文本节点
       const fragment = document.createDocumentFragment();
       if (beforeText) fragment.appendChild(document.createTextNode(beforeText));
       fragment.appendChild(wrapper);
       if (afterText) fragment.appendChild(document.createTextNode(afterText));
 
+      // 替换节点
       parent.replaceChild(fragment, currentNode);
       break; // 只替换第一个匹配
     }
