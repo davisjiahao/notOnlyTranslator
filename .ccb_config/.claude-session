@@ -1,0 +1,14 @@
+{
+  "session_id": "ai-1769794246-4617",
+  "ccb_project_id": "5c55308c2c9ca90cdd56078ae391aa75044e56f4826e7a0477824c4592c15f41",
+  "work_dir": "/Users/hungrywu/Documents/opensrc/notOnlyTranslator",
+  "work_dir_norm": "/Users/hungrywu/Documents/opensrc/notOnlyTranslator",
+  "start_dir": "/Users/hungrywu/Documents/opensrc/notOnlyTranslator",
+  "terminal": "wezterm",
+  "active": false,
+  "started_at": "2026-01-28 23:53:06",
+  "updated_at": "2026-01-31 01:30:46",
+  "pane_id": "8",
+  "pane_title_marker": "CCB-Claude",
+  "ended_at": "2026-01-31 23:29:26"
+}

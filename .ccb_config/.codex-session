@@ -1,0 +1,23 @@
+{
+  "session_id": "ai-1769794246-4617",
+  "ccb_project_id": "5c55308c2c9ca90cdd56078ae391aa75044e56f4826e7a0477824c4592c15f41",
+  "runtime_dir": "/var/folders/1d/j3k6h9qd3x3d24dxt9rmhhgw0000gn/T/claude-ai-hungrywu/ai-1769794246-4617/codex",
+  "input_fifo": "/var/folders/1d/j3k6h9qd3x3d24dxt9rmhhgw0000gn/T/claude-ai-hungrywu/ai-1769794246-4617/codex/input.fifo",
+  "output_fifo": "/var/folders/1d/j3k6h9qd3x3d24dxt9rmhhgw0000gn/T/claude-ai-hungrywu/ai-1769794246-4617/codex/output.fifo",
+  "terminal": "wezterm",
+  "tmux_session": null,
+  "pane_id": "7",
+  "pane_title_marker": "CCB-Codex",
+  "tmux_log": "/var/folders/1d/j3k6h9qd3x3d24dxt9rmhhgw0000gn/T/claude-ai-hungrywu/ai-1769794246-4617/codex/bridge_output.log",
+  "work_dir": "/Users/hungrywu/Documents/opensrc/notOnlyTranslator",
+  "work_dir_norm": "/Users/hungrywu/Documents/opensrc/notOnlyTranslator",
+  "start_dir": "/Users/hungrywu/Documents/opensrc/notOnlyTranslator",
+  "active": false,
+  "started_at": "2026-01-31 01:30:46",
+  "start_cmd": "codex -c disable_paste_burst=true resume 019c0a67-4bc6-77c1-98fb-7ef9675e8164; code=$?; echo; echo \"[codex] exited with code $code. Press Enter to close...\"; read -r _; exit $code",
+  "ended_at": "2026-01-31 23:29:26",
+  "codex_start_cmd": "codex resume 019c0a67-4bc6-77c1-98fb-7ef9675e8164",
+  "codex_session_id": "019c0a67-4bc6-77c1-98fb-7ef9675e8164",
+  "codex_session_path": "/Users/hungrywu/.codex/sessions/2026/01/29/rollout-2026-01-29T23-37-47-019c0a67-4bc6-77c1-98fb-7ef9675e8164.jsonl",
+  "updated_at": "2026-01-31 01:30:46"
+}

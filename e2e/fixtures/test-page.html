@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NotOnlyTranslator Test Page</title>
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .article {
+            margin: 20px 0;
+        }
+        .complex-text {
+            background: #f5f5f5;
+            padding: 15px;
+            border-left: 4px solid #007acc;
+            margin: 15px 0;
+        }
+        .vocabulary-test {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .word-item {
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>NotOnlyTranslator Extension Test Page</h1>
+
+    <div class="article">
+        <h2>Article with Mixed Vocabulary Complexity</h2>
+        <p>
+            The ubiquitous nature of smartphones has revolutionized modern communication.
+            People from all walks of life now carry powerful computing devices in their pockets.
+            This democratization of technology has both advantages and challenges.
+        </p>
+        <p>
+            However, the proliferation of misinformation through social media platforms
+            has become a significant concern. Users must develop critical thinking skills
+            to navigate the complex information landscape effectively.
+        </p>
+    </div>
+
+    <div class="complex-text">
+        <h3>Advanced Vocabulary Test Section</h3>
+        <p>
+            The ephemeral nature of digital content creates unique archival challenges.
+            Institutions must grapple with the obsolescence of file formats and storage media.
+            The juxtaposition of rapid technological advancement with long-term preservation
+            needs requires innovative solutions and interdisciplinary collaboration.
+        </p>
+    </div>
+
+    <div class="vocabulary-test">
+        <div class="word-item">Serendipity</div>
+        <div class="word-item">Epistemology</div>
+        <div class="word-item">Quintessential</div>
+        <div class="word-item">Paradigm</div>
+        <div class="word-item">Synthesis</div>
+        <div class="word-item">Dichotomy</div>
+    </div>
+
+    <div class="article">
+        <h2>Simple Text for Comparison</h2>
+        <p>
+            The cat sat on the mat. It was a warm day. The sun was shining.
+            Birds were singing in the trees. Everything seemed peaceful and calm.
+        </p>
+    </div>
+
+    <script>
+        // 标记页面已加载，供扩展检测
+        window.__TEST_PAGE_LOADED__ = true;
+        console.log('[Test Page] NotOnlyTranslator test page loaded');
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# E2E 测试生成文件
+screenshots/
+test-results/
+playwright-report/
+test-results/
+
+# Playwright 缓存
+.playwright/
+
+# 临时文件
+*.log
