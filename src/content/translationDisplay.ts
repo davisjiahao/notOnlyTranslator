@@ -1,4 +1,4 @@
-import type { TranslationResult, TranslationMode, TranslatedWord } from '@/shared/types';
+import type { TranslationResult, TranslationMode, TranslatedWord, TranslatedSentence } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
 
 /**
@@ -208,7 +208,8 @@ export class TranslationDisplay {
 
   /**
    * 模式3: 全文翻译（译文替换原文模式）
-   * 直接用译文替换原文内容，在译文内部使用与对照翻译相同的样式标注生词
+   * 用译文替换原文内容，同时保留 DOM 结构（链接、样式、事件等）
+   * 并在译文中标注生词的原文
    */
   private static applyFullTranslateModeNonInvasive(
     paragraph: HTMLElement,
@@ -219,14 +220,26 @@ export class TranslationDisplay {
       return;
     }
 
-    // 保存原始HTML（用于恢复）
+    // 保存原始文本
     this.saveOriginalText(paragraph);
 
-    // 直接用译文替换原文内容
-    paragraph.textContent = result.fullText;
+    // 检查是否有需要保留的 DOM 结构（链接、格式元素等）
+    const hasPreservableElements = paragraph.querySelector(
+      'a, strong, b, em, i, code, span[style], span[onclick], button'
+    ) !== null;
 
-    // 在译文内部标注生词，使用与对照翻译相同的样式
-    this.annotateWordsInTranslation(paragraph, result);
+    if (hasPreservableElements) {
+      // 使用保留 DOM 结构的替换方法
+      this.replaceTextPreservingDom(paragraph, result);
+    } else {
+      // 简单结构，直接替换
+      paragraph.textContent = result.fullText;
+    }
+
+    // 在译文中标注生词（译文后附加原文）
+    if (result.words && result.words.length > 0) {
+      this.annotateWordsInTranslation(paragraph, result);
+    }
 
     paragraph.classList.add('not-translator-processed');
     paragraph.classList.add('not-translator-full-translated');
@@ -234,31 +247,35 @@ export class TranslationDisplay {
 
   /**
    * 在译文内部标注生词
-   * 使用与对照翻译（bilingual模式）相同的样式类
+   * 将译文中的生词用 span 包裹，并附加原文标注
+   * 样式与对照翻译中的高亮译文保持一致
    */
   private static annotateWordsInTranslation(
-    paragraph: HTMLElement,
+    container: HTMLElement,
     result: TranslationResult
   ): void {
-    // 按原始顺序处理词汇（避免位置偏移问题）
-    const sortedWords = [...result.words].sort((a, b) => a.position[0] - b.position[0]);
+    // 按长度降序排序，先处理长的避免被短的破坏
+    const sortedWords = [...result.words].sort(
+      (a, b) => b.translation.length - a.translation.length
+    );
 
-    for (let i = 0; i < sortedWords.length; i++) {
-      const word = sortedWords[i];
-      this.wrapTranslationWord(paragraph, word, i);
+    for (const word of sortedWords) {
+      this.wrapTranslationWord(container, word);
     }
   }
 
   /**
    * 在译文中包裹单个生词
-   * 使用与对照翻译相同的 not-translator-highlighted-translation 样式
+   * 格式：<span class="highlighted-translation">译文<span class="原文标注">原文</span></span>
+   * 使用与对照翻译相同的样式类，确保样式一致
+   *
+   * 改进：保留DOM结构，不破坏链接、按钮等元素
    */
   private static wrapTranslationWord(
-    paragraph: HTMLElement,
-    word: TranslatedWord,
-    index: number
+    container: HTMLElement,
+    word: TranslatedWord
   ): void {
-    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, null);
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
     let currentNode: Text | null;
 
     while ((currentNode = walker.nextNode() as Text | null)) {
@@ -266,40 +283,230 @@ export class TranslationDisplay {
       const translation = word.translation;
 
       // 查找译文中的对应词汇
-      const idx = nodeText.indexOf(translation);
-      if (idx === -1) continue;
+      const index = nodeText.indexOf(translation);
+      if (index === -1) continue;
 
       const parent = currentNode.parentNode;
       if (!parent) continue;
 
-      // 检查是否已经在高亮元素内
-      const parentEl = parent as HTMLElement;
-      if (parentEl.classList?.contains('not-translator-highlighted-translation') ||
-          parentEl.classList?.contains('not-translator-highlight')) {
+      // 检查是否已经在标注内，避免重复包装
+      if ((parent as HTMLElement).classList?.contains('not-translator-highlighted-translation')) {
+        continue;
+      }
+
+      // 检查是否在需要保留的DOM元素内（链接、按钮等）
+      // 如果是，跳过标注以保留DOM结构
+      const preservableTags = ['A', 'BUTTON', 'STRONG', 'B', 'EM', 'I', 'CODE'];
+      let shouldSkip = false;
+      let checkNode: Node = currentNode;
+
+      // 向上查找是否有需要保留的父元素
+      while (checkNode !== container && checkNode.parentNode) {
+        const parentElement = checkNode.parentNode as HTMLElement;
+        if (preservableTags.includes(parentElement.tagName) ||
+            parentElement.hasAttribute('onclick')) {
+          // 在链接、按钮等元素内，跳过标注以保留DOM结构
+          shouldSkip = true;
+          break;
+        }
+        checkNode = checkNode.parentNode;
+      }
+
+      if (shouldSkip) {
         continue;
       }
 
       // 分割文本
-      const beforeText = nodeText.slice(0, idx);
-      const matchedText = nodeText.slice(idx, idx + translation.length);
-      const afterText = nodeText.slice(idx + translation.length);
+      const beforeText = nodeText.slice(0, index);
+      const matchedText = nodeText.slice(index, index + translation.length);
+      const afterText = nodeText.slice(index + translation.length);
 
-      // 使用与对照翻译相同的样式类
-      const highlightSpan = document.createElement('span');
-      highlightSpan.className = 'not-translator-highlighted-translation';
-      highlightSpan.setAttribute('data-index', String(index));
-      highlightSpan.setAttribute('data-word', word.original);
-      highlightSpan.setAttribute('data-difficulty', String(word.difficulty));
-      highlightSpan.textContent = matchedText;
+      // 创建包裹元素 - 使用与对照翻译相同的样式类
+      const wrapper = document.createElement('span');
+      wrapper.className = 'not-translator-highlighted-translation';
+      wrapper.setAttribute('data-difficulty', String(word.difficulty));
+      wrapper.setAttribute('data-original', word.original);
+      wrapper.setAttribute('data-word', word.original);
+      wrapper.title = `${word.original} - 难度${word.difficulty}`;
 
-      // 替换节点
+      // 译文部分（主显示）
+      wrapper.textContent = matchedText;
+
+      // 原文标注部分（紧随其后，使用与行内翻译相同的样式）
+      const originalSpan = document.createElement('span');
+      originalSpan.className = 'not-translator-inline-translation';
+      originalSpan.textContent = word.original;
+      wrapper.appendChild(originalSpan);
+
+      // 如果需要在保留的DOM元素内操作，则不替换整个父元素
+      // 创建片段来替换当前文本节点
       const fragment = document.createDocumentFragment();
       if (beforeText) fragment.appendChild(document.createTextNode(beforeText));
-      fragment.appendChild(highlightSpan);
+      fragment.appendChild(wrapper);
       if (afterText) fragment.appendChild(document.createTextNode(afterText));
 
+      // 替换节点
       parent.replaceChild(fragment, currentNode);
       break; // 只替换第一个匹配
+    }
+  }
+
+  /**
+   * 保留 DOM 结构的文本替换
+   * 使用 TreeWalker 遍历文本节点，逐个替换文本内容
+   */
+  private static replaceTextPreservingDom(
+    paragraph: HTMLElement,
+    result: TranslationResult
+  ): void {
+    const walker = document.createTreeWalker(
+      paragraph,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    // 收集所有文本节点及其原始长度（用于后续按比例分配）
+    const textNodesInfo: Array<{ node: Text; originalLength: number }> = [];
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      if (node.textContent?.trim()) {
+        textNodesInfo.push({
+          node,
+          originalLength: node.textContent.length
+        });
+      }
+    }
+
+    if (textNodesInfo.length === 0) {
+      paragraph.textContent = result.fullText || '';
+      return;
+    }
+
+    const textNodes = textNodesInfo.map(info => info.node);
+
+    // 优先使用 sentences 数据进行句子级别替换
+    if (result.sentences && result.sentences.length > 0) {
+      this.replaceBySentences(textNodes, result.sentences);
+    }
+
+    // 使用 words 数据替换剩余的英文单词
+    if (result.words && result.words.length > 0) {
+      this.replaceByWords(textNodes, result.words);
+    }
+
+    // 最后检查：如果英文残留太多，使用 fullText 按比例分配（基于原始长度）
+    this.handleRemainingText(paragraph, textNodesInfo, result.fullText || '');
+  }
+
+  /**
+   * 使用 sentences 数据替换文本
+   * 注意：如果句子跨越多个文本节点，此方法可能无法完全替换，
+   * 残留的英文会由后续的 words 替换或 handleRemainingText 处理
+   */
+  private static replaceBySentences(
+    textNodes: Text[],
+    sentences: TranslatedSentence[]
+  ): void {
+    // 按长度降序排序，先替换长的避免部分匹配问题
+    const sorted = [...sentences].sort(
+      (a, b) => b.original.length - a.original.length
+    );
+
+    for (const sentence of sorted) {
+      if (!sentence.original || !sentence.translation) continue;
+
+      // 尝试在单个文本节点中找到完整句子
+      for (const textNode of textNodes) {
+        const content = textNode.textContent || '';
+        if (content.includes(sentence.original)) {
+          textNode.textContent = content.replace(
+            sentence.original,
+            sentence.translation
+          );
+          break; // 每个句子只替换一次
+        }
+      }
+    }
+  }
+
+  /**
+   * 使用 words 数据替换剩余的英文单词
+   */
+  private static replaceByWords(
+    textNodes: Text[],
+    words: TranslatedWord[]
+  ): void {
+    const sorted = [...words].sort(
+      (a, b) => b.original.length - a.original.length
+    );
+
+    // 单词边界检查函数（包含 Unicode 字符支持）
+    const isWordBoundary = (char: string) =>
+      /[\s.,!?;:'"()[\]{}<>/\\-\u4e00-\u9fff\u3040-\u30ff]/.test(char) || char === '';
+
+    for (const word of sorted) {
+      for (const textNode of textNodes) {
+        const content = textNode.textContent || '';
+        const lowerContent = content.toLowerCase();
+        const lowerOriginal = word.original.toLowerCase();
+        const index = lowerContent.indexOf(lowerOriginal);
+
+        if (index !== -1) {
+          const before = index > 0 ? content[index - 1] : ' ';
+          const after = index + word.original.length < content.length
+            ? content[index + word.original.length]
+            : ' ';
+
+          if (isWordBoundary(before) && isWordBoundary(after)) {
+            const beforeText = content.slice(0, index);
+            const afterText = content.slice(index + word.original.length);
+
+            // 替换为译文
+            textNode.textContent = beforeText + word.translation + afterText;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 处理残留文本：如果还有大量英文，按比例分配 fullText
+   * 使用原始文本长度进行比例计算，避免被之前的替换影响
+   */
+  private static handleRemainingText(
+    paragraph: HTMLElement,
+    textNodesInfo: Array<{ node: Text; originalLength: number }>,
+    fullText: string
+  ): void {
+    const remainingText = paragraph.textContent || '';
+    // 匹配3个字符以上的英文单词（排除 "a", "an", "the" 等短词干扰）
+    const englishWords = remainingText.match(/[a-zA-Z]{3,}/g) || [];
+
+    // 英文残留阈值：超过5个单词说明之前的替换策略效果不佳
+    const REMAINING_ENGLISH_THRESHOLD = 5;
+    if (englishWords.length > REMAINING_ENGLISH_THRESHOLD) {
+      // 使用原始长度计算比例
+      const totalOriginalLength = textNodesInfo.reduce(
+        (sum, info) => sum + info.originalLength, 0
+      );
+
+      if (totalOriginalLength === 0) return;
+
+      let translationPos = 0;
+      for (let i = 0; i < textNodesInfo.length; i++) {
+        const { node, originalLength } = textNodesInfo[i];
+        const ratio = originalLength / totalOriginalLength;
+        const translationLength = Math.round(ratio * fullText.length);
+
+        // 最后一个节点取剩余所有文本
+        const endPos = i === textNodesInfo.length - 1
+          ? fullText.length
+          : Math.min(translationPos + translationLength, fullText.length);
+
+        node.textContent = fullText.slice(translationPos, endPos);
+        translationPos = endPos;
+      }
     }
   }
 
@@ -402,32 +609,30 @@ export class TranslationDisplay {
    * 清除段落中的翻译
    */
   static clearTranslation(paragraph: HTMLElement): void {
-    if (!paragraph.classList.contains('not-translator-processed')) {
-      return;
-    }
-
-    // 移除后面添加的译文行
-    let nextSibling = paragraph.nextElementSibling;
-    while (nextSibling) {
-      if (
-        nextSibling.classList.contains('not-translator-translation-line') ||
-        nextSibling.classList.contains('not-translator-full-translation')
-      ) {
-        const toRemove = nextSibling;
-        nextSibling = nextSibling.nextElementSibling;
-        toRemove.remove();
-      } else {
-        break;
+    if (paragraph.classList.contains('not-translator-processed')) {
+      // 移除后面添加的译文行
+      let nextSibling = paragraph.nextElementSibling;
+      while (nextSibling) {
+        if (
+          nextSibling.classList.contains('not-translator-translation-line') ||
+          nextSibling.classList.contains('not-translator-full-translation')
+        ) {
+          const toRemove = nextSibling;
+          nextSibling = nextSibling.nextElementSibling;
+          toRemove.remove();
+        } else {
+          break;
+        }
       }
-    }
 
-    // 恢复原始HTML
-    if (paragraph.dataset.originalHtml) {
-      paragraph.innerHTML = paragraph.dataset.originalHtml;
-    }
+      // 恢复原始HTML
+      if (paragraph.dataset.originalHtml) {
+        paragraph.innerHTML = paragraph.dataset.originalHtml;
+      }
 
-    paragraph.classList.remove('not-translator-processed');
-    paragraph.classList.remove('not-translator-full-translated');
+      paragraph.classList.remove('not-translator-processed');
+      paragraph.classList.remove('not-translator-full-translated');
+    }
   }
 
   /**

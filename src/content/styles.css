@@ -440,6 +440,62 @@
   font-weight: 500;
 }
 
+/* ========== 全文翻译模式下的生词标注样式 ========== */
+
+/* 全文翻译模式中的生词高亮 */
+.not-translator-full-translated .not-translator-highlighted-translation {
+  background-color: rgba(96, 165, 250, 0.15);
+  border-bottom: 1.5px solid #60a5fa;
+  border-radius: 2px;
+  padding: 0 3px;
+  font-weight: 500;
+  cursor: help;
+  transition: all 0.15s ease;
+}
+
+.not-translator-full-translated .not-translator-highlighted-translation:hover {
+  background-color: rgba(96, 165, 250, 0.25);
+  border-bottom-color: #3b82f6;
+}
+
+/* 全文翻译模式中的原文标注（内部span） */
+.not-translator-full-translated .not-translator-highlighted-translation .not-translator-inline-translation {
+  display: inline;
+  margin-left: 2px;
+  padding: 1px 3px;
+  font-size: 0.75em;
+  color: #6b7280;
+  background-color: rgba(243, 244, 246, 0.9);
+  border-radius: 2px;
+  font-weight: 400;
+  vertical-align: baseline;
+}
+
+.not-translator-full-translated .not-translator-highlighted-translation:hover .not-translator-inline-translation {
+  background-color: rgba(96, 165, 250, 0.15);
+  color: #4b5563;
+}
+
+/* 难度等级样式 - 在全文翻译模式中 */
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="1"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="2"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="3"] {
+  border-bottom-color: #86efac;
+}
+
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="4"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="5"] {
+  border-bottom-color: #fdba74;
+}
+
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="6"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="7"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="8"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="9"],
+.not-translator-full-translated .not-translator-highlighted-translation[data-difficulty="10"] {
+  border-bottom-color: #fca5a5;
+}
+
 /* JavaScript 控制的悬停联动效果 */
 .not-translator-highlighted-word.not-translator-hover-linked {
   background-color: rgba(96, 165, 250, 0.2) !important;
