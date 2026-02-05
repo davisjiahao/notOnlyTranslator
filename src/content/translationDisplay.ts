@@ -1,6 +1,5 @@
 import type { TranslationResult, TranslationMode, TranslatedWord } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
-import { logger } from '@/shared/utils';
 
 /**
  * TranslationDisplay - 根据不同模式渲染翻译结果
