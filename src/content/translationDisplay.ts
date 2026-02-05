@@ -207,8 +207,8 @@ export class TranslationDisplay {
   }
 
   /**
-   * 模式3: 全文翻译（非侵入式）
-   * 在原文中高亮生词，在段落后添加完整译文
+   * 模式3: 全文翻译（译文替换原文模式）
+   * 用译文直接替换原文内容，不保留原文
    */
   private static applyFullTranslateModeNonInvasive(
     paragraph: HTMLElement,
@@ -219,39 +219,14 @@ export class TranslationDisplay {
       return;
     }
 
-    // 按位置从后往前排序
-    const sortedWords = [...result.words].sort((a, b) => b.position[0] - a.position[0]);
+    // 保存原始文本
+    this.saveOriginalText(paragraph);
 
-    // 在原文中高亮生词
-    for (const word of sortedWords) {
-      this.wrapWordInText(paragraph, word, false);
-    }
-
-    // 创建译文块
-    const translationDiv = document.createElement('div');
-    translationDiv.className = 'not-translator-full-translation';
-    translationDiv.textContent = result.fullText;
-
-    // 复制原文样式以保持一致性
-    try {
-      const computedStyle = window.getComputedStyle(paragraph);
-      translationDiv.style.fontFamily = computedStyle.fontFamily;
-      translationDiv.style.fontSize = computedStyle.fontSize;
-      translationDiv.style.lineHeight = computedStyle.lineHeight;
-      translationDiv.style.color = computedStyle.color;
-      translationDiv.style.textAlign = computedStyle.textAlign;
-      translationDiv.style.letterSpacing = computedStyle.letterSpacing;
-      // 保持一定的间距
-      translationDiv.style.marginTop = '8px';
-      translationDiv.style.marginBottom = computedStyle.marginBottom;
-    } catch (e) {
-      console.warn('Failed to copy styles from original paragraph:', e);
-    }
-
-    // 在段落后插入译文
-    paragraph.insertAdjacentElement('afterend', translationDiv);
+    // 用译文替换原文内容
+    paragraph.textContent = result.fullText;
 
     paragraph.classList.add('not-translator-processed');
+    paragraph.classList.add('not-translator-full-translated');
   }
 
   /**
@@ -375,6 +350,7 @@ export class TranslationDisplay {
       }
 
       paragraph.classList.remove('not-translator-processed');
+      paragraph.classList.remove('not-translator-full-translated');
     }
   }
 
