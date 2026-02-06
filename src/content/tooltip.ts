@@ -389,6 +389,13 @@ export class Tooltip {
   }
 
   /**
+   * Check if tooltip is currently pinned
+   */
+  isPinned(): boolean {
+    return this.isPinned;
+  }
+
+  /**
    * Position tooltip near target element
    */
   private positionTooltip(target: HTMLElement): void {

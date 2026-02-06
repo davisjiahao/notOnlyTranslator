@@ -75,6 +75,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   blacklist: [],
   apiConfigs: [],
   activeApiConfigId: undefined,
+  hoverDelay: 500, // 默认悬停 500ms 后显示 Tooltip
 };
 
 // Default user profile

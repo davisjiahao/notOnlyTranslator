@@ -150,6 +150,8 @@ export interface UserSettings {
   apiConfigs: ApiConfig[];
   /** 当前激活的 API 配置 ID */
   activeApiConfigId?: string;
+  /** 悬停触发 Tooltip 延迟时间（毫秒），0 表示关闭悬停触发 */
+  hoverDelay: number;
 }
 
 // Storage Types

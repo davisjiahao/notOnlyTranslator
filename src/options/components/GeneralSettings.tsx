@@ -261,6 +261,44 @@ export default function GeneralSettings({
         </div>
       </div>
 
+      {/* Hover Delay */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">悬停触发延迟</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          鼠标悬停在生词上多久后自动显示翻译。设为 0 毫秒可关闭悬停触发，此时需要选中文本才能查看翻译。
+        </p>
+        <div className="flex items-center gap-4">
+          <input
+            type="range"
+            min="0"
+            max="1000"
+            step="100"
+            value={settings.hoverDelay}
+            onChange={(e) => onUpdate({ hoverDelay: Number(e.target.value) })}
+            disabled={isSaving}
+            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
+          />
+          <div className="w-24 text-center">
+            <span className="text-lg font-medium text-gray-900">
+              {settings.hoverDelay}ms
+            </span>
+          </div>
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 mt-2">
+          <span>关闭 (0ms)</span>
+          <span>快 (300ms)</span>
+          <span>中等 (500ms)</span>
+          <span>慢 (1000ms)</span>
+        </div>
+        {settings.hoverDelay === 0 && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="text-sm text-amber-700">
+              悬停触发已关闭，需要选中文本才能查看翻译。
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Website Blacklist */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">网站黑名单</h2>

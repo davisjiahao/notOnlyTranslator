@@ -33,6 +33,11 @@ class NotOnlyTranslator {
   /** 是否使用批量翻译模式 */
   private useBatchMode: boolean = true;
 
+  /** 悬停触发 Tooltip 的定时器 */
+  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 当前悬停的元素 */
+  private hoverElement: HTMLElement | null = null;
+
   constructor() {
     logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
 
@@ -301,6 +306,7 @@ class NotOnlyTranslator {
    * 1. 不拦截原文的点击事件，保持链接等原有功能
    * 2. 使用选中（mouseup）来触发翻译弹窗
    * 3. 只有在选中高亮词时才显示详细信息和操作按钮
+   * 4. 支持悬停延迟触发 Tooltip
    */
   private setupEventListeners(): void {
     // 监听 mouseup 事件，检测用户是否选中了文本
@@ -321,6 +327,161 @@ class NotOnlyTranslator {
         this.tooltip.hide();
       }
     });
+
+    // 悬停触发 Tooltip
+    this.setupHoverListeners();
+  }
+
+  /**
+   * 设置悬停触发 Tooltip 的事件监听
+   */
+  private setupHoverListeners(): void {
+    const hoverDelay = this.settings?.hoverDelay ?? 500;
+    if (hoverDelay <= 0) {
+      logger.info('NotOnlyTranslator: 悬停触发已关闭');
+      return;
+    }
+
+    // 使用事件委托监听 mouseenter/mouseleave
+    document.addEventListener('mouseover', (e) => {
+      if (!this.settings?.enabled) return;
+
+      const target = e.target as HTMLElement;
+
+      // 检查是否是高亮元素或语法高亮
+      const highlightElement = target.classList.contains(CSS_CLASSES.HIGHLIGHT)
+        ? target
+        : target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) as HTMLElement | null;
+
+      const grammarElement = target.classList.contains('not-translator-grammar-highlight')
+        ? target
+        : target.closest('.not-translator-grammar-highlight') as HTMLElement | null;
+
+      const highlightedWord = target.classList.contains('not-translator-highlighted-word')
+        ? target
+        : target.closest('.not-translator-highlighted-word') as HTMLElement | null;
+
+      const highlightedTranslation = target.classList.contains('not-translator-highlighted-translation')
+        ? target
+        : target.closest('.not-translator-highlighted-translation') as HTMLElement | null;
+
+      const validElement = highlightElement || grammarElement || highlightedWord || highlightedTranslation;
+
+      if (!validElement) return;
+
+      // 如果已经悬停在同一元素上，不重复设置
+      if (this.hoverElement === validElement) return;
+
+      // 清除之前的定时器
+      this.clearHoverTimer();
+
+      // 记录当前悬停元素
+      this.hoverElement = validElement;
+
+      // 设置新的定时器
+      this.hoverTimer = setTimeout(() => {
+        this.handleHoverShow(validElement);
+      }, hoverDelay);
+    });
+
+    document.addEventListener('mouseout', (e) => {
+      const target = e.target as HTMLElement;
+
+      // 检查是否离开高亮元素
+      const isLeavingHighlight =
+        target.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
+        target.classList.contains('not-translator-grammar-highlight') ||
+        target.classList.contains('not-translator-highlighted-word') ||
+        target.classList.contains('not-translator-highlighted-translation') ||
+        target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) ||
+        target.closest('.not-translator-grammar-highlight') ||
+        target.closest('.not-translator-highlighted-word') ||
+        target.closest('.not-translator-highlighted-translation');
+
+      if (isLeavingHighlight) {
+        this.clearHoverTimer();
+        this.hoverElement = null;
+
+        // 鼠标移出时隐藏 tooltip（已钉住的除外）
+        if (!this.tooltip.isPinned()) {
+          this.tooltip.hide();
+        }
+      }
+    });
+
+    logger.info(`NotOnlyTranslator: 悬停触发已启用，延迟 ${hoverDelay}ms`);
+  }
+
+  /**
+   * 清除悬停定时器
+   */
+  private clearHoverTimer(): void {
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
+  }
+
+  /**
+   * 处理悬停显示 Tooltip
+   */
+  private handleHoverShow(element: HTMLElement): void {
+    // 语法高亮
+    if (element.classList.contains('not-translator-grammar-highlight')) {
+      const explanation = element.dataset.grammarExplanation || '';
+      const type = element.dataset.grammarType || '语法点';
+      const original = element.dataset.grammarOriginal || element.textContent || '';
+
+      this.tooltip.showGrammar(element, {
+        original,
+        explanation,
+        type,
+        position: [0, 0]
+      });
+      return;
+    }
+
+    // 双文对照模式下的原文高亮或全文翻译模式下的译文高亮
+    if (element.classList.contains('not-translator-highlighted-word') ||
+        element.classList.contains('not-translator-highlighted-translation')) {
+      const word = element.dataset.word || element.textContent?.trim() || '';
+      const translation = element.dataset.translation || '';
+      const difficulty = parseInt(element.dataset.difficulty || '5', 10);
+      const isPhrase = element.dataset.isPhrase === 'true';
+
+      if (word && (translation || element.classList.contains('not-translator-highlighted-translation'))) {
+        // 对于 highlighted-translation，尝试从 data-original 获取原文
+        const originalWord = element.dataset.original || word;
+        this.tooltip.showWord(element, {
+          original: originalWord,
+          translation: translation || originalWord,
+          position: [0, 0],
+          difficulty,
+          isPhrase,
+        });
+      }
+      return;
+    }
+
+    // 普通高亮词（行内模式）
+    const word = element.dataset.word || element.textContent?.replace(/\(.*\)$/, '').trim() || '';
+    const translation = element.dataset.translation || '';
+    const difficulty = parseInt(element.dataset.difficulty || '5', 10);
+    const isPhrase = element.dataset.isPhrase === 'true';
+
+    if (translation) {
+      this.tooltip.showWord(element, {
+        original: word,
+        translation,
+        position: [0, 0],
+        difficulty,
+        isPhrase,
+      });
+    } else if (word) {
+      // 没有翻译数据时，获取翻译
+      this.tooltip.showLoading(element);
+      this.translateSelection(word, element);
+    }
   }
 
   /**
