@@ -391,7 +391,7 @@ export class Tooltip {
   /**
    * Check if tooltip is currently pinned
    */
-  isPinned(): boolean {
+  getPinned(): boolean {
     return this.isPinned;
   }
 

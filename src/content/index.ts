@@ -38,6 +38,11 @@ class NotOnlyTranslator {
   /** 当前悬停的元素 */
   private hoverElement: HTMLElement | null = null;
 
+  /** 当前导航的高亮词索引 */
+  private currentNavigateIndex: number = -1;
+  /** 可导航的高亮词列表 */
+  private navigableHighlights: HTMLElement[] = [];
+
   constructor() {
     logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
 
@@ -403,13 +408,173 @@ class NotOnlyTranslator {
         this.hoverElement = null;
 
         // 鼠标移出时隐藏 tooltip（已钉住的除外）
-        if (!this.tooltip.isPinned()) {
+        if (!this.tooltip.getPinned()) {
           this.tooltip.hide();
         }
       }
     });
 
     logger.info(`NotOnlyTranslator: 悬停触发已启用，延迟 ${hoverDelay}ms`);
+
+    // 键盘导航事件监听
+    this.setupNavigationListeners();
+  }
+
+  /**
+   * 设置键盘导航事件监听
+   */
+  private setupNavigationListeners(): void {
+    document.addEventListener('keydown', (e) => {
+      if (!this.settings?.enabled) return;
+
+      // 只在非输入状态下响应导航快捷键
+      const activeEl = document.activeElement;
+      if (
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        (activeEl as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      const key = e.key;
+
+      // J/↓ 下一个，K/↑ 上一个
+      if (key === 'j' || key === 'J' || key === 'ArrowDown') {
+        e.preventDefault();
+        this.navigateToNext();
+      } else if (key === 'k' || key === 'K' || key === 'ArrowUp') {
+        e.preventDefault();
+        this.navigateToPrevious();
+      }
+    });
+
+    logger.info('NotOnlyTranslator: 键盘导航已启用（J/↓ 下一个，K/↑ 上一个）');
+  }
+
+  /**
+   * 获取页面上所有可导航的高亮元素
+   */
+  private getNavigableHighlights(): HTMLElement[] {
+    const selectors = [
+      `.${CSS_CLASSES.HIGHLIGHT}`,
+      '.not-translator-grammar-highlight',
+      '.not-translator-highlighted-word',
+      '.not-translator-highlighted-translation',
+    ];
+
+    const elements: HTMLElement[] = [];
+    selectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        if (el instanceof HTMLElement) {
+          elements.push(el);
+        }
+      });
+    });
+
+    // 按在页面中的位置排序（从上到下）
+    elements.sort((a, b) => {
+      const rectA = a.getBoundingClientRect();
+      const rectB = b.getBoundingClientRect();
+      if (rectA.top !== rectB.top) {
+        return rectA.top - rectB.top;
+      }
+      return rectA.left - rectB.left;
+    });
+
+    return elements;
+  }
+
+  /**
+   * 导航到下一个高亮词
+   */
+  private navigateToNext(): void {
+    this.navigableHighlights = this.getNavigableHighlights();
+    if (this.navigableHighlights.length === 0) return;
+
+    this.currentNavigateIndex++;
+    if (this.currentNavigateIndex >= this.navigableHighlights.length) {
+      this.currentNavigateIndex = 0; // 循环到第一个
+    }
+
+    this.showNavigationTooltip();
+  }
+
+  /**
+   * 导航到上一个高亮词
+   */
+  private navigateToPrevious(): void {
+    this.navigableHighlights = this.getNavigableHighlights();
+    if (this.navigableHighlights.length === 0) return;
+
+    this.currentNavigateIndex--;
+    if (this.currentNavigateIndex < 0) {
+      this.currentNavigateIndex = this.navigableHighlights.length - 1; // 循环到最后一个
+    }
+
+    this.showNavigationTooltip();
+  }
+
+  /**
+   * 显示当前导航位置的 Tooltip
+   */
+  private showNavigationTooltip(): void {
+    const element = this.navigableHighlights[this.currentNavigateIndex];
+    if (!element) return;
+
+    // 滚动到元素
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // 添加导航高亮效果
+    this.highlightNavigationElement(element);
+
+    // 显示 Tooltip
+    this.handleHoverShow(element);
+
+    // 显示位置指示
+    this.showNavigationIndicator();
+  }
+
+  /**
+   * 高亮当前导航的元素
+   */
+  private highlightNavigationElement(element: HTMLElement): void {
+    // 移除之前的高亮
+    document.querySelectorAll('.not-translator-nav-highlight').forEach((el) => {
+      el.classList.remove('not-translator-nav-highlight');
+    });
+
+    // 添加新的高亮
+    element.classList.add('not-translator-nav-highlight');
+
+    // 2秒后移除高亮效果
+    setTimeout(() => {
+      element.classList.remove('not-translator-nav-highlight');
+    }, 2000);
+  }
+
+  /**
+   * 显示导航位置指示器
+   */
+  private showNavigationIndicator(): void {
+    // 更新 tooltip 标题显示位置
+    const current = this.currentNavigateIndex + 1;
+    const total = this.navigableHighlights.length;
+
+    // 在 tooltip 中添加位置信息
+    const tooltipElement = document.getElementById('not-translator-tooltip');
+    if (tooltipElement) {
+      let indicator = tooltipElement.querySelector('.not-translator-nav-indicator');
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.className = 'not-translator-nav-indicator';
+        const content = tooltipElement.querySelector('.not-translator-tooltip-content');
+        if (content) {
+          content.insertBefore(indicator, content.firstChild);
+        }
+      }
+      indicator.textContent = `${current} / ${total}`;
+    }
   }
 
   /**

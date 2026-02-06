@@ -35,6 +35,35 @@
   background-color: rgba(196, 181, 253, 0.15);
 }
 
+/* 键盘导航高亮效果 */
+.not-translator-nav-highlight {
+  animation: nav-highlight-pulse 2s ease-in-out;
+}
+
+@keyframes nav-highlight-pulse {
+  0%, 100% {
+    background-color: rgba(96, 165, 250, 0.3);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.4);
+  }
+  50% {
+    background-color: rgba(96, 165, 250, 0.5);
+    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.6);
+  }
+}
+
+/* 导航位置指示器 */
+.not-translator-nav-indicator {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #3b82f6;
+  margin-bottom: 8px;
+}
+
 /* Tooltip container */
 .not-translator-tooltip {
   position: absolute;
