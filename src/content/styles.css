@@ -1107,3 +1107,250 @@ a .not-translator-inline-translation,
     font-size: 11px;
   }
 }
+
+/* ========== 浮动按钮样式 ========== */
+
+/* 浮动按钮容器 */
+.not-translator-floating-btn {
+  position: fixed;
+  z-index: 2147483646;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 浮动按钮主体 */
+.not-translator-floating-btn-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 24px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.not-translator-floating-btn-inner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.not-translator-floating-btn-inner:active {
+  transform: translateY(0);
+}
+
+/* 按钮图标 */
+.not-translator-floating-btn-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* 按钮文字 */
+.not-translator-floating-btn-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* 最小化状态 */
+.not-translator-floating-btn.minimized .not-translator-floating-btn-inner {
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.8);
+}
+
+.not-translator-floating-btn.minimized .not-translator-floating-btn-text {
+  display: none;
+}
+
+/* 模式选择面板 */
+.not-translator-floating-panel {
+  position: fixed;
+  z-index: 2147483647;
+  width: 180px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: panel-fade-in 0.2s ease;
+}
+
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 面板头部 */
+.not-translator-floating-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* 面板关闭按钮 */
+.not-translator-floating-panel-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: 300;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.not-translator-floating-panel-close:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+/* 面板内容 */
+.not-translator-floating-panel-content {
+  padding: 8px;
+}
+
+/* 模式选项 */
+.not-translator-floating-mode-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.not-translator-floating-mode-item:hover {
+  background: #f1f5f9;
+}
+
+.not-translator-floating-mode-item.active {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #3b82f6;
+}
+
+/* 模式图标 */
+.not-translator-floating-mode-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* 模式标签 */
+.not-translator-floating-mode-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.not-translator-floating-mode-item.active .not-translator-floating-mode-label {
+  color: #2563eb;
+}
+
+/* 模式描述 */
+.not-translator-floating-mode-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
+}
+
+/* 面板底部 */
+.not-translator-floating-panel-footer {
+  padding: 8px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* 最小化按钮 */
+.not-translator-floating-minimize {
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.not-translator-floating-minimize:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* 暗色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .not-translator-floating-btn-inner {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .not-translator-floating-panel {
+    background: #1e293b;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .not-translator-floating-panel-header {
+    background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+    border-bottom-color: #475569;
+    color: #cbd5e1;
+  }
+
+  .not-translator-floating-panel-close:hover {
+    background: #475569;
+    color: #f1f5f9;
+  }
+
+  .not-translator-floating-mode-item:hover {
+    background: #334155;
+  }
+
+  .not-translator-floating-mode-item.active {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    border-color: #3b82f6;
+  }
+
+  .not-translator-floating-mode-label {
+    color: #e2e8f0;
+  }
+
+  .not-translator-floating-mode-desc {
+    color: #94a3b8;
+  }
+
+  .not-translator-floating-panel-footer {
+    border-top-color: #475569;
+    background: #334155;
+  }
+
+  .not-translator-floating-minimize {
+    border-color: #475569;
+    color: #94a3b8;
+  }
+
+  .not-translator-floating-minimize:hover {
+    background: #475569;
+    color: #e2e8f0;
+  }
+}

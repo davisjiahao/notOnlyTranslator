@@ -12,6 +12,7 @@ import { MarkerService } from './marker';
 import { TranslationDisplay } from './translationDisplay';
 import { ViewportObserver, VisibleParagraph } from './viewportObserver';
 import { BatchTranslationManager } from './batchTranslationManager';
+import { FloatingButton } from './floatingButton';
 
 /**
  * Content Script - main entry point for page interaction
@@ -42,6 +43,9 @@ class NotOnlyTranslator {
   private currentNavigateIndex: number = -1;
   /** 可导航的高亮词列表 */
   private navigableHighlights: HTMLElement[] = [];
+
+  /** 浮动模式切换按钮 */
+  private floatingButton: FloatingButton | null = null;
 
   constructor() {
     logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
@@ -122,6 +126,9 @@ class NotOnlyTranslator {
     // Initial page scan (debounced)
     this.scanPage();
 
+    // 初始化浮动模式切换按钮
+    this.initFloatingButton();
+
     logger.info('NotOnlyTranslator initialized with settings:', this.settings);
   }
 
@@ -149,6 +156,75 @@ class NotOnlyTranslator {
     });
 
     logger.info('NotOnlyTranslator: 批量翻译组件已初始化');
+  }
+
+  /**
+   * 初始化浮动模式切换按钮
+   */
+  private initFloatingButton(): void {
+    // 检查是否在黑名单中
+    if (this.isCurrentPageBlacklisted()) {
+      logger.info('NotOnlyTranslator: 当前页面在黑名单中，不显示浮动按钮');
+      return;
+    }
+
+    // 创建浮动按钮
+    this.floatingButton = new FloatingButton((mode) => {
+      this.handleModeChange(mode);
+    });
+
+    // 设置初始模式
+    if (this.settings?.translationMode) {
+      this.floatingButton.updateMode(this.settings.translationMode);
+    }
+
+    logger.info('NotOnlyTranslator: 浮动按钮已初始化');
+  }
+
+  /**
+   * 处理翻译模式切换
+   */
+  private handleModeChange(mode: TranslationMode): void {
+    if (!this.settings) return;
+
+    // 更新设置
+    const newSettings = { ...this.settings, translationMode: mode };
+    this.settings = newSettings;
+
+    // 更新批量翻译管理器模式
+    this.batchManager?.setMode(mode);
+
+    // 更新浮动按钮显示
+    this.floatingButton?.updateMode(mode);
+
+    // 保存设置到 background
+    this.sendMessage({
+      type: 'UPDATE_SETTINGS',
+      payload: { translationMode: mode }
+    }).then(() => {
+      logger.info(`NotOnlyTranslator: 翻译模式已切换为 ${mode}`);
+    }).catch((error) => {
+      logger.error('NotOnlyTranslator: 保存设置失败:', error);
+    });
+
+    // 刷新页面翻译
+    this.refreshTranslation(mode);
+  }
+
+  /**
+   * 刷新页面翻译（模式切换后）
+   */
+  private refreshTranslation(mode: TranslationMode): void {
+    // 清除所有现有翻译
+    document.querySelectorAll('.not-translator-processed').forEach((el) => {
+      const element = el as HTMLElement;
+      TranslationDisplay.clearTranslation(element);
+    });
+
+    // 重新扫描页面
+    setTimeout(() => {
+      this.scanPage();
+    }, 100);
   }
 
   /**
