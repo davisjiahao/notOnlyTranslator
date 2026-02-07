@@ -48,6 +48,111 @@ class NotOnlyTranslator {
   /** 浮动模式切换按钮 */
   private floatingButton: FloatingButton | null = null;
 
+  /** 导航高亮清除定时器 */
+  private navHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 刷新翻译定时器 */
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ---- 事件处理器（箭头函数保持 this 绑定）----
+
+  private handleMouseUp = (e: MouseEvent): void => {
+    if (!this.settings?.enabled) return;
+    setTimeout(() => {
+      this.handleTextSelection(e);
+    }, 50);
+  };
+
+  private handleMouseDown = (e: MouseEvent): void => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.not-translator-tooltip')) {
+      this.tooltip.hide();
+    }
+  };
+
+  private handleMouseOver = (e: MouseEvent): void => {
+    if (!this.settings?.enabled) return;
+
+    const target = e.target as HTMLElement;
+
+    const highlightElement = target.classList.contains(CSS_CLASSES.HIGHLIGHT)
+      ? target
+      : target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) as HTMLElement | null;
+
+    const grammarElement = target.classList.contains('not-translator-grammar-highlight')
+      ? target
+      : target.closest('.not-translator-grammar-highlight') as HTMLElement | null;
+
+    const highlightedWord = target.classList.contains('not-translator-highlighted-word')
+      ? target
+      : target.closest('.not-translator-highlighted-word') as HTMLElement | null;
+
+    const highlightedTranslation = target.classList.contains('not-translator-highlighted-translation')
+      ? target
+      : target.closest('.not-translator-highlighted-translation') as HTMLElement | null;
+
+    const validElement = highlightElement || grammarElement || highlightedWord || highlightedTranslation;
+
+    if (!validElement) return;
+
+    if (this.hoverElement === validElement) return;
+
+    this.clearHoverTimer();
+
+    this.hoverElement = validElement;
+
+    const hoverDelay = this.settings?.hoverDelay ?? 500;
+    this.hoverTimer = setTimeout(() => {
+      this.handleHoverShow(validElement);
+    }, hoverDelay);
+  };
+
+  private handleMouseOut = (e: MouseEvent): void => {
+    const target = e.target as HTMLElement;
+
+    const isLeavingHighlight =
+      target.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
+      target.classList.contains('not-translator-grammar-highlight') ||
+      target.classList.contains('not-translator-highlighted-word') ||
+      target.classList.contains('not-translator-highlighted-translation') ||
+      target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) ||
+      target.closest('.not-translator-grammar-highlight') ||
+      target.closest('.not-translator-highlighted-word') ||
+      target.closest('.not-translator-highlighted-translation');
+
+    if (isLeavingHighlight) {
+      this.clearHoverTimer();
+      this.hoverElement = null;
+
+      if (!this.tooltip.getPinned()) {
+        this.tooltip.hide();
+      }
+    }
+  };
+
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    if (!this.settings?.enabled) return;
+
+    const activeEl = document.activeElement;
+    if (
+      activeEl?.tagName === 'INPUT' ||
+      activeEl?.tagName === 'TEXTAREA' ||
+      (activeEl as HTMLElement)?.isContentEditable
+    ) {
+      return;
+    }
+
+    const key = e.key;
+
+    if (key === 'j' || key === 'J' || key === 'ArrowDown') {
+      e.preventDefault();
+      this.navigateToNext();
+    } else if (key === 'k' || key === 'K' || key === 'ArrowUp') {
+      e.preventDefault();
+      this.navigateToPrevious();
+    }
+  };
+
   constructor() {
     logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
 
@@ -216,16 +321,36 @@ class NotOnlyTranslator {
    * 刷新页面翻译（模式切换后）
    */
   private refreshTranslation(_mode: TranslationMode): void {
-    // 清除所有现有翻译
-    document.querySelectorAll('.not-translator-processed').forEach((el) => {
-      const element = el as HTMLElement;
-      TranslationDisplay.clearTranslation(element);
-    });
+    // 清理之前的刷新定时器
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
 
-    // 重新扫描页面
-    setTimeout(() => {
+    // 淡出现有翻译
+    const processedElements = document.querySelectorAll<HTMLElement>(
+      '.not-translator-processed, .not-translator-translation-line'
+    );
+    processedElements.forEach((el) => el.classList.add('not-translator-fade-out'));
+
+    // 淡出完成后清理并重新扫描
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+
+      document.querySelectorAll('.not-translator-processed').forEach((el) => {
+        TranslationDisplay.clearTranslation(el as HTMLElement);
+      });
+
+      // 重置批量翻译状态
+      if (this.batchManager) {
+        this.batchManager.clearProcessedCache();
+      }
+      if (this.viewportObserver) {
+        this.viewportObserver.resetTracking();
+      }
+
       this.scanPage();
-    }, 100);
+    }, 150);
   }
 
   /**
@@ -391,24 +516,8 @@ class NotOnlyTranslator {
    * 4. 支持悬停延迟触发 Tooltip
    */
   private setupEventListeners(): void {
-    // 监听 mouseup 事件，检测用户是否选中了文本
-    document.addEventListener('mouseup', (e) => {
-      if (!this.settings?.enabled) return;
-
-      // 延迟一下让选区稳定
-      setTimeout(() => {
-        this.handleTextSelection(e);
-      }, 50);
-    });
-
-    // 点击其他地方时隐藏 tooltip
-    document.addEventListener('mousedown', (e) => {
-      const target = e.target as HTMLElement;
-      // 如果点击的不是 tooltip 内部，则隐藏
-      if (!target.closest('.not-translator-tooltip')) {
-        this.tooltip.hide();
-      }
-    });
+    document.addEventListener('mouseup', this.handleMouseUp);
+    document.addEventListener('mousedown', this.handleMouseDown);
 
     // 悬停触发 Tooltip
     this.setupHoverListeners();
@@ -424,72 +533,8 @@ class NotOnlyTranslator {
       return;
     }
 
-    // 使用事件委托监听 mouseenter/mouseleave
-    document.addEventListener('mouseover', (e) => {
-      if (!this.settings?.enabled) return;
-
-      const target = e.target as HTMLElement;
-
-      // 检查是否是高亮元素或语法高亮
-      const highlightElement = target.classList.contains(CSS_CLASSES.HIGHLIGHT)
-        ? target
-        : target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) as HTMLElement | null;
-
-      const grammarElement = target.classList.contains('not-translator-grammar-highlight')
-        ? target
-        : target.closest('.not-translator-grammar-highlight') as HTMLElement | null;
-
-      const highlightedWord = target.classList.contains('not-translator-highlighted-word')
-        ? target
-        : target.closest('.not-translator-highlighted-word') as HTMLElement | null;
-
-      const highlightedTranslation = target.classList.contains('not-translator-highlighted-translation')
-        ? target
-        : target.closest('.not-translator-highlighted-translation') as HTMLElement | null;
-
-      const validElement = highlightElement || grammarElement || highlightedWord || highlightedTranslation;
-
-      if (!validElement) return;
-
-      // 如果已经悬停在同一元素上，不重复设置
-      if (this.hoverElement === validElement) return;
-
-      // 清除之前的定时器
-      this.clearHoverTimer();
-
-      // 记录当前悬停元素
-      this.hoverElement = validElement;
-
-      // 设置新的定时器
-      this.hoverTimer = setTimeout(() => {
-        this.handleHoverShow(validElement);
-      }, hoverDelay);
-    });
-
-    document.addEventListener('mouseout', (e) => {
-      const target = e.target as HTMLElement;
-
-      // 检查是否离开高亮元素
-      const isLeavingHighlight =
-        target.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
-        target.classList.contains('not-translator-grammar-highlight') ||
-        target.classList.contains('not-translator-highlighted-word') ||
-        target.classList.contains('not-translator-highlighted-translation') ||
-        target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) ||
-        target.closest('.not-translator-grammar-highlight') ||
-        target.closest('.not-translator-highlighted-word') ||
-        target.closest('.not-translator-highlighted-translation');
-
-      if (isLeavingHighlight) {
-        this.clearHoverTimer();
-        this.hoverElement = null;
-
-        // 鼠标移出时隐藏 tooltip（已钉住的除外）
-        if (!this.tooltip.getPinned()) {
-          this.tooltip.hide();
-        }
-      }
-    });
+    document.addEventListener('mouseover', this.handleMouseOver);
+    document.addEventListener('mouseout', this.handleMouseOut);
 
     logger.info(`NotOnlyTranslator: 悬停触发已启用，延迟 ${hoverDelay}ms`);
 
@@ -501,31 +546,7 @@ class NotOnlyTranslator {
    * 设置键盘导航事件监听
    */
   private setupNavigationListeners(): void {
-    document.addEventListener('keydown', (e) => {
-      if (!this.settings?.enabled) return;
-
-      // 只在非输入状态下响应导航快捷键
-      const activeEl = document.activeElement;
-      if (
-        activeEl?.tagName === 'INPUT' ||
-        activeEl?.tagName === 'TEXTAREA' ||
-        (activeEl as HTMLElement)?.isContentEditable
-      ) {
-        return;
-      }
-
-      const key = e.key;
-
-      // J/↓ 下一个，K/↑ 上一个
-      if (key === 'j' || key === 'J' || key === 'ArrowDown') {
-        e.preventDefault();
-        this.navigateToNext();
-      } else if (key === 'k' || key === 'K' || key === 'ArrowUp') {
-        e.preventDefault();
-        this.navigateToPrevious();
-      }
-    });
-
+    document.addEventListener('keydown', this.handleKeyDown);
     logger.info('NotOnlyTranslator: 键盘导航已启用（J/↓ 下一个，K/↑ 上一个）');
   }
 
@@ -621,12 +642,19 @@ class NotOnlyTranslator {
       el.classList.remove('not-translator-nav-highlight');
     });
 
+    // 清除之前的导航高亮定时器
+    if (this.navHighlightTimer) {
+      clearTimeout(this.navHighlightTimer);
+      this.navHighlightTimer = null;
+    }
+
     // 添加新的高亮
     element.classList.add('not-translator-nav-highlight');
 
     // 2秒后移除高亮效果
-    setTimeout(() => {
+    this.navHighlightTimer = setTimeout(() => {
       element.classList.remove('not-translator-nav-highlight');
+      this.navHighlightTimer = null;
     }, 2000);
   }
 
@@ -1128,7 +1156,7 @@ class NotOnlyTranslator {
         context: context || '',
         mode,
       },
-    });
+    }, 30000);
 
     logger.info('NotOnlyTranslator: Received response from background:', {
       success: response.success,
@@ -1272,27 +1300,10 @@ class NotOnlyTranslator {
     await this.loadSettings();
     const newMode = this.settings?.translationMode;
 
-    // 如果翻译模式改变了，需要清除已处理的段落并重新翻译
-    if (oldMode !== newMode) {
+    // 如果翻译模式改变了，使用淡出过渡刷新翻译
+    if (oldMode !== newMode && newMode && this.isEnabled) {
       logger.info(`NotOnlyTranslator: 翻译模式从 ${oldMode} 切换为 ${newMode}`);
-
-      // 清除所有已翻译的内容
-      this.clearAllTranslations();
-
-      // 重置批量翻译管理器的缓存状态
-      if (this.batchManager) {
-        this.batchManager.clearProcessedCache();
-      }
-
-      // 重置可视区域观察器的追踪状态
-      if (this.viewportObserver) {
-        this.viewportObserver.resetTracking();
-      }
-
-      // 重新扫描页面
-      if (this.isEnabled) {
-        this.scanPage();
-      }
+      this.refreshTranslation(newMode);
     }
   }
 
@@ -1331,25 +1342,60 @@ class NotOnlyTranslator {
   /**
    * Send message to background script
    */
-  private async sendMessage(message: Message): Promise<MessageResponse> {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(message, (response: MessageResponse) => {
-        if (chrome.runtime.lastError) {
-          resolve({
-            success: false,
-            error: chrome.runtime.lastError.message,
-          });
-        } else {
-          resolve(response || { success: false, error: 'No response' });
-        }
-      });
-    });
+  private async sendMessage(message: Message, timeout: number = 5000): Promise<MessageResponse> {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    return Promise.race([
+      new Promise<MessageResponse>((resolve) => {
+        chrome.runtime.sendMessage(message, (response: MessageResponse) => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (chrome.runtime.lastError) {
+            resolve({
+              success: false,
+              error: chrome.runtime.lastError.message,
+            });
+          } else {
+            resolve(response || { success: false, error: 'No response' });
+          }
+        });
+      }),
+      new Promise<MessageResponse>((resolve) => {
+        timeoutId = setTimeout(() => {
+          timeoutId = null;
+          resolve({ success: false, error: '请求超时，请重试' });
+        }, timeout);
+      }),
+    ]);
   }
 
   /**
    * Cleanup
    */
   destroy(): void {
+    // 清理 document 级别事件监听器
+    document.removeEventListener('mouseup', this.handleMouseUp);
+    document.removeEventListener('mousedown', this.handleMouseDown);
+    document.removeEventListener('mouseover', this.handleMouseOver);
+    document.removeEventListener('mouseout', this.handleMouseOut);
+    document.removeEventListener('keydown', this.handleKeyDown);
+
+    // 清理定时器
+    this.clearHoverTimer();
+    if (this.navHighlightTimer) {
+      clearTimeout(this.navHighlightTimer);
+      this.navHighlightTimer = null;
+    }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    // 清理浮动按钮
+    this.floatingButton?.destroy();
+
     // 清理 MutationObserver
     this.observer?.disconnect();
 

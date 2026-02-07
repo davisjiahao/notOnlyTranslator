@@ -714,6 +714,15 @@ a .not-translator-inline-translation,
   border-left: 2px solid #e5e7eb;
 }
 
+/* 翻译内容过渡动画 */
+.not-translator-processed,
+.not-translator-translation-line {
+  transition: opacity 0.15s ease;
+}
+.not-translator-fade-out {
+  opacity: 0;
+}
+
 /* 处理过的段落标记 */
 .not-translator-processed {
   position: relative;
