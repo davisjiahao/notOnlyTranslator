@@ -1,4 +1,4 @@
-import type { TranslationMode, UserSettings } from '@/shared/types';
+import type { TranslationMode } from '@/shared/types';
 import { logger } from '@/shared/utils';
 
 /**
@@ -134,7 +134,7 @@ export class FloatingButton {
 
     // 点击按钮展开/收起面板
     const btnInner = this.container.querySelector('.not-translator-floating-btn-inner');
-    btnInner?.addEventListener('click', (e) => {
+    btnInner?.addEventListener('click', () => {
       if (!this.isDragging) {
         this.togglePanel();
       }
@@ -163,10 +163,11 @@ export class FloatingButton {
     const btnInner = this.container.querySelector('.not-translator-floating-btn-inner');
     if (!btnInner) return;
 
-    btnInner.addEventListener('mousedown', (e) => {
+    btnInner.addEventListener('mousedown', (e: Event) => {
+      const mouseEvent = e as MouseEvent;
       this.isDragging = false;
-      this.dragStartX = e.clientX;
-      this.dragStartY = e.clientY;
+      this.dragStartX = mouseEvent.clientX;
+      this.dragStartY = mouseEvent.clientY;
 
       const rect = this.container!.getBoundingClientRect();
       this.initialLeft = rect.left;
@@ -314,7 +315,8 @@ export class FloatingButton {
 
     // 更新 UI
     this.panel?.querySelectorAll('.not-translator-floating-mode-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.mode === mode);
+      const el = item as HTMLElement;
+      el.classList.toggle('active', el.dataset.mode === mode);
     });
 
     // 收起面板
@@ -389,7 +391,8 @@ export class FloatingButton {
 
     // 更新面板选中状态
     this.panel?.querySelectorAll('.not-translator-floating-mode-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.mode === mode);
+      const el = item as HTMLElement;
+      el.classList.toggle('active', el.dataset.mode === mode);
     });
   }
 

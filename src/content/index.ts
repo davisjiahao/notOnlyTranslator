@@ -1,6 +1,7 @@
 import type {
   Message,
   MessageResponse,
+  TranslationMode,
   TranslationResult,
   UserSettings,
 } from '@/shared/types';
@@ -214,7 +215,7 @@ class NotOnlyTranslator {
   /**
    * 刷新页面翻译（模式切换后）
    */
-  private refreshTranslation(mode: TranslationMode): void {
+  private refreshTranslation(_mode: TranslationMode): void {
     // 清除所有现有翻译
     document.querySelectorAll('.not-translator-processed').forEach((el) => {
       const element = el as HTMLElement;
