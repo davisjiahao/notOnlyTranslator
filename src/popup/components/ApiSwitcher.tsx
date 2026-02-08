@@ -19,9 +19,9 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-3">
+    <div>
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">翻译服务</h2>
+        <h2 className="text-xs font-medium text-gray-500">翻译服务</h2>
         <button
           onClick={onOpenOptions}
           className="text-xs text-primary-600 hover:text-primary-700 font-medium"

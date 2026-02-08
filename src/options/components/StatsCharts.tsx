@@ -22,7 +22,7 @@ interface StatsChartsProps {
 }
 
 /**
- * Vocabulary Growth & Ability Radar Charts
+ * 词汇能力雷达图 + 增长趋势面积图
  */
 export const StatsCharts: React.FC<StatsChartsProps> = ({
   vocabularySize,
@@ -30,44 +30,43 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
   unknownCount,
   confidence,
 }) => {
-  // Mock data for the radar chart (Ability Model)
-  // In a real app, these would be calculated from detailed user logs
+  // 能力模型雷达图数据
   const radarData = [
     { subject: '词汇量', A: Math.min(100, (vocabularySize / 10000) * 100), fullMark: 100 },
-    { subject: '阅读量', A: Math.min(100, (knownCount + unknownCount) / 5), fullMark: 100 }, // Mock metric
+    { subject: '阅读量', A: Math.min(100, (knownCount + unknownCount) / 5), fullMark: 100 },
     { subject: '掌握度', A: Math.min(100, (knownCount / (knownCount + unknownCount || 1)) * 100), fullMark: 100 },
-    { subject: '活跃度', A: 85, fullMark: 100 }, // Static mock
-    { subject: '难度', A: 70, fullMark: 100 },   // Static mock
+    { subject: '活跃度', A: 85, fullMark: 100 },
+    { subject: '难度', A: 70, fullMark: 100 },
     { subject: '置信度', A: confidence * 100, fullMark: 100 },
   ];
 
-  // Mock data for the area chart (Growth Trend)
+  // 词汇量增长趋势数据（模拟）
   const growthData = [
-    { name: 'Mon', words: vocabularySize - 50 },
-    { name: 'Tue', words: vocabularySize - 40 },
-    { name: 'Wed', words: vocabularySize - 35 },
-    { name: 'Thu', words: vocabularySize - 20 },
-    { name: 'Fri', words: vocabularySize - 10 },
-    { name: 'Sat', words: vocabularySize - 5 },
-    { name: 'Sun', words: vocabularySize },
+    { name: '周一', words: vocabularySize - 50 },
+    { name: '周二', words: vocabularySize - 40 },
+    { name: '周三', words: vocabularySize - 35 },
+    { name: '周四', words: vocabularySize - 20 },
+    { name: '周五', words: vocabularySize - 10 },
+    { name: '周六', words: vocabularySize - 5 },
+    { name: '周日', words: vocabularySize },
   ];
 
   return (
-    <div className="space-y-3">
-      {/* Radar Chart: Ability Model */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">能力模型</h3>
-        <div className="h-56 w-full">
+    <div className="space-y-4">
+      {/* 雷达图：能力模型 */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">能力模型</h3>
+        <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
               <PolarGrid stroke="#e5e7eb" />
               <PolarAngleAxis
                 dataKey="subject"
-                tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 500 }}
+                tick={{ fill: '#4b5563', fontSize: 12, fontWeight: 500 }}
               />
               <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
               <Radar
-                name="Ability"
+                name="能力值"
                 dataKey="A"
                 stroke="#8b5cf6"
                 strokeWidth={2}
@@ -79,10 +78,10 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
         </div>
       </div>
 
-      {/* Area Chart: Growth Trend */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">词汇量增长</h3>
-        <div className="h-24 w-full">
+      {/* 面积图：增长趋势 */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">词汇量增长趋势</h3>
+        <div className="h-32 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={growthData}>
               <defs>
@@ -92,15 +91,15 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis hide domain={['dataMin - 100', 'dataMax + 100']} />
               <Tooltip
                 contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    borderRadius: '8px',
-                    border: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                    fontSize: '12px'
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: '8px',
+                  border: 'none',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  fontSize: '12px',
                 }}
               />
               <Area

@@ -9,6 +9,47 @@ import GeneralSettings from './components/GeneralSettings';
 
 type Tab = 'level' | 'test' | 'api' | 'general';
 
+/** Sidebar Tab 图标 */
+const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
+  const sw = active ? 2.5 : 2;
+  const cls = 'w-5 h-5 flex-shrink-0';
+
+  switch (id) {
+    case 'level':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      );
+    case 'test':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      );
+    case 'api':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      );
+    case 'general':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+      );
+  }
+};
+
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'level', label: '英语水平' },
+  { id: 'test', label: '快速测评' },
+  { id: 'api', label: 'API 设置' },
+  { id: 'general', label: '通用设置' },
+];
+
 export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -25,7 +66,6 @@ export default function App() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Load profile
       const profileRes = await chrome.runtime.sendMessage({ type: 'GET_USER_PROFILE' });
       if (profileRes.success && profileRes.data) {
         setProfile(profileRes.data);
@@ -39,13 +79,11 @@ export default function App() {
         });
       }
 
-      // Load settings
       const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
       if (settingsRes.success && settingsRes.data) {
         setSettings(settingsRes.data);
       }
 
-      // Load API key
       const data = await chrome.storage.sync.get('apiKey');
       if (data.apiKey) {
         setApiKey(data.apiKey);
@@ -125,13 +163,11 @@ export default function App() {
   }) => {
     setIsSaving(true);
     try {
-      // 构建完整的设置更新
       const settingsUpdates: Partial<UserSettings> = {
         apiConfigs: params.configs,
         activeApiConfigId: params.activeId,
       };
 
-      // 如果提供了主设置，也一并更新
       if (params.provider !== undefined) {
         settingsUpdates.apiProvider = params.provider;
       }
@@ -142,7 +178,6 @@ export default function App() {
         settingsUpdates.customModelName = params.customModelName;
       }
 
-      // 一次性更新所有设置
       const newSettings = { ...settings, ...settingsUpdates };
       await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
@@ -150,7 +185,6 @@ export default function App() {
       });
       setSettings(newSettings);
 
-      // 如果提供了 API key，也保存到旧的位置（兼容性）
       if (params.apiKey !== undefined) {
         await chrome.storage.sync.set({ apiKey: params.apiKey });
         setApiKey(params.apiKey);
@@ -183,24 +217,22 @@ export default function App() {
     );
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'level', label: '英语水平' },
-    { id: 'test', label: '快速测评' },
-    { id: 'api', label: 'API 设置' },
-    { id: 'general', label: '通用设置' },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">NotOnlyTranslator</h1>
-          <p className="text-sm text-gray-500 mt-1">根据您的英语水平智能翻译</p>
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            N
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">NotOnlyTranslator</h1>
+            <p className="text-xs text-gray-500">根据您的英语水平智能翻译</p>
+          </div>
         </div>
       </header>
 
-      {/* Save message */}
+      {/* 保存成功提示 */}
       {saveMessage && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in">
           {saveMessage}
@@ -208,7 +240,7 @@ export default function App() {
       )}
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex gap-8">
+        <div className="flex gap-6">
           {/* Sidebar */}
           <nav className="w-48 flex-shrink-0">
             <ul className="space-y-1">
@@ -216,12 +248,13 @@ export default function App() {
                 <li key={tab.id}>
                   <button
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2.5 ${
                       activeTab === tab.id
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-primary-100 text-primary-700 shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     }`}
                   >
+                    <TabIcon id={tab.id} active={activeTab === tab.id} />
                     {tab.label}
                   </button>
                 </li>
@@ -229,7 +262,7 @@ export default function App() {
             </ul>
           </nav>
 
-          {/* Main content */}
+          {/* 主内容区 */}
           <main className="flex-1 min-w-0">
             {activeTab === 'level' && profile && (
               <LevelSelector
