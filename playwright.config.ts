@@ -58,6 +58,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         /* 加载已编译的扩展 */
         launchOptions: {
+          headless: false,
           args: [
             `--disable-extensions-except=${resolve(__dirname, 'dist')}`,
             `--load-extension=${resolve(__dirname, 'dist')}`,
