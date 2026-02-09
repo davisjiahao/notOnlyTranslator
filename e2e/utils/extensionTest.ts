@@ -5,6 +5,11 @@
 
 import { test as base, type Page, type BrowserContext, chromium, expect } from '@playwright/test';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * 扩展测试固件类型定义
