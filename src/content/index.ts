@@ -142,6 +142,11 @@ class NotOnlyTranslator {
       return;
     }
 
+    // 如果 Tooltip 可见，不处理导航快捷键（让 Tooltip 处理 K/U/A 等操作）
+    if (this.tooltip.isVisible()) {
+      return;
+    }
+
     const key = e.key;
 
     if (key === 'j' || key === 'J' || key === 'ArrowDown') {
