@@ -18,6 +18,7 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentHostname, setCurrentHostname] = useState<string>('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -92,10 +93,16 @@ export default function App() {
 
     await updateSettings({ blacklist: newBlacklist });
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      chrome.tabs.reload(tab.id);
-    }
+    // 显示刷新提示
+    setIsRefreshing(true);
+
+    // 延迟刷新，让用户看到提示
+    setTimeout(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        chrome.tabs.reload(tab.id);
+      }
+    }, 800);
   };
 
   const updateSettings = async (newSettingsPart: Partial<UserSettings>) => {
@@ -275,27 +282,39 @@ export default function App() {
 
         {/* 网站开关 */}
         {currentHostname ? (
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex items-center justify-between">
-            <div className="flex-1 min-w-0 mr-3">
-              <div className="text-sm font-medium text-gray-900 truncate" title={currentHostname}>
-                {currentHostname}
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+            {isRefreshing ? (
+              /* 刷新提示 */
+              <div className="flex items-center justify-center gap-2 py-1">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent"></div>
+                <span className="text-sm text-primary-600 font-medium">页面即将刷新...</span>
               </div>
-              <div className="text-xs text-gray-500">
-                {isSiteTranslationEnabled ? '翻译已开启' : '翻译已禁用'}
+            ) : (
+              /* 正常显示 */
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0 mr-3">
+                  <div className="text-sm font-medium text-gray-900 truncate" title={currentHostname}>
+                    {currentHostname}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {isSiteTranslationEnabled ? '翻译已开启' : '翻译已禁用'}
+                  </div>
+                </div>
+                <button
+                  onClick={toggleSiteTranslation}
+                  disabled={isRefreshing}
+                  className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${
+                    isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200'
+                  } ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                      isSiteTranslationEnabled ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
-            </div>
-            <button
-              onClick={toggleSiteTranslation}
-              className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${
-                isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200'
-              }`}
-            >
-              <div
-                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                  isSiteTranslationEnabled ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
+            )}
           </div>
         ) : (
           <div className="bg-gray-100 rounded-lg p-3 text-center text-gray-500 text-xs">
