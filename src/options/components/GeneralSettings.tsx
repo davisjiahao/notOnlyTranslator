@@ -14,6 +14,15 @@ export default function GeneralSettings({
 }: GeneralSettingsProps) {
   const [newBlacklistItem, setNewBlacklistItem] = useState('');
   const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'warning' | 'success'>('warning');
+
+  // 显示 toast 提示
+  const showToast = (message: string, type: 'warning' | 'success' = 'warning') => {
+    setToastMessage(message);
+    setToastType(type);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -34,12 +43,13 @@ export default function GeneralSettings({
 
     const currentList = settings.blacklist || [];
     if (currentList.includes(trimmed)) {
-      alert('该网站已在黑名单中');
+      showToast('该网站已在黑名单中', 'warning');
       return;
     }
 
     onUpdate({ blacklist: [...currentList, trimmed] });
     setNewBlacklistItem('');
+    showToast('已加入黑名单', 'success');
   };
 
   const removeFromBlacklist = (item: string) => {
@@ -83,6 +93,28 @@ export default function GeneralSettings({
 
   return (
     <div className="space-y-6">
+      {/* Toast 提示 */}
+      {toastMessage && (
+        <div
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg animate-fade-in flex items-center gap-2 ${
+            toastType === 'warning'
+              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+              : 'bg-green-50 text-green-700 border border-green-200'
+          }`}
+        >
+          {toastType === 'warning' ? (
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          <span className="text-sm font-medium">{toastMessage}</span>
+        </div>
+      )}
+
       {/* 第 1 组：核心功能 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
