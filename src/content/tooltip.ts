@@ -20,6 +20,7 @@ export interface TooltipCallbacks {
  * - 支持"钉住"功能，钉住后滚动时 tooltip 跟随目标元素
  * - 滚动时自动更新位置（如果钉住）或延迟隐藏（给用户反应时间）
  * - 快捷键 P 可以切换钉住状态
+ * - 快捷键帮助面板显示所有可用快捷键
  */
 export class Tooltip {
   private element: HTMLElement | null = null;
@@ -31,6 +32,8 @@ export class Tooltip {
   private isPinned: boolean = false;
   /** 滚动隐藏的防抖定时器 */
   private scrollHideTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** 快捷键帮助面板 */
+  private helpPanel: HTMLElement | null = null;
 
   constructor(callbacks: TooltipCallbacks) {
     this.callbacks = callbacks;
@@ -54,6 +57,7 @@ export class Tooltip {
     tooltip.className = CSS_CLASSES.TOOLTIP;
     tooltip.innerHTML = `
       <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
+        <button class="${CSS_CLASSES.TOOLTIP}-help" title="快捷键帮助">⌨️</button>
         <button class="${CSS_CLASSES.TOOLTIP}-pin" title="钉住 (P)">📌</button>
         <button class="${CSS_CLASSES.TOOLTIP}-close" title="关闭 (Esc)">&times;</button>
       </div>
@@ -73,6 +77,104 @@ export class Tooltip {
       e.stopPropagation();
       this.togglePin();
     });
+
+    // Help button handler
+    const helpBtn = tooltip.querySelector(`.${CSS_CLASSES.TOOLTIP}-help`);
+    helpBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleHelpPanel();
+    });
+
+    // Create help panel (hidden initially)
+    this.createHelpPanel();
+  }
+
+  /**
+   * 创建快捷键帮助面板
+   */
+  private createHelpPanel(): void {
+    const panel = document.createElement('div');
+    panel.className = 'not-translator-help-panel';
+    panel.style.display = 'none';
+    panel.innerHTML = `
+      <div class="not-translator-help-header">
+        <span>快捷键</span>
+        <button class="not-translator-help-close">&times;</button>
+      </div>
+      <div class="not-translator-help-content">
+        <div class="not-translator-help-item">
+          <kbd>K</kbd> <span>标记认识</span>
+        </div>
+        <div class="not-translator-help-item">
+          <kbd>U</kbd> <span>标记不认识</span>
+        </div>
+        <div class="not-translator-help-item">
+          <kbd>A</kbd> <span>加入生词本</span>
+        </div>
+        <div class="not-translator-help-item">
+          <kbd>P</kbd> <span>钉住/取消钉住</span>
+        </div>
+        <div class="not-translator-help-item">
+          <kbd>J</kbd> / <kbd>↓</kbd> <span>下一个高亮词</span>
+        </div>
+        <div class="not-translator-help-item">
+          <kbd>K</kbd> / <kbd>↑</kbd> <span>上一个高亮词</span>
+        </div>
+        <div class="not-translator-help-item">
+          <kbd>Esc</kbd> <span>关闭弹窗</span>
+        </div>
+        <div class="not-translator-help-footer">
+          <span>⌘/Ctrl + 悬停 可快速显示翻译</span>
+        </div>
+      </div>
+    `;
+
+    // Close button handler
+    const closeBtn = panel.querySelector('.not-translator-help-close');
+    closeBtn?.addEventListener('click', () => this.hideHelpPanel());
+
+    document.body.appendChild(panel);
+    this.helpPanel = panel;
+  }
+
+  /**
+   * 切换快捷键帮助面板显示
+   */
+  private toggleHelpPanel(): void {
+    if (this.helpPanel?.style.display === 'block') {
+      this.hideHelpPanel();
+    } else {
+      this.showHelpPanel();
+    }
+  }
+
+  /**
+   * 显示快捷键帮助面板
+   */
+  private showHelpPanel(): void {
+    if (!this.helpPanel || !this.element) return;
+
+    // 定位在 tooltip 旁边
+    const tooltipRect = this.element.getBoundingClientRect();
+    this.helpPanel.style.top = `${tooltipRect.top}px`;
+    this.helpPanel.style.left = `${tooltipRect.right + 10}px`;
+
+    // 确保不超出视口
+    const panelRect = this.helpPanel.getBoundingClientRect();
+    if (tooltipRect.right + 10 + panelRect.width > window.innerWidth) {
+      this.helpPanel.style.left = `${tooltipRect.left - panelRect.width - 10}px`;
+    }
+
+    this.helpPanel.style.display = 'block';
+  }
+
+  /**
+   * 隐藏快捷键帮助面板
+   */
+  private hideHelpPanel(): void {
+    if (this.helpPanel) {
+      this.helpPanel.style.display = 'none';
+    }
   }
 
   /**
@@ -380,6 +482,9 @@ export class Tooltip {
       this.isPinned = false;
       this.updatePinButtonState();
 
+      // 隐藏帮助面板
+      this.hideHelpPanel();
+
       // 清除滚动隐藏定时器
       if (this.scrollHideTimeout) {
         clearTimeout(this.scrollHideTimeout);
@@ -480,6 +585,10 @@ export class Tooltip {
     if (this.element) {
       this.element.remove();
       this.element = null;
+    }
+    if (this.helpPanel) {
+      this.helpPanel.remove();
+      this.helpPanel = null;
     }
   }
 }
