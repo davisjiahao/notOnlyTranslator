@@ -6,8 +6,9 @@ import LevelSelector from './components/LevelSelector';
 import QuickTest from './components/QuickTest';
 import ApiSettings from './components/ApiSettings';
 import GeneralSettings from './components/GeneralSettings';
+import VocabularySettings from './components/VocabularySettings';
 
-type Tab = 'level' | 'test' | 'api' | 'general';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'general';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -34,6 +35,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       );
+    case 'vocabulary':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      );
     case 'general':
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
@@ -47,6 +54,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'level', label: '英语水平' },
   { id: 'test', label: '快速测评' },
   { id: 'api', label: 'API 设置' },
+  { id: 'vocabulary', label: '生词本' },
   { id: 'general', label: '通用设置' },
 ];
 
@@ -61,6 +69,12 @@ export default function App() {
 
   useEffect(() => {
     loadData();
+    // 从 URL 参数读取要打开的标签页
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general'].includes(tabParam)) {
+      setActiveTab(tabParam as Tab);
+    }
   }, []);
 
   const loadData = async () => {
@@ -298,6 +312,10 @@ export default function App() {
                 onFullApiConfigUpdate={handleFullApiConfigUpdate}
                 isSaving={isSaving}
               />
+            )}
+
+            {activeTab === 'vocabulary' && (
+              <VocabularySettings isSaving={isSaving} />
             )}
 
             {activeTab === 'general' && (

@@ -113,6 +113,13 @@ export default function App() {
     chrome.runtime.openOptionsPage();
   };
 
+  const openVocabulary = () => {
+    // 打开设置页面并跳转到生词本视图
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('options.html?tab=vocabulary')
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center w-[360px] h-[300px]">
@@ -309,7 +316,7 @@ export default function App() {
             更多设置
           </button>
           <button
-            onClick={openOptions}
+            onClick={openVocabulary}
             className="flex items-center justify-center gap-1.5 bg-white border border-gray-200 p-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-primary-600 hover:border-primary-200 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
