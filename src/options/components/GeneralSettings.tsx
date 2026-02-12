@@ -389,97 +389,126 @@ export default function GeneralSettings({
         )}
       </div>
 
-      {/* 第 4 组：数据与系统 */}
+      {/* 第 4 组：数据管理 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">数据与系统</h2>
+          <h2 className="text-base font-semibold text-gray-900">数据管理</h2>
         </div>
 
-        <div className="divide-y divide-gray-100">
-          {/* 数据管理 */}
-          <div className="p-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">数据管理</h3>
-            <div className="space-y-3">
-              <button
-                onClick={async () => {
-                  const data = await chrome.storage.local.get(null);
-                  const syncData = await chrome.storage.sync.get(null);
-                  const exportData = { local: data, sync: syncData };
-                  const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-                    type: 'application/json',
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `not-translator-backup-${Date.now()}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                className="w-full py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>导出数据</span>
-                </div>
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (
-                    confirm(
-                      '清除所有数据将删除您的学习记录、生词本和设置。此操作不可恢复，确定要继续吗？'
-                    )
-                  ) {
-                    await chrome.storage.local.clear();
-                    await chrome.storage.sync.clear();
-                    alert('数据已清除，请刷新页面');
-                    window.location.reload();
-                  }
-                }}
-                className="w-full py-3 px-4 border border-red-200 text-red-600 font-medium rounded-lg hover:bg-red-50 transition-colors"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  <span>清除所有数据</span>
-                </div>
-              </button>
+        <div className="p-6">
+          <button
+            onClick={async () => {
+              const data = await chrome.storage.local.get(null);
+              const syncData = await chrome.storage.sync.get(null);
+              const exportData = { local: data, sync: syncData };
+              const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json',
+              });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `not-translator-backup-${Date.now()}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="w-full py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>导出数据</span>
             </div>
-          </div>
+          </button>
+        </div>
+      </div>
 
-          {/* 关于 */}
-          <div className="p-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">关于</h3>
-            <div className="space-y-2 text-sm text-gray-600">
-              <div className="flex justify-between">
-                <span>版本</span>
-                <span className="font-medium text-gray-900">0.1.0</span>
-              </div>
-              <div className="flex justify-between">
-                <span>项目</span>
-                <a
-                  href="https://github.com/yourusername/notOnlyTranslator"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-600 hover:underline"
-                >
-                  GitHub
-                </a>
-              </div>
-              <div className="flex justify-between">
-                <span>反馈</span>
-                <a
-                  href="https://github.com/yourusername/notOnlyTranslator/issues"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-600 hover:underline"
-                >
-                  提交问题
-                </a>
-              </div>
+      {/* 第 5 组：危险区域 */}
+      <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
+        <div className="px-6 py-4 bg-red-50 border-b border-red-200">
+          <h2 className="text-base font-semibold text-red-700 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            危险区域
+          </h2>
+        </div>
+
+        <div className="p-6">
+          <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-100">
+            <p className="text-sm text-red-700">
+              以下操作不可撤销，请谨慎操作。建议在清除数据前先导出备份。
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              // 第一次确认
+              if (
+                !confirm(
+                  '⚠️ 警告：此操作将永久删除所有数据！\n\n包括：\n• 学习记录\n• 生词本\n• 所有设置\n\n确定要继续吗？'
+                )
+              ) {
+                return;
+              }
+              // 第二次确认
+              const input = prompt('请输入 "DELETE" 确认清除此操作：');
+              if (input !== 'DELETE') {
+                if (input !== null) {
+                  alert('输入不正确，操作已取消');
+                }
+                return;
+              }
+              // 执行清除
+              await chrome.storage.local.clear();
+              await chrome.storage.sync.clear();
+              alert('所有数据已清除，页面即将刷新');
+              window.location.reload();
+            }}
+            className="w-full py-3 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>清除所有数据</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 第 6 组：关于 */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h2 className="text-base font-semibold text-gray-900">关于</h2>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex justify-between">
+              <span>版本</span>
+              <span className="font-medium text-gray-900">0.1.0</span>
+            </div>
+            <div className="flex justify-between">
+              <span>项目</span>
+              <a
+                href="https://github.com/yourusername/notOnlyTranslator"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:underline"
+              >
+                GitHub
+              </a>
+            </div>
+            <div className="flex justify-between">
+              <span>反馈</span>
+              <a
+                href="https://github.com/yourusername/notOnlyTranslator/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:underline"
+              >
+                提交问题
+              </a>
             </div>
           </div>
         </div>
