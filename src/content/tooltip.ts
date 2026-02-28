@@ -35,6 +35,14 @@ export class Tooltip {
   /** 快捷键帮助面板 */
   private helpPanel: HTMLElement | null = null;
 
+  /** 保存事件监听器引用，用于清理 */
+  private boundHandlers: {
+    documentClick: (e: Event) => void;
+    documentMouseover: (e: Event) => void;
+    documentScroll: () => void;
+    documentKeydown: (e: KeyboardEvent) => void;
+  } | null = null;
+
   constructor(callbacks: TooltipCallbacks) {
     this.callbacks = callbacks;
     this.createTooltipElement();
@@ -115,10 +123,10 @@ export class Tooltip {
           <kbd>P</kbd> <span>钉住/取消钉住</span>
         </div>
         <div class="not-translator-help-item">
-          <kbd>J</kbd> / <kbd>↓</kbd> <span>下一个高亮词</span>
+          <kbd>J</kbd> / <kbd>L</kbd> / <kbd>↓</kbd> <span>下一个高亮词</span>
         </div>
         <div class="not-translator-help-item">
-          <kbd>K</kbd> / <kbd>↑</kbd> <span>上一个高亮词</span>
+          <kbd>H</kbd> / <kbd>↑</kbd> <span>上一个高亮词</span>
         </div>
         <div class="not-translator-help-item">
           <kbd>Esc</kbd> <span>关闭弹窗</span>
@@ -179,69 +187,66 @@ export class Tooltip {
 
   /**
    * Setup global event listeners
+   * 保存引用以便在 destroy 时正确清理
    */
   private setupEventListeners(): void {
-    // Hide tooltip when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!this.element?.contains(e.target as Node)) {
-        const target = e.target as HTMLElement;
-        if (!target.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
-          // 如果已钉住，不因为点击外部而隐藏
-          if (!this.isPinned) {
-            this.hide();
+    // 创建事件处理函数并保存引用
+    this.boundHandlers = {
+      documentClick: (e: Event) => {
+        if (!this.element?.contains(e.target as Node)) {
+          const target = e.target as HTMLElement;
+          if (!target.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
+            if (!this.isPinned) {
+              this.hide();
+            }
           }
         }
+      },
+      documentMouseover: (e: Event) => {
+        const me = e as MouseEvent;
+        if ((me.metaKey || me.ctrlKey) && (e.target as HTMLElement).classList.contains(CSS_CLASSES.HIGHLIGHT)) {
+          (e.target as HTMLElement).click();
+        }
+      },
+      documentScroll: () => this.handleScroll(),
+      documentKeydown: (e: KeyboardEvent) => {
+        if (!this.isVisible()) return;
+
+        if (e.key === 'Escape') {
+          this.hide();
+          return;
+        }
+
+        const activeEl = document.activeElement;
+        if (
+          activeEl?.tagName === 'INPUT' ||
+          activeEl?.tagName === 'TEXTAREA' ||
+          (activeEl as HTMLElement)?.isContentEditable
+        ) {
+          return;
+        }
+
+        const key = e.key.toLowerCase();
+        if (key === 'k') {
+          const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`);
+          (btn as HTMLElement | null)?.click();
+        } else if (key === 'u') {
+          const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.unknown`);
+          (btn as HTMLElement | null)?.click();
+        } else if (key === 'a') {
+          const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.add`);
+          (btn as HTMLElement | null)?.click();
+        } else if (key === 'p') {
+          this.togglePin();
+        }
       }
-    });
+    };
 
-    // Hover trigger (Cmd/Ctrl + Hover)
-    document.addEventListener('mouseover', (e) => {
-      if ((e.metaKey || e.ctrlKey) && (e.target as HTMLElement).classList.contains(CSS_CLASSES.HIGHLIGHT)) {
-         // Trigger click logic to show tooltip
-         (e.target as HTMLElement).click();
-      }
-    });
-
-    // 滚动处理：钉住时更新位置，未钉住时延迟隐藏
-    document.addEventListener('scroll', () => this.handleScroll(), true);
-
-    // Hide on escape key, and handle action shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (!this.isVisible()) return;
-
-      if (e.key === 'Escape') {
-        this.hide();
-        return;
-      }
-
-      // Action shortcuts (only when not typing in input fields)
-      const activeEl = document.activeElement;
-      if (
-        activeEl?.tagName === 'INPUT' ||
-        activeEl?.tagName === 'TEXTAREA' ||
-        (activeEl as HTMLElement)?.isContentEditable
-      ) {
-        return;
-      }
-
-      const key = e.key.toLowerCase();
-      if (key === 'k') {
-        // Mark Known
-        const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
-        btn?.click();
-      } else if (key === 'u') {
-        // Mark Unknown
-        const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.unknown`) as HTMLElement;
-        btn?.click();
-      } else if (key === 'a') {
-        // Add to Vocabulary
-        const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.add`) as HTMLElement;
-        btn?.click();
-      } else if (key === 'p') {
-        // Toggle Pin
-        this.togglePin();
-      }
-    });
+    // 注册事件监听器
+    document.addEventListener('click', this.boundHandlers.documentClick);
+    document.addEventListener('mouseover', this.boundHandlers.documentMouseover);
+    document.addEventListener('scroll', this.boundHandlers.documentScroll, true);
+    document.addEventListener('keydown', this.boundHandlers.documentKeydown);
   }
 
   /**
@@ -332,25 +337,65 @@ export class Tooltip {
       difficultyLabel = '困难';
     }
 
-    content.innerHTML = `
-      <div class="${CSS_CLASSES.TOOLTIP}-header">
-        <span class="${CSS_CLASSES.TOOLTIP}-word">${data.original}</span>
-        <span class="${CSS_CLASSES.TOOLTIP}-difficulty ${difficultyClass}">${difficultyLabel}</span>
-      </div>
-      ${data.isPhrase ? `<span class="${CSS_CLASSES.TOOLTIP}-phrase">短语</span>` : ''}
-      <div class="${CSS_CLASSES.TOOLTIP}-translation">${data.translation}</div>
-      <div class="${CSS_CLASSES.TOOLTIP}-actions">
-        <button class="${CSS_CLASSES.MARK_BUTTON} known" data-action="known" title="快捷键: K">
-          <span>认识</span> <span class="shortcut-hint">(K)</span>
-        </button>
-        <button class="${CSS_CLASSES.MARK_BUTTON} unknown" data-action="unknown" title="快捷键: U">
-          <span>不认识</span> <span class="shortcut-hint">(U)</span>
-        </button>
-        <button class="${CSS_CLASSES.MARK_BUTTON} add" data-action="add" title="快捷键: A">
-          <span>加入生词本</span> <span class="shortcut-hint">(A)</span>
-        </button>
-      </div>
-    `;
+    // 使用 DOM API 避免 XSS 风险
+    content.innerHTML = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = `${CSS_CLASSES.TOOLTIP}-header`;
+
+    const wordSpan = document.createElement('span');
+    wordSpan.className = `${CSS_CLASSES.TOOLTIP}-word`;
+    wordSpan.textContent = data.original; // 使用 textContent 防止 XSS
+    header.appendChild(wordSpan);
+
+    const difficultySpan = document.createElement('span');
+    difficultySpan.className = `${CSS_CLASSES.TOOLTIP}-difficulty ${difficultyClass}`;
+    difficultySpan.textContent = difficultyLabel;
+    header.appendChild(difficultySpan);
+
+    content.appendChild(header);
+
+    // Phrase label
+    if (data.isPhrase) {
+      const phraseSpan = document.createElement('span');
+      phraseSpan.className = `${CSS_CLASSES.TOOLTIP}-phrase`;
+      phraseSpan.textContent = '短语';
+      content.appendChild(phraseSpan);
+    }
+
+    // Translation
+    const translationDiv = document.createElement('div');
+    translationDiv.className = `${CSS_CLASSES.TOOLTIP}-translation`;
+    translationDiv.textContent = data.translation; // 使用 textContent 防止 XSS
+    content.appendChild(translationDiv);
+
+    // Actions
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = `${CSS_CLASSES.TOOLTIP}-actions`;
+
+    const knownBtn = document.createElement('button');
+    knownBtn.className = `${CSS_CLASSES.MARK_BUTTON} known`;
+    knownBtn.dataset.action = 'known';
+    knownBtn.title = '快捷键: K';
+    knownBtn.innerHTML = '<span>认识</span> <span class="shortcut-hint">(K)</span>';
+    actionsDiv.appendChild(knownBtn);
+
+    const unknownBtn = document.createElement('button');
+    unknownBtn.className = `${CSS_CLASSES.MARK_BUTTON} unknown`;
+    unknownBtn.dataset.action = 'unknown';
+    unknownBtn.title = '快捷键: U';
+    unknownBtn.innerHTML = '<span>不认识</span> <span class="shortcut-hint">(U)</span>';
+    actionsDiv.appendChild(unknownBtn);
+
+    const addBtn = document.createElement('button');
+    addBtn.className = `${CSS_CLASSES.MARK_BUTTON} add`;
+    addBtn.dataset.action = 'add';
+    addBtn.title = '快捷键: A';
+    addBtn.innerHTML = '<span>加入生词本</span> <span class="shortcut-hint">(A)</span>';
+    actionsDiv.appendChild(addBtn);
+
+    content.appendChild(actionsDiv);
 
     // Add button event listeners
     this.setupActionButtons(data);
@@ -377,22 +422,42 @@ export class Tooltip {
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
 
-    content.innerHTML = `
-      <div class="${CSS_CLASSES.TOOLTIP}-header">
-        <span class="${CSS_CLASSES.TOOLTIP}-word">句子翻译</span>
-      </div>
-      <div class="${CSS_CLASSES.TOOLTIP}-translation">${data.translation}</div>
-      ${
-        data.grammarNote
-          ? `
-        <div class="${CSS_CLASSES.TOOLTIP}-grammar">
-          <div class="${CSS_CLASSES.TOOLTIP}-grammar-label">语法说明</div>
-          ${data.grammarNote}
-        </div>
-      `
-          : ''
-      }
-    `;
+    // 使用 DOM API 避免 XSS 风险
+    content.innerHTML = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = `${CSS_CLASSES.TOOLTIP}-header`;
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = `${CSS_CLASSES.TOOLTIP}-word`;
+    titleSpan.textContent = '句子翻译';
+    header.appendChild(titleSpan);
+
+    content.appendChild(header);
+
+    // Translation
+    const translationDiv = document.createElement('div');
+    translationDiv.className = `${CSS_CLASSES.TOOLTIP}-translation`;
+    translationDiv.textContent = data.translation; // 使用 textContent 防止 XSS
+    content.appendChild(translationDiv);
+
+    // Grammar Note (if present)
+    if (data.grammarNote) {
+      const grammarDiv = document.createElement('div');
+      grammarDiv.className = `${CSS_CLASSES.TOOLTIP}-grammar`;
+
+      const grammarLabel = document.createElement('div');
+      grammarLabel.className = `${CSS_CLASSES.TOOLTIP}-grammar-label`;
+      grammarLabel.textContent = '语法说明';
+      grammarDiv.appendChild(grammarLabel);
+
+      const grammarContent = document.createElement('div');
+      grammarContent.textContent = data.grammarNote; // 使用 textContent 防止 XSS
+      grammarDiv.appendChild(grammarContent);
+
+      content.appendChild(grammarDiv);
+    }
 
     // Position and show
     this.positionTooltip(targetElement);
@@ -416,13 +481,31 @@ export class Tooltip {
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
 
-    content.innerHTML = `
-      <div class="${CSS_CLASSES.TOOLTIP}-header">
-        <span class="${CSS_CLASSES.TOOLTIP}-word">${data.type}</span>
-      </div>
-      <div class="text-xs text-gray-500 mb-2 italic">"${data.original}"</div>
-      <div class="${CSS_CLASSES.TOOLTIP}-translation">${data.explanation}</div>
-    `;
+    // 使用 DOM API 避免 XSS 风险
+    content.innerHTML = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = `${CSS_CLASSES.TOOLTIP}-header`;
+
+    const typeSpan = document.createElement('span');
+    typeSpan.className = `${CSS_CLASSES.TOOLTIP}-word`;
+    typeSpan.textContent = data.type; // 使用 textContent 防止 XSS
+    header.appendChild(typeSpan);
+
+    content.appendChild(header);
+
+    // Original text quote
+    const originalDiv = document.createElement('div');
+    originalDiv.className = 'text-xs text-gray-500 mb-2 italic';
+    originalDiv.textContent = `"${data.original}"`; // 使用 textContent 防止 XSS
+    content.appendChild(originalDiv);
+
+    // Explanation
+    const explanationDiv = document.createElement('div');
+    explanationDiv.className = `${CSS_CLASSES.TOOLTIP}-translation`;
+    explanationDiv.textContent = data.explanation; // 使用 textContent 防止 XSS
+    content.appendChild(explanationDiv);
 
     // Position and show
     this.positionTooltip(targetElement);
@@ -440,11 +523,13 @@ export class Tooltip {
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
 
-    content.innerHTML = `
-      <div class="${CSS_CLASSES.TOOLTIP}-loading">
-        正在翻译...
-      </div>
-    `;
+    // 使用 DOM API 避免 XSS 风险
+    content.innerHTML = '';
+
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = `${CSS_CLASSES.TOOLTIP}-loading`;
+    loadingDiv.textContent = '正在翻译...';
+    content.appendChild(loadingDiv);
 
     this.positionTooltip(targetElement);
     this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
@@ -461,11 +546,13 @@ export class Tooltip {
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     if (!content) return;
 
-    content.innerHTML = `
-      <div class="${CSS_CLASSES.TOOLTIP}-error">
-        ${message}
-      </div>
-    `;
+    // 使用 DOM API 避免 XSS 风险
+    content.innerHTML = '';
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = `${CSS_CLASSES.TOOLTIP}-error`;
+    errorDiv.textContent = message; // 使用 textContent 防止 XSS
+    content.appendChild(errorDiv);
 
     this.positionTooltip(targetElement);
     this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
@@ -518,6 +605,11 @@ export class Tooltip {
       left = window.innerWidth - tooltipRect.width - 16;
     }
 
+    // Check if tooltip would go off screen to the left
+    if (left < 16) {
+      left = 16;
+    }
+
     // Check if tooltip would go off screen at bottom
     if (rect.bottom + tooltipRect.height + 8 > window.innerHeight) {
       // Show above instead
@@ -527,8 +619,10 @@ export class Tooltip {
       this.element.classList.remove('tooltip-bottom');
     }
 
-    // Ensure left is not negative
-    left = Math.max(16, left);
+    // Also check top overflow (when showing above)
+    if (top < window.scrollY + 16) {
+      top = window.scrollY + 16;
+    }
 
     this.element.style.top = `${top}px`;
     this.element.style.left = `${left}px`;
@@ -579,9 +673,25 @@ export class Tooltip {
   }
 
   /**
-   * Destroy the tooltip
+   * Destroy the tooltip and clean up all resources
    */
   destroy(): void {
+    // 清理事件监听器
+    if (this.boundHandlers) {
+      document.removeEventListener('click', this.boundHandlers.documentClick);
+      document.removeEventListener('mouseover', this.boundHandlers.documentMouseover);
+      document.removeEventListener('scroll', this.boundHandlers.documentScroll, true);
+      document.removeEventListener('keydown', this.boundHandlers.documentKeydown);
+      this.boundHandlers = null;
+    }
+
+    // 清理滚动隐藏定时器
+    if (this.scrollHideTimeout) {
+      clearTimeout(this.scrollHideTimeout);
+      this.scrollHideTimeout = null;
+    }
+
+    // 移除 DOM 元素
     if (this.element) {
       this.element.remove();
       this.element = null;

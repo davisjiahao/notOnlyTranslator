@@ -29,6 +29,12 @@ export class FloatingButton {
   /** 位置存储 */
   private readonly STORAGE_KEY = 'not-translator-floating-btn-pos';
 
+  /** 保存事件监听器引用，用于清理 */
+  private boundHandlers: {
+    documentClick: (e: Event) => void;
+    minimizeRestore: (e: MouseEvent) => void;
+  } | null = null;
+
   constructor(onModeChange: (mode: TranslationMode) => void) {
     this.onModeChange = onModeChange;
     this.loadPosition();
@@ -143,15 +149,19 @@ export class FloatingButton {
     // 拖拽功能
     this.setupDrag();
 
-    // 点击外部关闭面板
-    document.addEventListener('click', (e) => {
-      if (this.isExpanded &&
-          this.container &&
-          this.panel &&
-          !this.container.contains(e.target as Node)) {
-        this.collapse();
-      }
-    });
+    // 点击外部关闭面板 - 保存引用以便清理
+    this.boundHandlers = {
+      documentClick: (e: Event) => {
+        if (this.isExpanded &&
+            this.container &&
+            this.panel &&
+            !this.container.contains(e.target as Node)) {
+          this.collapse();
+        }
+      },
+      minimizeRestore: () => {} // 占位，在 minimize() 时会被覆盖
+    };
+    document.addEventListener('click', this.boundHandlers!.documentClick);
   }
 
   /**
@@ -162,6 +172,10 @@ export class FloatingButton {
 
     const btnInner = this.container.querySelector('.not-translator-floating-btn-inner');
     if (!btnInner) return;
+
+    // 根据设备类型设置拖拽阈值
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const DRAG_THRESHOLD = isTouchDevice ? 10 : 5;
 
     btnInner.addEventListener('mousedown', (e: Event) => {
       const mouseEvent = e as MouseEvent;
@@ -177,15 +191,13 @@ export class FloatingButton {
         const dx = e.clientX - this.dragStartX;
         const dy = e.clientY - this.dragStartY;
 
-        // 如果移动超过5px，认为是拖拽
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
           this.isDragging = true;
         }
 
         const newLeft = this.initialLeft + dx;
         const newTop = this.initialTop + dy;
 
-        // 限制在视口范围内
         const maxLeft = window.innerWidth - (this.container?.offsetWidth || 80);
         const maxTop = window.innerHeight - (this.container?.offsetHeight || 40);
 
@@ -242,7 +254,7 @@ export class FloatingButton {
   }
 
   /**
-   * 最小化按钮
+   * 最小化按钮 - 点击恢复
    */
   private minimize(): void {
     this.isMinimized = true;
@@ -255,12 +267,27 @@ export class FloatingButton {
       this.container.style.right = '10px';
       this.container.style.top = 'auto';
       this.container.style.bottom = '10px';
+
+      // 添加点击恢复监听（使用 boundHandlers 保存引用以便清理）
+      // 先移除可能存在的旧监听器，避免重复累积
+      if (this.boundHandlers?.minimizeRestore && this.container) {
+        this.container.removeEventListener('click', this.boundHandlers.minimizeRestore);
+      }
+
+      this.boundHandlers = {
+        documentClick: this.boundHandlers?.documentClick || (() => {}),
+        minimizeRestore: (e: MouseEvent) => {
+          // 如果是拖拽操作，不触发恢复
+          if (this.isDragging) return;
+          e.stopPropagation();
+          this.restoreFromMinimize();
+          this.container?.removeEventListener('click', this.boundHandlers!.minimizeRestore);
+        }
+      };
+      this.container.addEventListener('click', this.boundHandlers.minimizeRestore);
     }
 
-    // 3秒后恢复
-    setTimeout(() => {
-      this.restoreFromMinimize();
-    }, 3000);
+    // 移除自动恢复的 setTimeout，用户点击后才会恢复
   }
 
   /**
@@ -418,6 +445,16 @@ export class FloatingButton {
    * 销毁按钮
    */
   destroy(): void {
+    // 清理事件监听器
+    if (this.boundHandlers) {
+      document.removeEventListener('click', this.boundHandlers.documentClick);
+      // 清理最小化恢复监听器
+      if (this.container && this.boundHandlers.minimizeRestore) {
+        this.container.removeEventListener('click', this.boundHandlers.minimizeRestore);
+      }
+      this.boundHandlers = null;
+    }
+
     this.collapse();
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
