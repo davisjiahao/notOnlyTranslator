@@ -10,6 +10,7 @@ import {
   BATCH_TRANSLATION_PROMPT_TEMPLATE,
   EXAM_DISPLAY_NAMES,
   DEFAULT_BATCH_CONFIG,
+  CHINESE_DETECTION_THRESHOLD,
 } from '@/shared/constants';
 import {
   normalizeText,
@@ -111,9 +112,8 @@ export class BatchTranslationService {
     // 同时也过滤掉本地判定为"太简单"的段落
     const skippedParagraphs: BatchParagraphResult[] = [];
     toTranslate = toTranslate.filter(p => {
-      // 1. 检查中文占比
       const chineseRatio = getChineseRatio(p.text);
-      if (chineseRatio > 0.2) {
+      if (chineseRatio > CHINESE_DETECTION_THRESHOLD.PARAGRAPH) {
         logger.info(`BatchTranslationService: 跳过中文占比过高的段落 (${(chineseRatio * 100).toFixed(1)}%)`, p.id);
         skippedParagraphs.push({
           id: p.id,

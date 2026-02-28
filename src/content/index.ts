@@ -5,8 +5,8 @@ import type {
   TranslationResult,
   UserSettings,
 } from '@/shared/types';
-import { CSS_CLASSES } from '@/shared/constants';
-import { debounce, logger } from '@/shared/utils';
+import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD } from '@/shared/constants';
+import { debounce, logger, getChineseRatio } from '@/shared/utils';
 import { Highlighter } from './highlighter';
 import { Tooltip } from './tooltip';
 import { MarkerService } from './marker';
@@ -149,10 +149,10 @@ class NotOnlyTranslator {
 
     const key = e.key;
 
-    if (key === 'j' || key === 'J' || key === 'ArrowDown') {
+    if (key === 'j' || key === 'J' || key === 'l' || key === 'L' || key === 'ArrowDown') {
       e.preventDefault();
       this.navigateToNext();
-    } else if (key === 'k' || key === 'K' || key === 'ArrowUp') {
+    } else if (key === 'h' || key === 'H' || key === 'ArrowUp') {
       e.preventDefault();
       this.navigateToPrevious();
     }
@@ -410,9 +410,8 @@ class NotOnlyTranslator {
     }
 
     const chineseRatio = this.calculateChineseRatio(sampleText);
-    const threshold = 0.3; // 中文字符占比超过 30% 认为是中文页面
 
-    if (chineseRatio > threshold) {
+    if (chineseRatio > CHINESE_DETECTION_THRESHOLD.PAGE) {
       logger.info(`NotOnlyTranslator: Detected Chinese page by content ratio: ${(chineseRatio * 100).toFixed(1)}%`);
       return true;
     }
@@ -422,10 +421,13 @@ class NotOnlyTranslator {
 
   /**
    * 获取页面文本采样
-   * 从主要内容区域采样，避免采样导航、脚注等
+   * 从主要内容区域采样，排除脚本、样式、导航等元素
    */
   private getPageTextSample(): string {
-    // 优先从主内容区域采样
+    const excludeSelectors = ['script', 'style', 'noscript', 'iframe', 'nav', 'footer', 'header', 'aside', '.sidebar', '.nav', '.menu', '.advertisement', '.ad', '.social', '.comments'];
+    
+    let sampleArea: Element | null = null;
+    
     const contentSelectors = [
       'article',
       'main',
@@ -437,7 +439,6 @@ class NotOnlyTranslator {
       '#content',
     ];
 
-    let sampleArea: Element | null = null;
     for (const selector of contentSelectors) {
       sampleArea = document.querySelector(selector);
       if (sampleArea && sampleArea.textContent && sampleArea.textContent.trim().length > 200) {
@@ -445,16 +446,18 @@ class NotOnlyTranslator {
       }
     }
 
-    // 如果没有找到主内容区域，使用 body
     if (!sampleArea) {
       sampleArea = document.body;
     }
 
-    // 获取文本内容，限制采样长度
-    const fullText = sampleArea.textContent || '';
+    const clone = sampleArea.cloneNode(true) as Element;
+    excludeSelectors.forEach(sel => {
+      clone.querySelectorAll(sel).forEach(el => el.remove());
+    });
+
+    const fullText = clone.textContent || '';
     const maxSampleLength = 2000;
 
-    // 从中间位置采样，避免头尾的导航等内容
     const startPos = Math.max(0, Math.floor(fullText.length / 4));
     const endPos = Math.min(fullText.length, startPos + maxSampleLength);
 
@@ -463,22 +466,10 @@ class NotOnlyTranslator {
 
   /**
    * 计算文本中中文字符的比例
+   * 使用统一的 getChineseRatio 函数
    */
   private calculateChineseRatio(text: string): number {
-    if (!text || text.length === 0) return 0;
-
-    // 移除空白字符后计算
-    const cleanText = text.replace(/\s/g, '');
-    if (cleanText.length === 0) return 0;
-
-    // 匹配中文字符（包括中文标点）
-    // CJK Unified Ideographs: \u4e00-\u9fff
-    // CJK Symbols and Punctuation: \u3000-\u303f
-    // Fullwidth ASCII variants: \uff00-\uffef
-    const chineseRegex = /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/g;
-    const chineseMatches = cleanText.match(chineseRegex) || [];
-
-    return chineseMatches.length / cleanText.length;
+    return getChineseRatio(text);
   }
 
   /**

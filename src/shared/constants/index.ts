@@ -83,9 +83,17 @@ export const DEFAULT_USER_PROFILE = {
   examType: 'cet4' as ExamType,
   examScore: 425,
   estimatedVocabulary: 4500,
-  knownWords: [] as string[],
-  unknownWords: [],
   levelConfidence: 0.5,
+  knownWords: [] as string[],
+  unknownWords: [] as string[],
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+};
+
+// Chinese detection thresholds
+export const CHINESE_DETECTION_THRESHOLD = {
+  PAGE: 0.3,    // Page-level: skip if Chinese ratio > 30%
+  PARAGRAPH: 0.2, // Paragraph-level: skip if Chinese ratio > 20%
 };
 
 // LLM Prompt templates

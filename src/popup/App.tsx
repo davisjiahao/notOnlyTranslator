@@ -19,6 +19,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2000);
+  };
 
   useEffect(() => {
     loadData();
@@ -75,7 +81,9 @@ export default function App() {
 
   const toggleGlobalEnabled = async () => {
     if (!settings) return;
-    await updateSettings({ enabled: !settings.enabled });
+    const newEnabled = !settings.enabled;
+    await updateSettings({ enabled: newEnabled });
+    showToast(newEnabled ? '翻译已启用' : '翻译已暂停');
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
@@ -114,6 +122,15 @@ export default function App() {
       payload: newSettings,
     });
     setSettings(newSettings);
+
+    if (newSettingsPart.translationMode) {
+      const modeNames: Record<string, string> = {
+        'inline-only': '生词高亮',
+        'bilingual': '双语对照',
+        'full-translate': '全文翻译',
+      };
+      showToast(`已切换到 ${modeNames[newSettingsPart.translationMode]} 模式`);
+    }
   };
 
   const openOptions = () => {
@@ -140,6 +157,15 @@ export default function App() {
 
   return (
     <div className="bg-gray-50 w-[360px] max-h-[600px] flex flex-col font-sans text-gray-900 overflow-y-auto custom-scrollbar">
+      {/* Toast 提示 */}
+      {toast && (
+        <div className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm z-10 sticky top-0">
         <div className="flex items-center gap-2">

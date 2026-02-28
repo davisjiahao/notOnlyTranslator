@@ -100,12 +100,16 @@ function simpleHash(str: string): string {
 
 /**
  * Calculate the ratio of Chinese characters in a string
+ * Unified implementation - removes whitespace before calculation
  */
 export function getChineseRatio(text: string): number {
   if (!text) return 0;
-  // Match Chinese characters (including punctuation)
-  const chineseMatches = text.match(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/g);
-  return (chineseMatches?.length || 0) / text.length;
+  
+  const cleanText = text.replace(/\s/g, '');
+  if (cleanText.length === 0) return 0;
+  
+  const chineseMatches = cleanText.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\uff00-\uffef\uac00-\ud7af]/g);
+  return (chineseMatches?.length || 0) / cleanText.length;
 }
 
 /**

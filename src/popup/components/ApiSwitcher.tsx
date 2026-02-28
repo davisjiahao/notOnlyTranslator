@@ -1,11 +1,18 @@
 import { useState } from 'react';
-import type { UserSettings } from '@/shared/types';
+import type { UserSettings, ApiProvider } from '@/shared/types';
+import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
 
 interface ApiSwitcherProps {
   settings: UserSettings;
   onUpdateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   onOpenOptions: () => void;
 }
+
+// 获取 Provider 显示名称
+const getProviderDisplayName = (provider?: ApiProvider): string => {
+  if (!provider) return '未知';
+  return PROVIDER_CONFIGS[provider]?.name || provider;
+};
 
 export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions }: ApiSwitcherProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -37,12 +44,20 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeConfig?.tested ? 'bg-green-500' : 'bg-gray-400'}`} />
-            <span className="text-sm font-medium text-gray-900 truncate">
-              {activeConfig?.name || '默认配置'}
-            </span>
+            <div className="flex flex-col items-start min-w-0">
+              <span className="text-sm font-medium text-gray-900 truncate">
+                {activeConfig?.name || '默认配置'}
+              </span>
+              {activeConfig && (
+                <span className="text-xs text-gray-400 truncate">
+                  {getProviderDisplayName(activeConfig.provider)}
+                  {activeConfig.modelName && ` · ${activeConfig.modelName}`}
+                </span>
+              )}
+            </div>
           </div>
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ml-2 ${isDropdownOpen ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -67,9 +82,15 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                       config.id === settings.activeApiConfigId ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
                     }`}
                   >
-                    <span className="truncate">{config.name}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate">{config.name}</span>
+                      <span className="text-xs text-gray-400 truncate">
+                        {getProviderDisplayName(config.provider)}
+                        {config.modelName && ` · ${config.modelName}`}
+                      </span>
+                    </div>
                     {config.id === settings.activeApiConfigId && (
-                      <svg className="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-primary-600 flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
