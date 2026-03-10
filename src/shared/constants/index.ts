@@ -96,6 +96,28 @@ export const CHINESE_DETECTION_THRESHOLD = {
   PARAGRAPH: 0.2, // Paragraph-level: skip if Chinese ratio > 20%
 };
 
+// Content script timing constants
+export const TIMING = {
+  // Event delays (ms)
+  SELECTION_DELAY: 50,           // 文本选择检测延迟
+  DEFAULT_HOVER_DELAY: 500,      // 默认悬停延迟
+  MODE_SWITCH_TRANSITION: 150,   // 模式切换 CSS 过渡时间
+  NAVIGATION_HIGHLIGHT_DURATION: 2000, // 导航高亮持续时间
+
+  // Message timeouts (ms)
+  DEFAULT_MESSAGE_TIMEOUT: 5000, // 默认消息超时
+  TRANSLATION_MESSAGE_TIMEOUT: 30000, // 翻译消息超时
+
+  // Debounce delays (ms)
+  SCAN_DEBOUNCE: 1000,           // 页面扫描防抖延迟
+  TOOLTIP_HIDE_DELAY: 100,       // Tooltip 隐藏延迟
+
+  // Content thresholds
+  MIN_PARAGRAPH_LENGTH: 50,      // 最小段落长度
+  MAX_SAMPLE_LENGTH: 2000,       // 最大采样长度
+  TEXT_SELECTION_MAX_LENGTH: 100, // 文本选择最大长度
+};
+
 // LLM Prompt templates
 export const TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手。用户的英语水平约为 {vocabulary_size} 词汇量（相当于{exam_level}水平）。
 

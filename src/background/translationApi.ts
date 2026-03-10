@@ -19,6 +19,66 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 };
 
 /**
+ * API 错误响应类型
+ */
+interface ApiErrorResponse {
+  error?: {
+    message?: string;
+  };
+}
+
+/**
+ * OpenAI 格式 API 响应
+ */
+interface OpenAIResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+}
+
+/**
+ * Anthropic 格式 API 响应
+ */
+interface AnthropicResponse {
+  content?: Array<{
+    text?: string;
+  }>;
+}
+
+/**
+ * Gemini 格式 API 响应
+ */
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+}
+
+/**
+ * 百度 Token 响应类型
+ */
+interface BaiduTokenResponse {
+  access_token?: string;
+  expires_in?: number;
+  error?: string;
+}
+
+/**
+ * 百度 API 响应类型
+ */
+interface BaiduResponse {
+  result?: string;
+  error_code?: number;
+  error_msg?: string;
+}
+
+/**
  * 百度 access token 缓存
  */
 interface BaiduTokenCache {
@@ -27,6 +87,60 @@ interface BaiduTokenCache {
 }
 
 let baiduTokenCache: BaiduTokenCache | null = null;
+
+/**
+ * 类型守卫函数
+ */
+function isOpenAIResponse(data: unknown): data is OpenAIResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'choices' in data &&
+    Array.isArray((data as OpenAIResponse).choices)
+  );
+}
+
+function isAnthropicResponse(data: unknown): data is AnthropicResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'content' in data &&
+    Array.isArray((data as AnthropicResponse).content)
+  );
+}
+
+function isGeminiResponse(data: unknown): data is GeminiResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'candidates' in data &&
+    Array.isArray((data as GeminiResponse).candidates)
+  );
+}
+
+function getErrorMessage(errorData: unknown): string | undefined {
+  if (typeof errorData !== 'object' || errorData === null) {
+    return undefined;
+  }
+  const data = errorData as ApiErrorResponse;
+  return data.error?.message;
+}
+
+function isBaiduTokenResponse(data: unknown): data is BaiduTokenResponse {
+  return typeof data === 'object' && data !== null && 'access_token' in data;
+}
+
+function isBaiduResponse(data: unknown): data is BaiduResponse {
+  return typeof data === 'object' && data !== null;
+}
+
+function getBaiduErrorMessage(errorData: unknown): string | undefined {
+  if (typeof errorData !== 'object' || errorData === null) {
+    return undefined;
+  }
+  const data = errorData as { error_msg?: string };
+  return data.error_msg;
+}
 
 /**
  * 统一 API 调用服务
@@ -121,13 +235,18 @@ export class TranslationApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          (errorData as { error?: { message?: string } }).error?.message ||
+          getErrorMessage(errorData) ||
           `API 请求失败 (${response.status})`;
         throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
       }
 
       const data = await response.json();
-      const content = (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content;
+
+      if (!isOpenAIResponse(data)) {
+        throw new ApiError('API 返回格式无效', undefined, true);
+      }
+
+      const content = data.choices?.[0]?.message?.content;
 
       if (!content) {
         throw new ApiError('API 返回空响应', undefined, true);
@@ -170,13 +289,18 @@ export class TranslationApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          (errorData as { error?: { message?: string } }).error?.message ||
+          getErrorMessage(errorData) ||
           `Anthropic API 请求失败 (${response.status})`;
         throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
       }
 
       const data = await response.json();
-      const content = (data as { content?: Array<{ text?: string }> }).content?.[0]?.text;
+
+      if (!isAnthropicResponse(data)) {
+        throw new ApiError('Anthropic API 返回格式无效', undefined, true);
+      }
+
+      const content = data.content?.[0]?.text;
 
       if (!content) {
         throw new ApiError('Anthropic API 返回空响应', undefined, true);
@@ -226,14 +350,18 @@ export class TranslationApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          (errorData as { error?: { message?: string } }).error?.message ||
+          getErrorMessage(errorData) ||
           `Gemini API 请求失败 (${response.status})`;
         throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
       }
 
       const data = await response.json();
-      const content = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-        .candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!isGeminiResponse(data)) {
+        throw new ApiError('Gemini API 返回格式无效', undefined, true);
+      }
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!content) {
         throw new ApiError('Gemini API 返回空响应', undefined, true);
@@ -297,14 +425,19 @@ export class TranslationApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          (errorData as { error?: { message?: string } }).error?.message ||
+          getErrorMessage(errorData) ||
           `Ollama API 请求失败 (${response.status})`;
         throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
       }
 
       const data = await response.json();
       // OpenAI 兼容格式响应：{ choices: [{ message: { content: "..." } }] }
-      const content = (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content;
+
+      if (!isOpenAIResponse(data)) {
+        throw new ApiError('Ollama API 返回格式无效', undefined, true);
+      }
+
+      const content = data.choices?.[0]?.message?.content;
 
       if (!content) {
         throw new ApiError('Ollama API 返回空响应', undefined, true);
@@ -355,28 +488,31 @@ export class TranslationApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          (errorData as { error_msg?: string }).error_msg ||
+          getBaiduErrorMessage(errorData) ||
           `百度 API 请求失败 (${response.status})`;
         throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
       }
 
       const data = await response.json();
 
+      if (!isBaiduResponse(data)) {
+        throw new ApiError('百度 API 返回格式无效', undefined, true);
+      }
+
       // 检查百度 API 错误
-      const baiduError = (data as { error_code?: number; error_msg?: string }).error_code;
-      if (baiduError) {
+      if (data.error_code) {
         // 如果是 token 过期错误，清除缓存
-        if (baiduError === 110 || baiduError === 111) {
+        if (data.error_code === 110 || data.error_code === 111) {
           baiduTokenCache = null;
         }
         throw new ApiError(
-          (data as { error_msg?: string }).error_msg || `百度 API 错误 (${baiduError})`,
+          data.error_msg || `百度 API 错误 (${data.error_code})`,
           undefined,
           true
         );
       }
 
-      const content = (data as { result?: string }).result;
+      const content = data.result;
 
       if (!content) {
         throw new ApiError('百度 API 返回空响应', undefined, true);
@@ -403,11 +539,11 @@ export class TranslationApiService {
       throw new Error('获取百度 access token 失败');
     }
 
-    const data = await response.json() as {
-      access_token?: string;
-      expires_in?: number;
-      error?: string;
-    };
+    const data = await response.json();
+
+    if (!isBaiduTokenResponse(data)) {
+      throw new Error('获取百度 access token 失败：响应格式无效');
+    }
 
     if (!data.access_token) {
       throw new Error(data.error || '获取百度 access token 失败');
@@ -490,7 +626,12 @@ export class TranslationApiService {
       }
 
       const data = await response.json();
-      return (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content || '';
+
+      if (!isOpenAIResponse(data)) {
+        return '';
+      }
+
+      return data.choices?.[0]?.message?.content || '';
     }, retryOptions);
   }
 
@@ -524,7 +665,12 @@ export class TranslationApiService {
       }
 
       const data = await response.json();
-      return (data as { content?: Array<{ text?: string }> }).content?.[0]?.text || '';
+
+      if (!isAnthropicResponse(data)) {
+        return '';
+      }
+
+      return data.content?.[0]?.text || '';
     }, retryOptions);
   }
 
@@ -557,8 +703,12 @@ export class TranslationApiService {
       }
 
       const data = await response.json();
-      return (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-        .candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      if (!isGeminiResponse(data)) {
+        return '';
+      }
+
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }, retryOptions);
   }
 
@@ -589,7 +739,12 @@ export class TranslationApiService {
       }
 
       const data = await response.json();
-      return (data as { result?: string }).result || '';
+
+      if (!isBaiduResponse(data)) {
+        return '';
+      }
+
+      return data.result || '';
     }, retryOptions);
   }
 
@@ -624,7 +779,12 @@ export class TranslationApiService {
 
       const data = await response.json();
       // OpenAI 兼容格式响应
-      return (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content || '';
+
+      if (!isOpenAIResponse(data)) {
+        return '';
+      }
+
+      return data.choices?.[0]?.message?.content || '';
     }, retryOptions);
   }
 }

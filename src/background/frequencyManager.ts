@@ -20,19 +20,9 @@ type WordList = Set<string>;
  * Level 3: TOEFL/IELTS (Advanced)
  * Level 4: GRE (Expert)
  */
-export class FrequencyManager {
-  private static instance: FrequencyManager;
+class FrequencyManager {
   private wordSets: Map<string, WordList> = new Map();
   private initialized = false;
-
-  private constructor() {}
-
-  static getInstance(): FrequencyManager {
-    if (!FrequencyManager.instance) {
-      FrequencyManager.instance = new FrequencyManager();
-    }
-    return FrequencyManager.instance;
-  }
 
   /**
    * Initialize vocabulary lists
@@ -235,5 +225,5 @@ export class FrequencyManager {
   }
 }
 
-// Export singleton
-export const frequencyManager = FrequencyManager.getInstance();
+// 导出单例实例
+export const frequencyManager = new FrequencyManager();

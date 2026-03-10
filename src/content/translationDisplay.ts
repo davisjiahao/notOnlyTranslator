@@ -186,16 +186,15 @@ export class TranslationDisplay {
     const wordsInOrder = [...result.words].sort((a, b) => a.position[0] - b.position[0]);
     wordsInOrder.forEach((word, i) => {
       const translation = word.translation;
-      const regex = new RegExp(this.escapeRegex(translation), 'g');
-      let matchCount = 0;
 
-      translationHtml = translationHtml.replace(regex, (match) => {
-        matchCount++;
-        if (matchCount === 1) {
-          return `<span class="not-translator-highlighted-translation" data-index="${i}" data-word="${this.escapeHtml(word.original)}">${match}</span>`;
-        }
-        return match;
-      });
+      // 使用字符串方法替代正则表达式，避免在循环中重复创建正则对象
+      const index = translationHtml.indexOf(translation);
+      if (index !== -1) {
+        const before = translationHtml.slice(0, index);
+        const after = translationHtml.slice(index + translation.length);
+        const wrapped = `<span class="not-translator-highlighted-translation" data-index="${i}" data-word="${this.escapeHtml(word.original)}">${translation}</span>`;
+        translationHtml = before + wrapped + after;
+      }
     });
 
     translationLine.innerHTML = translationHtml;
@@ -641,13 +640,6 @@ export class TranslationDisplay {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  /**
-   * 正则表达式转义
-   */
-  private static escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**

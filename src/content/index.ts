@@ -5,7 +5,7 @@ import type {
   TranslationResult,
   UserSettings,
 } from '@/shared/types';
-import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD } from '@/shared/constants';
+import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, TIMING } from '@/shared/constants';
 import { debounce, logger, getChineseRatio } from '@/shared/utils';
 import { Highlighter } from './highlighter';
 import { Tooltip } from './tooltip';
@@ -60,7 +60,7 @@ class NotOnlyTranslator {
     if (!this.settings?.enabled) return;
     setTimeout(() => {
       this.handleTextSelection(e);
-    }, 50);
+    }, TIMING.SELECTION_DELAY);
   };
 
   private handleMouseDown = (e: MouseEvent): void => {
@@ -101,7 +101,7 @@ class NotOnlyTranslator {
 
     this.hoverElement = validElement;
 
-    const hoverDelay = this.settings?.hoverDelay ?? 500;
+    const hoverDelay = this.settings?.hoverDelay ?? TIMING.DEFAULT_HOVER_DELAY;
     this.hoverTimer = setTimeout(() => {
       this.handleHoverShow(validElement);
     }, hoverDelay);
@@ -355,7 +355,7 @@ class NotOnlyTranslator {
       }
 
       this.scanPage();
-    }, 150);
+    }, TIMING.MODE_SWITCH_TRANSITION);
   }
 
   /**
@@ -456,7 +456,7 @@ class NotOnlyTranslator {
     });
 
     const fullText = clone.textContent || '';
-    const maxSampleLength = 2000;
+    const maxSampleLength = TIMING.MAX_SAMPLE_LENGTH;
 
     const startPos = Math.max(0, Math.floor(fullText.length / 4));
     const endPos = Math.min(fullText.length, startPos + maxSampleLength);
@@ -651,7 +651,7 @@ class NotOnlyTranslator {
     this.navHighlightTimer = setTimeout(() => {
       element.classList.remove('not-translator-nav-highlight');
       this.navHighlightTimer = null;
-    }, 2000);
+    }, TIMING.NAVIGATION_HIGHLIGHT_DURATION);
   }
 
   /**
@@ -816,7 +816,7 @@ class NotOnlyTranslator {
         this.tooltip.showLoading(highlightElement);
         this.translateSelection(word, highlightElement);
       }
-    } else if (selectedText.length > 1 && selectedText.length < 100) {
+    } else if (selectedText.length > 1 && selectedText.length < TIMING.TEXT_SELECTION_MAX_LENGTH) {
       // 选中的是普通文本，提供翻译选项
       const rect = range.getBoundingClientRect();
       const tempElement = document.createElement('span');
@@ -831,7 +831,7 @@ class NotOnlyTranslator {
           if (document.body.contains(tempElement)) {
             document.body.removeChild(tempElement);
           }
-        }, 100);
+        }, TIMING.TOOLTIP_HIDE_DELAY);
       });
     }
   }
@@ -886,7 +886,7 @@ class NotOnlyTranslator {
    * 或触发页面扫描（非批量模式）
    */
   private setupMutationObserver(): void {
-    const debouncedScan = debounce(() => this.scanPage(), 1000);
+    const debouncedScan = debounce(() => this.scanPage(), TIMING.SCAN_DEBOUNCE);
 
     this.observer = new MutationObserver((mutations) => {
       // 收集新添加的内容元素
@@ -912,13 +912,13 @@ class NotOnlyTranslator {
             );
 
             paragraphs.forEach((p) => {
-              if (p.textContent && p.textContent.trim().length >= 50) {
+              if (p.textContent && p.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
                 newElements.push(p);
               }
             });
 
             // 如果元素本身是有效段落
-            if (el.textContent && el.textContent.trim().length >= 50) {
+            if (el.textContent && el.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
               const tagName = el.tagName.toLowerCase();
               if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'blockquote', 'figcaption'].includes(tagName)) {
                 newElements.push(el);
@@ -1002,7 +1002,7 @@ class NotOnlyTranslator {
       if (TranslationDisplay.isProcessed(paragraph)) continue;
 
       const text = paragraph.textContent || '';
-      if (text.length < 50) continue;
+      if (text.length < TIMING.MIN_PARAGRAPH_LENGTH) continue;
 
       try {
         logger.info(`NotOnlyTranslator: Translating paragraph (${text.length} chars):`, text.substring(0, 100) + '...');
@@ -1097,13 +1097,13 @@ class NotOnlyTranslator {
       const elements = area.querySelectorAll<HTMLElement>('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption');
       elements.forEach((el) => {
         // Skip if already processed or has no meaningful content
-        if (!TranslationDisplay.isProcessed(el) && el.textContent && el.textContent.trim().length >= 50) {
+        if (!TranslationDisplay.isProcessed(el) && el.textContent && el.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
           paragraphs.push(el);
         }
       });
 
       // If no specific elements found, treat the whole area as one paragraph
-      if (paragraphs.length === 0 && area.textContent && area.textContent.trim().length >= 50) {
+      if (paragraphs.length === 0 && area.textContent && area.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
         paragraphs.push(area);
       }
     }
@@ -1152,7 +1152,7 @@ class NotOnlyTranslator {
         context: context || '',
         mode,
       },
-    }, 30000);
+    }, TIMING.TRANSLATION_MESSAGE_TIMEOUT);
 
     logger.info('NotOnlyTranslator: Received response from background:', {
       success: response.success,
@@ -1338,7 +1338,7 @@ class NotOnlyTranslator {
   /**
    * Send message to background script
    */
-  private async sendMessage(message: Message, timeout: number = 5000): Promise<MessageResponse> {
+  private async sendMessage(message: Message, timeout: number = TIMING.DEFAULT_MESSAGE_TIMEOUT): Promise<MessageResponse> {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     return Promise.race([
