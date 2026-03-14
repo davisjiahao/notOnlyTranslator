@@ -263,6 +263,73 @@ export class MarkerService {
   }
 
   /**
+   * 获取当前选中文本的上下文
+   * 用于标记单词时提取上下文信息
+   */
+  getSelectionContext(): string {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      // 如果没有选中文本，尝试从最近的包含单词的元素获取上下文
+      return '';
+    }
+
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+
+    // 获取容器元素的文本内容作为上下文
+    let context = '';
+    if (container.nodeType === Node.TEXT_NODE) {
+      context = container.textContent || '';
+    } else if (container.nodeType === Node.ELEMENT_NODE) {
+      context = (container as HTMLElement).textContent || '';
+    }
+
+    // 限制上下文长度，取选中词周围的文本
+    const selectedText = selection.toString().trim();
+    if (selectedText && context) {
+      const index = context.toLowerCase().indexOf(selectedText.toLowerCase());
+      if (index !== -1) {
+        const start = Math.max(0, index - 50);
+        const end = Math.min(context.length, index + selectedText.length + 50);
+        context = context.slice(start, end);
+      }
+    }
+
+    // 限制最大长度
+    return context.trim().slice(0, 200);
+  }
+
+  /**
+   * 添加单词到词汇表（不标记为未知，仅保存）
+   */
+  async addToVocabulary(
+    word: string,
+    translation: string,
+    context: string
+  ): Promise<void> {
+    const entry: UnknownWordEntry = {
+      word,
+      translation: translation || '',
+      context: context || '',
+      markedAt: Date.now(),
+      reviewCount: 0,
+    };
+
+    try {
+      const response = await this.sendMessage({
+        type: 'ADD_TO_VOCABULARY',
+        payload: { entry },
+      });
+
+      if (!response.success) {
+        this.callbacks.onError?.(word, response.error || 'Failed to add to vocabulary');
+      }
+    } catch (error) {
+      this.callbacks.onError?.(word, String(error));
+    }
+  }
+
+  /**
    * 发送消息到background script
    */
   private async sendMessage(message: Message): Promise<MessageResponse> {

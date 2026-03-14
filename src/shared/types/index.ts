@@ -90,6 +90,12 @@ export interface TranslatedWord {
   position: [number, number];
   difficulty: number;
   isPhrase: boolean;
+  /** 音标（可选） */
+  phonetic?: string;
+  /** 词性（可选） */
+  partOfSpeech?: string;
+  /** 例句（可选） */
+  examples?: string[];
 }
 
 export interface TranslatedSentence {

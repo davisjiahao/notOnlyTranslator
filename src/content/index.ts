@@ -1072,7 +1072,7 @@ class NotOnlyTranslator {
   ): Promise<void> {
     try {
       const context = this.marker.getSelectionContext();
-      await this.marker.markUnknown(word, translation, context);
+      await this.marker.markUnknown(word, translation, { context });
       this.highlighter.markAsUnknown(word);
     } catch (error) {
       logger.error('Failed to mark as unknown:', error);

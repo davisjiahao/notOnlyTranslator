@@ -370,6 +370,45 @@ export class Tooltip {
     translationDiv.textContent = data.translation; // 使用 textContent 防止 XSS
     content.appendChild(translationDiv);
 
+    // Phonetic (if available)
+    if (data.phonetic) {
+      const phoneticDiv = document.createElement('div');
+      phoneticDiv.className = `${CSS_CLASSES.TOOLTIP}-phonetic`;
+      phoneticDiv.textContent = data.phonetic;
+      content.appendChild(phoneticDiv);
+    }
+
+    // Part of speech (if available)
+    if (data.partOfSpeech) {
+      const posDiv = document.createElement('div');
+      posDiv.className = `${CSS_CLASSES.TOOLTIP}-pos`;
+      posDiv.textContent = data.partOfSpeech;
+      content.appendChild(posDiv);
+    }
+
+    // Examples (if available)
+    if (data.examples && data.examples.length > 0) {
+      const examplesDiv = document.createElement('div');
+      examplesDiv.className = `${CSS_CLASSES.TOOLTIP}-examples`;
+
+      const examplesLabel = document.createElement('div');
+      examplesLabel.className = `${CSS_CLASSES.TOOLTIP}-examples-label`;
+      examplesLabel.textContent = '例句';
+      examplesDiv.appendChild(examplesLabel);
+
+      const examplesList = document.createElement('ul');
+      examplesList.className = `${CSS_CLASSES.TOOLTIP}-examples-list`;
+
+      for (const example of data.examples) {
+        const li = document.createElement('li');
+        li.textContent = example;
+        examplesList.appendChild(li);
+      }
+
+      examplesDiv.appendChild(examplesList);
+      content.appendChild(examplesDiv);
+    }
+
     // Actions
     const actionsDiv = document.createElement('div');
     actionsDiv.className = `${CSS_CLASSES.TOOLTIP}-actions`;
