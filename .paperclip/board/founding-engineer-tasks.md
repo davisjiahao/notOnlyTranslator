@@ -1,30 +1,42 @@
 # Founding Engineer 任务分配
 
-## 当前任务: US-003 🔄 待开始
+## 当前任务: US-003 整合 Content Script 模块 🔄
 
-**任务**: 标记已知/未知单词
-**状态**: ⏳ 待开始
-**优先级**: Critical
+**状态**: 进行中
+**开始时间**: 2026-03-15
+**预计完成**: 2026-03-15 (6小时)
+
+### 任务目标
+创建 `src/content/index.ts` 作为主入口，整合 PageScanner、VocabularyFilter、Highlighter 和 Tooltip，实现完整的 Content Script 功能。
+
+### 已完成的工作
+- [x] PageScanner 模块
+- [x] VocabularyFilter 服务
+- [x] Highlighter 渲染器
+- [x] Tooltip 组件
+
+### 待完成的工作
+- [ ] 创建 Content Script 主入口
+- [ ] 整合所有模块
+- [ ] 添加消息通信处理
+- [ ] 实现页面扫描和翻译流程
+- [ ] 编写单元测试
+
+---
+
+---
+
+## 待办任务
+
+### 📋 US-003: 整合 Content Script 模块
+**描述**: 将 PageScanner、VocabularyFilter、Highlighter 和 Tooltip 整合到主 Content Script 中。
+**优先级**: High
 **估计工时**: 6 小时
-**依赖**: US-002 已完成
+**依赖**: US-001, US-002 已完成
 
 ---
 
 ## 已完成的任务
-
-### ✅ US-002-T2: Tooltip 测试修复
-**状态**: 已完成 ✓
-**实际工时**: 15 分钟
-**完成时间**: 2026-03-15
-
-修复 3 个失败的测试用例，添加缺失的 `vi.useFakeTimers()` 和 `vi.useRealTimers()`。
-
-**修复的测试**:
-- `destroy > should clear any pending timeouts`
-- `scroll handling > should hide tooltip on scroll when not pinned`
-- `scroll handling > should not hide tooltip on scroll when pinned`
-
----
 
 ### ✅ US-002-T1: Tooltip 组件
 **状态**: 已完成 ✓
@@ -45,21 +57,7 @@
 
 **文件位置**:
 - 实现: `src/content/tooltip.ts` (705 行)
-- 测试: `tests/unit/content/tooltip.test.ts` (38 个测试全部通过)
-
----
-
-### ✅ US-002-T2: Tooltip 测试修复
-**状态**: 已完成 ✓
-**实际工时**: 15 分钟
-**完成时间**: 2026-03-15
-
-修复 3 个失败的测试用例，添加缺失的 `vi.useFakeTimers()` 和 `vi.useRealTimers()`。
-
-**修复的测试**:
-- `destroy > should clear any pending timeouts`
-- `scroll handling > should hide tooltip on scroll when not pinned`
-- `scroll handling > should not hide tooltip on scroll when pinned`
+- 测试: `tests/unit/content/tooltip.test.ts` (47 个测试全部通过)
 
 ---
 
@@ -101,152 +99,6 @@
 **文件位置**:
 - 实现: `src/content/highlighter.ts` (232 行)
 - 测试: `tests/unit/content/highlighter.test.ts` (9 个测试通过)
-
----
-
-## US-002-T1 任务描述: Tooltip 组件
-
-实现一个 Tooltip 组件，当用户悬停或点击高亮单词时显示翻译详情。
-
-### 功能需求
-
-- [ ] 悬停高亮单词时显示 Tooltip
-- [ ] 显示单词翻译、难度等级
-- [ ] 提供"标记已知"和"标记未知"按钮
-- [ ] 支持点击外部关闭 Tooltip
-- [ ] 自动定位（避免超出视口）
-
-### 技术规范
-
-**文件位置**: `src/content/tooltip.ts`
-
-**接口定义**:
-```typescript
-interface TooltipOptions {
-  position: 'top' | 'bottom' | 'auto';
-  showDifficulty: boolean;
-  autoClose: boolean;
-  closeDelay: number;
-}
-
-class Tooltip {
-  constructor(container: HTMLElement, options?: Partial<TooltipOptions>);
-
-  show(word: string, translation: string, difficulty: number, target: HTMLElement): void;
-  hide(): void;
-  destroy(): void;
-
-  // 事件回调
-  onMarkKnown(callback: (word: string) => void): void;
-  onMarkUnknown(callback: (word: string) => void): void;
-}
-```
-
-### 2. 技术规范
-
-**文件位置**: `src/content/vocabularyFilter.ts`
-
-**接口定义**:
-```typescript
-interface VocabularyFilterConfig {
-  minWordLength: number;      // 最小单词长度（默认 3）
-  excludeCommonWords: boolean; // 是否排除常见词（默认 true）
-}
-
-interface FilterResult {
-  word: string;          // 单词
-  element: HTMLElement;  // 所在元素
-  paragraphId: string;   // 段落 ID
-  difficulty: number;    // 难度等级 (1-10)
-  isKnown: boolean;      // 是否已知
-}
-
-class VocabularyFilter {
-  constructor(
-    userLevel: UserLevel,
-    frequencyManager: FrequencyManager,
-    config?: Partial<VocabularyFilterConfig>
-  );
-
-  filter(paragraphs: Paragraph[]): FilterResult[];
-  isWordEligible(word: string): boolean;
-  getWordDifficulty(word: string): number;
-}
-```
-
-### 3. 实现细节
-
-**依赖服务**:
-- `FrequencyManager` (`src/background/frequencyManager.ts`) - 单词难度查询
-- `UserLevel` (`src/background/userLevel.ts`) - 用户水平管理
-
-**过滤逻辑**:
-```typescript
-// 单词资格判断
-function isWordEligible(word: string): boolean {
-  // 1. 最小长度检查（默认 3 个字符）
-  if (word.length < config.minWordLength) return false;
-
-  // 2. 纯数字跳过
-  if (/^\d+$/.test(word)) return false;
-
-  // 3. 常见停用词检查（a, an, the, is, are 等）
-  if (config.excludeCommonWords && isStopWord(word)) return false;
-
-  return true;
-}
-
-// 单词难度比较
-function shouldHighlight(word: string, userLevel: UserLevel): boolean {
-  const difficulty = frequencyManager.getDifficulty(word);
-  return difficulty > userLevel.threshold;
-}
-```
-
-**常见停用词列表**:
-```typescript
-const STOP_WORDS = new Set([
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-  'could', 'should', 'may', 'might', 'must', 'shall', 'can',
-  'need', 'dare', 'ought', 'used', 'to', 'of', 'in', 'for',
-  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through',
-  'during', 'before', 'after', 'above', 'below', 'between',
-  'and', 'but', 'or', 'yet', 'so', 'if', 'because', 'although',
-  'though', 'while', 'where', 'when', 'that', 'which', 'who',
-  'whom', 'whose', 'what', 'this', 'these', 'those', 'i',
-  'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her',
-  'us', 'them', 'my', 'your', 'his', 'its', 'our', 'their'
-]);
-```
-
-### 4. 单元测试要求
-
-**测试文件**: `tests/unit/content/vocabularyFilter.test.ts`
-
-```typescript
-describe('VocabularyFilter', () => {
-  it('should filter words above user level', () => {
-    // 测试难度过滤
-  });
-
-  it('should exclude stop words', () => {
-    // 测试停用词过滤
-  });
-
-  it('should deduplicate words across paragraphs', () => {
-    // 测试去重逻辑
-  });
-
-  it('should skip known words', () => {
-    // 测试已知词汇过滤
-  });
-
-  it('should respect minimum word length', () => {
-    // 测试最小长度限制
-  });
-});
-```
 
 ---
 
