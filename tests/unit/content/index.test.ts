@@ -5,6 +5,32 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// 模拟 constants 模块
+vi.mock('@/shared/constants', () => ({
+  CSS_CLASSES: {
+    HIGHLIGHT: 'not-only-translator-highlight',
+    TOOLTIP: 'not-translator-tooltip',
+    TOOLTIP_VISIBLE: 'not-translator-tooltip-visible',
+    MARK_BUTTON: 'not-translator-mark-button',
+    KNOWN: 'not-translator-known',
+    UNKNOWN: 'not-translator-unknown',
+  },
+  TIMING: {
+    SELECTION_DELAY: 50,
+    DEFAULT_MESSAGE_TIMEOUT: 5000,
+    TRANSLATION_MESSAGE_TIMEOUT: 30000,
+    SCAN_DEBOUNCE: 300,
+    MIN_PARAGRAPH_LENGTH: 20,
+    MAX_SAMPLE_LENGTH: 1000,
+    MODE_SWITCH_TRANSITION: 150,
+    TOOLTIP_HIDE_DELAY: 100,
+  },
+  CHINESE_DETECTION_THRESHOLD: {
+    PAGE: 0.5,
+    PARAGRAPH: 0.7,
+  },
+}));
+
 // 模拟 chrome API
 const mockChrome = {
   runtime: {
@@ -36,7 +62,10 @@ vi.mock('@/shared/utils', () => ({
     warn: vi.fn(),
   },
   debounce: (fn: Function) => fn,
-  getChineseRatio: () => 0,
+  getChineseRatio: (text: string) => {
+    const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
+    return chineseChars ? chineseChars.length / text.length : 0;
+  },
 }));
 
 // 模拟 frequencyManager
@@ -44,115 +73,6 @@ vi.mock('@/background/frequencyManager', () => ({
   frequencyManager: {
     getDifficulty: vi.fn(() => 5),
   },
-}));
-
-// 模拟 highlighter
-vi.mock('./highlighter', () => ({
-  Highlighter: vi.fn().mockImplementation(() => ({
-    highlightWords: vi.fn(),
-    markAsKnown: vi.fn(),
-    markAsUnknown: vi.fn(),
-    clearAllHighlights: vi.fn(),
-  })),
-}));
-
-// 模拟 tooltip
-vi.mock('./tooltip', () => ({
-  Tooltip: vi.fn().mockImplementation((callbacks) => ({
-    showWord: vi.fn(),
-    showSentence: vi.fn(),
-    showLoading: vi.fn(),
-    showError: vi.fn(),
-    hide: vi.fn(),
-    isVisible: vi.fn(() => false),
-    getCurrentWord: vi.fn(() => null),
-    destroy: vi.fn(),
-    callbacks,
-  })),
-}));
-
-// 模拟 marker
-vi.mock('./marker', () => ({
-  MarkerService: vi.fn().mockImplementation(() => ({
-    markKnown: vi.fn(),
-    markUnknown: vi.fn(),
-    addToVocabulary: vi.fn(),
-    getSelectionContext: vi.fn(() => ''),
-  })),
-}));
-
-// 模拟 translationDisplay
-vi.mock('./translationDisplay', () => ({
-  TranslationDisplay: {
-    saveOriginalText: vi.fn(),
-    applyTranslation: vi.fn(),
-    clearTranslation: vi.fn(),
-    isProcessed: vi.fn(() => false),
-  },
-}));
-
-// 模拟 viewportObserver
-vi.mock('./viewportObserver', () => ({
-  ViewportObserver: vi.fn().mockImplementation(() => ({
-    observeAll: vi.fn(),
-    checkCurrentViewport: vi.fn(),
-    markAsProcessed: vi.fn(),
-    disable: vi.fn(),
-    resetTracking: vi.fn(),
-    destroy: vi.fn(),
-  })),
-  VisibleParagraph: vi.fn(),
-}));
-
-// 模拟 batchTranslationManager
-vi.mock('./batchTranslationManager', () => ({
-  BatchTranslationManager: vi.fn().mockImplementation(() => ({
-    handleVisibleParagraphs: vi.fn(),
-    setMode: vi.fn(),
-    setOnComplete: vi.fn(),
-    clearProcessedCache: vi.fn(),
-    cancelAll: vi.fn(),
-  })),
-}));
-
-// 模拟 floatingButton
-vi.mock('./floatingButton', () => ({
-  FloatingButton: vi.fn().mockImplementation(() => ({
-    updateMode: vi.fn(),
-    destroy: vi.fn(),
-  })),
-}));
-
-// 模拟 core modules
-vi.mock('./core', () => ({
-  NavigationManager: vi.fn().mockImplementation(() => ({
-    isNavigationKey: vi.fn(() => false),
-    handleNavigation: vi.fn(),
-    highlightNavigationElement: vi.fn(),
-    getNavigableHighlights: vi.fn(() => []),
-    showNavigationIndicator: vi.fn(),
-    destroy: vi.fn(),
-  })),
-  PageScanner: vi.fn().mockImplementation(() => ({
-    scan: vi.fn(() => []),
-    scanElement: vi.fn(() => []),
-    isTranslatable: vi.fn(() => true),
-    getParagraphs: vi.fn(() => []),
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-  })),
-  HoverManager: vi.fn().mockImplementation(() => ({
-    handleMouseOver: vi.fn(),
-    handleMouseOut: vi.fn(),
-    destroy: vi.fn(),
-  })),
-}));
-
-// 模拟 vocabularyHighlighter
-vi.mock('./vocabularyHighlighter', () => ({
-  VocabularyHighlighter: vi.fn().mockImplementation(() => ({
-    highlightElements: vi.fn(() => []),
-  })),
 }));
 
 import { NotOnlyTranslator, onExecute } from '@/content/index';
