@@ -1,4 +1,5 @@
 import type { Message, MessageResponse, UnknownWordEntry } from '@/shared/types';
+import { CSS_CLASSES } from '@/shared/constants';
 
 /**
  * 标记类型

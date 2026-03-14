@@ -1,26 +1,42 @@
 # Founding Engineer 任务分配
 
-## 当前任务: US-003 整合 Content Script 模块 🔄
+## 当前任务: 待分配 📋
 
-**状态**: 进行中
-**开始时间**: 2026-03-15
-**预计完成**: 2026-03-15 (6小时)
+暂无进行中的任务。请查看下方的待办任务列表。
 
-### 任务目标
-创建 `src/content/index.ts` 作为主入口，整合 PageScanner、VocabularyFilter、Highlighter 和 Tooltip，实现完整的 Content Script 功能。
+---
 
-### 已完成的工作
-- [x] PageScanner 模块
-- [x] VocabularyFilter 服务
-- [x] Highlighter 渲染器
-- [x] Tooltip 组件
+## 待办任务
 
-### 待完成的工作
-- [ ] 创建 Content Script 主入口
-- [ ] 整合所有模块
-- [ ] 添加消息通信处理
-- [ ] 实现页面扫描和翻译流程
-- [ ] 编写单元测试
+### 📋 US-004: 实现 Background Service Worker 核心功能
+**描述**: 实现后台服务工作线程的核心功能，包括消息路由、翻译API调用、词汇管理等。
+**优先级**: High
+**估计工时**: 8 小时
+**依赖**: US-003 已完成
+
+---
+
+## 已完成的任务
+
+### ✅ US-003: 整合 Content Script 模块
+**状态**: 已完成 ✓
+**实际工时**: 6 小时
+**完成时间**: 2026-03-15
+
+将 PageScanner、VocabularyFilter、Highlighter 和 Tooltip 整合到主 Content Script 入口，实现完整的页面翻译功能。
+
+**完成的功能**:
+- ✅ 整合 PageScanner 页面扫描器
+- ✅ 整合 VocabularyFilter 词汇过滤
+- ✅ 整合 Highlighter 高亮渲染器
+- ✅ 整合 Tooltip 翻译提示框
+- ✅ 实现消息通信处理
+- ✅ 实现页面扫描和翻译流程
+- ✅ 编写单元测试 (37 个测试全部通过)
+
+**文件位置**:
+- 主入口: `src/content/index.ts` (1285 行)
+- 测试: `tests/unit/content/index.test.ts` (37 个测试通过)
 
 ---
 
