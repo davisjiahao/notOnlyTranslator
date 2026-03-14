@@ -69,13 +69,13 @@ export class MarkerService {
       const element = el as HTMLElement;
       if (type === null) {
         // 移除标记
-        element.classList.remove('not-only-translator-known', 'not-only-translator-unknown');
+        element.classList.remove(CSS_CLASSES.KNOWN, CSS_CLASSES.UNKNOWN);
       } else if (type === 'known') {
-        element.classList.add('not-only-translator-known');
-        element.classList.remove('not-only-translator-unknown');
+        element.classList.add(CSS_CLASSES.KNOWN);
+        element.classList.remove(CSS_CLASSES.UNKNOWN);
       } else {
-        element.classList.add('not-only-translator-unknown');
-        element.classList.remove('not-only-translator-known');
+        element.classList.add(CSS_CLASSES.UNKNOWN);
+        element.classList.remove(CSS_CLASSES.KNOWN);
       }
     });
   }
