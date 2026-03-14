@@ -10,5 +10,5 @@ export type {
 
 // 导出管理器
 export { NavigationManager } from './navigationManager';
-export { PageScanner } from './pageScanner';
+export { PageScanner } from '../pageScanner';
 export { HoverManager } from './hoverManager';

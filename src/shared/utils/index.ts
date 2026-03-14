@@ -4,6 +4,17 @@ import { EXAM_VOCABULARY_SIZES, SCORE_MULTIPLIERS } from '../constants';
 // 导出日志服务
 export { logger } from './logger';
 
+// 导出掌握度工具
+export * from './mastery';
+
+/**
+ * 生成唯一ID
+ * @returns 唯一标识符字符串
+ */
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 /**
  * Calculate estimated vocabulary size based on exam type and score
  */
@@ -342,7 +353,49 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
- * 包装 fetch 请求，自动转换为 ApiError
+ * 从字符串中提取 JSON 内容
+ * 支持 Markdown 代码块和普通 JSON
+ */
+export function extractJsonFromResponse(content: string): string | null {
+  // 优先匹配 Markdown 代码块
+  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) return codeBlockMatch[1].trim();
+
+  // 寻找第一个 { 和最后一个 }
+  const firstBrace = content.indexOf('{');
+  const lastBrace = content.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return content.substring(firstBrace, lastBrace + 1).trim();
+  }
+
+  // 寻找第一个 [ 和最后一个 ] (兼容直接返回数组的情况)
+  const firstBracket = content.indexOf('[');
+  const lastBracket = content.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    return content.substring(firstBracket, lastBracket + 1).trim();
+  }
+
+  return null;
+}
+
+/**
+ * 尝试修复简单的 JSON 语法错误
+ */
+export function repairMalformedJson(json: string): string {
+  let s = json.trim();
+
+  // 移除末尾的逗号 (处理 [1, 2, ] 或 {a:1, })
+  s = s.replace(/,\s*([\]}])/g, '$1');
+
+  // 移除 JSON 中可能存在的控制字符
+  // eslint-disable-next-line no-control-regex
+  s = s.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
+  return s;
+}
+
+/**
+ * 带 API 错误处理的 fetch 封装
  *
  * @param url 请求 URL
  * @param options fetch 选项

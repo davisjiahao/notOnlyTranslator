@@ -135,6 +135,8 @@ export interface ApiConfig {
 export interface UserSettings {
   enabled: boolean;
   autoHighlight: boolean;
+  /** 是否启用 CEFR 词汇高亮功能 */
+  vocabHighlightEnabled: boolean;
   translationMode: TranslationMode;
   showDifficulty: boolean;
   highlightColor: string;
@@ -184,7 +186,16 @@ export type MessageType =
   | 'WORD_MARKED'
   | 'ADDED_TO_VOCABULARY'
   | 'SETTINGS_UPDATED'
-  | 'TOGGLE_ENABLED';
+  | 'TOGGLE_ENABLED'
+  // 掌握度系统消息类型
+  | 'GET_MASTERY_OVERVIEW'
+  | 'GET_CEFR_LEVEL'
+  | 'GET_REVIEW_WORDS'
+  | 'GET_MASTERY_TREND'
+  | 'SYNC_USER_VOCABULARY'
+  | 'EXPORT_MASTERY_DATA'
+  | 'IMPORT_MASTERY_DATA'
+  | 'GET_WORD_MASTERY_INFO';
 
 export interface Message<T = unknown> {
   type: MessageType;

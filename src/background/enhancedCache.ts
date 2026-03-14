@@ -10,6 +10,7 @@ import {
   CACHE_VERSION,
 } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { generateCacheKey } from '@/shared/utils';
 
 /**
  * 增强缓存管理器
@@ -68,20 +69,10 @@ export class EnhancedCacheManager {
 
   /**
    * 生成文本内容的哈希值
-   * 使用简单但高效的哈希算法
+   * 使用共享工具函数 generateCacheKey
    */
   generateHash(text: string, mode: TranslationMode): string {
-    // 规范化文本：去除多余空白，转小写
-    const normalized = text.replace(/\s+/g, ' ').trim().toLowerCase();
-
-    // 使用 DJB2 哈希算法
-    let hash = 5381;
-    for (let i = 0; i < normalized.length; i++) {
-      hash = ((hash << 5) + hash) ^ normalized.charCodeAt(i);
-    }
-
-    // 加入模式标识
-    return `${mode}_${Math.abs(hash).toString(36)}`;
+    return generateCacheKey(text, mode);
   }
 
   /**

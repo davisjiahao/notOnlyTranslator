@@ -5,6 +5,7 @@ import type {
   TranslationResult,
   UserSettings,
 } from '@/shared/types';
+import type { CEFRLevel } from '@/shared/types/mastery';
 import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, TIMING } from '@/shared/constants';
 import { debounce, logger, getChineseRatio } from '@/shared/utils';
 import { Highlighter } from './highlighter';
@@ -15,6 +16,7 @@ import { ViewportObserver, VisibleParagraph } from './viewportObserver';
 import { BatchTranslationManager } from './batchTranslationManager';
 import { FloatingButton } from './floatingButton';
 import { NavigationManager, PageScanner, HoverManager } from './core';
+import { VocabularyHighlighter } from './vocabularyHighlighter';
 
 /**
  * Content Script - main entry point for page interaction
@@ -50,6 +52,9 @@ class NotOnlyTranslator {
 
   /** 刷新翻译定时器 */
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 词汇高亮器 - 用于 CEFR 词汇水平高亮 */
+  private vocabHighlighter: VocabularyHighlighter | null = null;
 
   // ---- 事件处理器（箭头函数保持 this 绑定）----
 
@@ -203,6 +208,9 @@ class NotOnlyTranslator {
       this.settings?.hoverDelay
     );
 
+    // 初始化词汇高亮器（基于 CEFR 词汇水平）
+    await this.initVocabularyHighlighter();
+
     // Setup message listener for background script
     this.setupMessageListener();
 
@@ -221,6 +229,58 @@ class NotOnlyTranslator {
     this.initFloatingButton();
 
     logger.info('NotOnlyTranslator initialized with settings:', this.settings);
+  }
+
+  /**
+   * 初始化词汇高亮器
+   * 从后台获取用户 CEFR 等级并初始化词汇高亮
+   */
+  private async initVocabularyHighlighter(): Promise<void> {
+    try {
+      // 获取用户 CEFR 等级
+      const response = await this.sendMessage({ type: 'GET_CEFR_LEVEL' });
+
+      let userLevel: CEFRLevel = 'B1';
+      if (response.success && response.data) {
+        const cefrData = response.data as { level?: CEFRLevel; confidence?: number };
+        userLevel = cefrData.level || 'B1';
+        logger.info('NotOnlyTranslator: 获取到用户 CEFR 等级', {
+          level: userLevel,
+          confidence: cefrData.confidence,
+        });
+      } else {
+        // 如果获取失败，使用默认设置或从 userProfile 推断
+        const profileResponse = await this.sendMessage({ type: 'GET_USER_PROFILE' });
+        if (profileResponse.success && profileResponse.data) {
+          const profile = profileResponse.data as { estimatedVocabulary?: number };
+          userLevel = this.vocabularySizeToCEFR(profile.estimatedVocabulary || 3000);
+        }
+      }
+
+      // 初始化词汇高亮器
+      this.vocabHighlighter = new VocabularyHighlighter({
+        userLevel,
+        enabled: true,
+        highlightStyle: 'background',
+        showDifficultyIndicator: true,
+      });
+
+      logger.info('NotOnlyTranslator: 词汇高亮器已初始化', { userLevel });
+    } catch (error) {
+      logger.error('NotOnlyTranslator: 初始化词汇高亮器失败', error);
+    }
+  }
+
+  /**
+   * 词汇量转 CEFR 等级
+   */
+  private vocabularySizeToCEFR(vocabularySize: number): CEFRLevel {
+    if (vocabularySize < 1500) return 'A1';
+    if (vocabularySize < 2500) return 'A2';
+    if (vocabularySize < 4000) return 'B1';
+    if (vocabularySize < 6000) return 'B2';
+    if (vocabularySize < 9000) return 'C1';
+    return 'C2';
   }
 
   /**
@@ -809,8 +869,11 @@ class NotOnlyTranslator {
     logger.info(`NotOnlyTranslator: Starting scan with mode: ${mode}`);
 
     // Get paragraphs to translate
-    const paragraphs = this.pageScanner.getParagraphs();
+    const paragraphs = this.pageScanner.scan();
     logger.info(`NotOnlyTranslator: Found ${paragraphs.length} paragraphs to scan`);
+
+    // 提取 HTMLElement 数组用于后续处理
+    const paragraphElements = paragraphs.map(p => p.element);
 
     // 批量翻译模式：使用可视区域观察器
     if (this.useBatchMode && this.viewportObserver && this.batchManager) {
@@ -818,7 +881,7 @@ class NotOnlyTranslator {
       this.batchManager.setMode(mode);
 
       // 将所有段落注册到观察器
-      this.viewportObserver.observeAll(paragraphs);
+      this.viewportObserver.observeAll(paragraphElements);
 
       // 立即检查当前可视区域
       this.viewportObserver.checkCurrentViewport();
@@ -828,7 +891,14 @@ class NotOnlyTranslator {
     }
 
     // 非批量模式：使用原有的逐段翻译逻辑（保持向后兼容）
-    await this.scanPageSequential(paragraphs, mode);
+    await this.scanPageSequential(paragraphElements, mode);
+
+    // 词汇高亮：扫描完成后高亮超出 CEFR 水平的单词
+    if (this.vocabHighlighter && this.settings?.vocabHighlightEnabled) {
+      logger.info('NotOnlyTranslator: 开始词汇高亮扫描');
+      const highlighted = this.vocabHighlighter.highlightElements(paragraphElements);
+      logger.info(`NotOnlyTranslator: 词汇高亮完成，高亮了 ${highlighted.length} 个单词`);
+    }
   }
 
   /**

@@ -389,6 +389,215 @@
   }
 }
 
+/* ========== CEFR 词汇高亮样式 ========== */
+
+/* CEFR 词汇高亮基础样式 */
+.not-translator-vocab-highlight {
+  background-color: transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 2px;
+  cursor: help;
+  transition: all 0.15s ease;
+  padding: 0 2px;
+  margin: 0 1px;
+}
+
+.not-translator-vocab-highlight:hover {
+  background-color: rgba(96, 165, 250, 0.1);
+}
+
+/* CEFR 等级样式 - A1 (最简单) */
+.not-translator-vocab-highlight.vocab-level-a1 {
+  border-bottom-color: #86efac; /* 浅绿色 */
+}
+
+.not-translator-vocab-highlight.vocab-level-a1:hover {
+  background-color: rgba(134, 239, 172, 0.2);
+}
+
+/* CEFR 等级样式 - A2 */
+.not-translator-vocab-highlight.vocab-level-a2 {
+  border-bottom-color: #4ade80; /* 绿色 */
+}
+
+.not-translator-vocab-highlight.vocab-level-a2:hover {
+  background-color: rgba(74, 222, 128, 0.2);
+}
+
+/* CEFR 等级样式 - B1 */
+.not-translator-vocab-highlight.vocab-level-b1 {
+  border-bottom-color: #60a5fa; /* 浅蓝色 */
+}
+
+.not-translator-vocab-highlight.vocab-level-b1:hover {
+  background-color: rgba(96, 165, 250, 0.2);
+}
+
+/* CEFR 等级样式 - B2 */
+.not-translator-vocab-highlight.vocab-level-b2 {
+  border-bottom-color: #3b82f6; /* 蓝色 */
+}
+
+.not-translator-vocab-highlight.vocab-level-b2:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+/* CEFR 等级样式 - C1 */
+.not-translator-vocab-highlight.vocab-level-c1 {
+  border-bottom-color: #818cf8; /* 靛蓝色 */
+}
+
+.not-translator-vocab-highlight.vocab-level-c1:hover {
+  background-color: rgba(129, 140, 248, 0.2);
+}
+
+/* CEFR 等级样式 - C2 (最难) */
+.not-translator-vocab-highlight.vocab-level-c2 {
+  border-bottom-color: #c084fc; /* 紫色 */
+  border-bottom-width: 2.5px;
+}
+
+.not-translator-vocab-highlight.vocab-level-c2:hover {
+  background-color: rgba(192, 132, 252, 0.2);
+}
+
+/* 难度指示器 */
+.not-translator-vocab-highlight.vocab-with-indicator {
+  position: relative;
+}
+
+.not-translator-vocab-highlight.vocab-with-indicator::after {
+  content: attr(data-level);
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  opacity: var(--vocab-highlight-opacity, 0.7);
+}
+
+/* 各等级的指示器颜色 */
+.not-translator-vocab-highlight.vocab-level-a1.vocab-with-indicator::after {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.not-translator-vocab-highlight.vocab-level-a2.vocab-with-indicator::after {
+  background-color: #bbf7d0;
+  color: #166534;
+}
+
+.not-translator-vocab-highlight.vocab-level-b1.vocab-with-indicator::after {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.not-translator-vocab-highlight.vocab-level-b2.vocab-with-indicator::after {
+  background-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.not-translator-vocab-highlight.vocab-level-c1.vocab-with-indicator::after {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.not-translator-vocab-highlight.vocab-level-c2.vocab-with-indicator::after {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+}
+
+/* 已处理的元素标记 */
+.not-translator-vocab-processed {
+  /* 用于标记已处理过的元素，避免重复处理 */
+}
+
+/* 暗色模式适配 - CEFR 词汇高亮 */
+@media (prefers-color-scheme: dark) {
+  .not-translator-vocab-highlight:hover {
+    background-color: rgba(96, 165, 250, 0.15);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-a1:hover {
+    background-color: rgba(134, 239, 172, 0.15);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-a2:hover {
+    background-color: rgba(74, 222, 128, 0.15);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-b1:hover {
+    background-color: rgba(96, 165, 250, 0.15);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-b2:hover {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-c1:hover {
+    background-color: rgba(129, 140, 248, 0.15);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-c2:hover {
+    background-color: rgba(192, 132, 252, 0.15);
+  }
+
+  /* 暗色模式指示器颜色 */
+  .not-translator-vocab-highlight.vocab-level-a1.vocab-with-indicator::after {
+    background-color: rgba(134, 239, 172, 0.9);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-a2.vocab-with-indicator::after {
+    background-color: rgba(74, 222, 128, 0.9);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-b1.vocab-with-indicator::after {
+    background-color: rgba(96, 165, 250, 0.9);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-b2.vocab-with-indicator::after {
+    background-color: rgba(59, 130, 246, 0.9);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-c1.vocab-with-indicator::after {
+    background-color: rgba(129, 140, 248, 0.9);
+  }
+
+  .not-translator-vocab-highlight.vocab-level-c2.vocab-with-indicator::after {
+    background-color: rgba(192, 132, 252, 0.9);
+  }
+}
+
+/* 打印样式 - CEFR 词汇高亮 */
+@media print {
+  .not-translator-vocab-highlight {
+    border-bottom: 1px solid #666 !important;
+    background-color: transparent !important;
+  }
+
+  .not-translator-vocab-highlight.vocab-level-a1,
+  .not-translator-vocab-highlight.vocab-level-a2 {
+    border-bottom-color: #22c55e !important;
+  }
+
+  .not-translator-vocab-highlight.vocab-level-b1,
+  .not-translator-vocab-highlight.vocab-level-b2 {
+    border-bottom-color: #3b82f6 !important;
+  }
+
+  .not-translator-vocab-highlight.vocab-level-c1,
+  .not-translator-vocab-highlight.vocab-level-c2 {
+    border-bottom-color: #a855f7 !important;
+  }
+
+  .not-translator-vocab-highlight.vocab-with-indicator::after {
+    display: none !important;
+  }
+}
+
 /* ========== 翻译显示模式样式 ========== */
 
 /* 行内翻译模式 - 译文显示在原文后 */

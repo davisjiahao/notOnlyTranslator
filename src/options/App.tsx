@@ -7,8 +7,9 @@ import QuickTest from './components/QuickTest';
 import ApiSettings from './components/ApiSettings';
 import GeneralSettings from './components/GeneralSettings';
 import VocabularySettings from './components/VocabularySettings';
+import MasteryOverview from './components/MasteryOverview';
 
-type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'general';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -47,6 +48,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
       );
+    case 'mastery':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      );
   }
 };
 
@@ -55,6 +62,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'test', label: '快速测评' },
   { id: 'api', label: 'API 设置' },
   { id: 'vocabulary', label: '生词本' },
+  { id: 'mastery', label: '掌握度' },
   { id: 'general', label: '通用设置' },
 ];
 
@@ -317,6 +325,8 @@ export default function App() {
             {activeTab === 'vocabulary' && (
               <VocabularySettings isSaving={isSaving} />
             )}
+
+            {activeTab === 'mastery' && <MasteryOverview isSaving={isSaving} />}
 
             {activeTab === 'general' && (
               <GeneralSettings

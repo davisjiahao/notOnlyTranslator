@@ -2,6 +2,7 @@ import type { ExamType, UserProfile } from '@/shared/types';
 import { calculateVocabularySize, updateVocabularyEstimate } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { frequencyManager } from './frequencyManager';
+import { MasteryManager } from './mastery';
 
 /**
  * User Level Manager - handles vocabulary estimation and level updates
@@ -92,57 +93,68 @@ export class UserLevelManager {
     profile.updatedAt = Date.now();
 
     await StorageManager.saveUserProfile(profile);
+
+    // 同步到掌握度系统
+    await MasteryManager.syncUserVocabulary();
+
     return profile;
   }
 
   /**
-   * Get word difficulty estimate based on user profile and frequency data
+   * Get word difficulty estimate based on user profile, mastery data, and frequency data
    */
-  static estimateWordDifficulty(
+  static async estimateWordDifficulty(
     word: string,
     userProfile: UserProfile
-  ): number {
-    // 1. Check User Personal History first
-    // Check if word is in known words
-    if (userProfile.knownWords.includes(word.toLowerCase())) {
-      return 1; // Very easy for this user
+  ): Promise<number> {
+    const lowerWord = word.toLowerCase();
+
+    // 1. 首先检查掌握度系统（最准确的个性化数据）
+    const masteryInfo = await MasteryManager.getWordMasteryInfo(lowerWord);
+    if (masteryInfo) {
+      // 根据掌握度调整难度：掌握度越高，难度越低
+      // 将掌握度 (0-1) 映射到难度调整 (-5 到 +5)
+      const masteryAdjustment = (0.5 - masteryInfo.masteryLevel) * 10;
+      const baseDifficulty = 5;
+      return Math.max(1, Math.min(10, Math.round(baseDifficulty + masteryAdjustment)));
     }
 
-    // Check if word is in unknown words
+    // 2. 检查用户个人历史（已知/未知词汇列表）
+    if (userProfile.knownWords.includes(lowerWord)) {
+      return 1; // 已认识的词，难度最低
+    }
+
     const unknownEntry = userProfile.unknownWords.find(
-      (w) => w.word.toLowerCase() === word.toLowerCase()
+      (w) => w.word.toLowerCase() === lowerWord
     );
     if (unknownEntry) {
-      return 10; // Confirmed difficult for this user
+      return 10; // 已标记为未知的词，难度最高
     }
 
-    // 2. Use Frequency Manager (Data-driven)
-    // This uses the "COCA-like" simulated frequency tables
+    // 3. 使用词频管理器（数据驱动的通用难度）
     const frequencyDifficulty = frequencyManager.getDifficulty(word);
 
-    // 3. Apply Heuristics (Rule-based adjustment)
-    const lowerWord = word.toLowerCase();
+    // 4. 应用启发式规则调整
     const wordLength = word.length;
     let adjustment = 0;
 
-    // Heuristic: Very short words are usually easier
+    // 启发式：短词通常更简单
     if (wordLength <= 3 && frequencyDifficulty > 3) adjustment -= 2;
 
-    // Heuristic: Long words but with simple suffixes
+    // 启发式：长词但带有简单后缀
     if (wordLength > 10) {
       if (lowerWord.endsWith('ing') || lowerWord.endsWith('ed') || lowerWord.endsWith('ly') || lowerWord.endsWith('ment')) {
         adjustment -= 1;
       } else {
-        // Truly long complex word
+        // 真正复杂的长词
         adjustment += 1;
       }
     }
 
-    // Combine Frequency + Heuristics
-    // Weight the frequency score heavily as it's data-backed
+    // 结合频率分数和启发式调整
     const finalDifficulty = frequencyDifficulty + adjustment;
 
-    // Clamp to 1-10 range
+    // 限制在 1-10 范围
     return Math.max(1, Math.min(10, Math.round(finalDifficulty)));
   }
 
