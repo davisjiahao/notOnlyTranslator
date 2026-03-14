@@ -1,498 +1,591 @@
 # NotOnlyTranslator 项目介绍
 
-## 目录
-
-- [项目概述](#项目概述)
-- [核心功能](#核心功能)
-- [技术架构](#技术架构)
-- [工作流程](#工作流程)
-- [组件说明](#组件说明)
-- [数据流](#数据流)
-- [LLM 集成](#llm-集成)
-- [存储策略](#存储策略)
-- [开发指南](#开发指南)
+> 一款根据用户英语水平智能翻译的 Chrome/Edge 浏览器扩展
 
 ---
 
-## 项目概述
+## 1. 项目概述
 
-**NotOnlyTranslator** 是一款基于用户英语水平智能翻译的 Chrome/Edge 浏览器扩展。与传统翻译工具翻译所有内容不同，它仅翻译超出用户当前英语水平的单词和短语，帮助英语学习者在自然阅读中扩展词汇量。
+### 1.1 项目背景
 
-### 核心价值主张
+**NotOnlyTranslator** 是一款创新的浏览器扩展，旨在解决传统翻译工具的痛点：
 
-- **个性化学习**: 根据用户的英语水平（四六级、托福、雅思、GRE 等）提供定制化翻译
-- **渐进式学习**: 只翻译"超出当前水平"的内容，避免信息过载
-- **智能适应**: 通过贝叶斯更新算法动态调整用户词汇量估计
-- **上下文学习**: 在真实语境中学习新词汇，而非孤立背单词
+- **传统翻译工具的问题**：要么全翻译（失去学习英语的机会），要么不翻译（遇到生词阻碍阅读）
+- **NotOnlyTranslator 的方案**：智能识别用户水平，只翻译超出当前水平的词汇，让用户在阅读中自然学习
 
----
+### 1.2 目标用户
 
-## 核心功能
+| 用户群体 | 使用场景 |
+|---------|---------|
+| 英语学习者 | 阅读英文文章时遇到生词 |
+| 备考学生 | 四六级、托福、雅思、GRE 备考 |
+| 开发者/研究者 | 阅读英文技术文档、论文 |
+| 进阶学习者 | 希望扩大词汇量，提升阅读流畅度 |
 
-### 1. 自适应翻译
+### 1.3 核心价值主张
 
-- **三种翻译模式**:
-  - `inline-only`: 仅翻译生僻部分，译文高亮显示在原文后
-  - `bilingual`: 双文对照，译文在原文下方
-  - `full-translate`: 全文翻译，生僻部分高亮
+```
+🎯 核心理念："在真实阅读场景中学习，而非刻意背单词"
+```
 
-- **智能难度识别**: LLM 分析文本，识别超出用户词汇范围的单词、短语和复杂语法结构
-
-### 2. 水平评估系统
-
-- **考试成绩输入**: 支持 CET-4/6、TOEFL、IELTS、GRE 等主流英语考试
-- **词汇量估算**: 基于考试成绩估算词汇量（如 CET-4 ≈ 4500 词）
-- **快速词汇测试**: 20 题快速测评，动态评估真实水平
-
-### 3. 动态学习机制
-
-- **词汇标记**: 用户可以标记单词为"认识"或"不认识"
-- **贝叶斯更新**: 基于用户标记行为动态调整词汇量估计和置信度
-- **生词本**: 保存不认识的单词，附带上下文和翻译
-
-### 4. 智能交互
-
-- **悬停触发**: 鼠标悬停高亮词汇显示翻译提示框
-- **键盘导航**: 支持 J/K 或上下箭头快速导航高亮词汇
-- **右键菜单**: 支持"翻译选中内容"、"标记为认识/不认识"、"加入生词本"
-
-### 5. 多 API 支持
-
-- **国外模型**: OpenAI (GPT-4o-mini)、Anthropic (Claude)、Gemini、Groq
-- **国内模型**: DeepSeek、智谱、阿里通义千问、百度文心
-- **本地部署**: Ollama 本地模型支持
-- **自定义 API**: 支持任何 OpenAI 兼容的 API 端点
+- **个性化**：根据用户实际水平动态调整翻译内容
+- **高效学习**：只在需要时提供翻译，最大化语言暴露
+- **智能记忆**：自动记录生词，支持复习和追踪进度
 
 ---
 
-## 技术架构
+## 2. 核心功能
 
-### 整体架构
+### 2.1 智能翻译（三种模式）
+
+| 模式 | 描述 | 适用场景 |
+|-----|------|---------|
+| **行内翻译** (inline-only) | 仅翻译生僻词汇，译文显示在原文后方括号内 | 日常阅读，保持原文流畅性 |
+| **双语对照** (bilingual) | 英文段落下方显示中文翻译，对应词汇高亮联动 | 精读学习 |
+| **全文翻译** (full-translate) | 整段翻译，生僻部分高亮标注 | 快速理解大意 |
+
+### 2.2 水平评估系统
+
+**初始评估方式**：
+- 📊 **考试成绩录入**：支持 CET-4/6、托福、雅思、GRE 成绩换算
+- 📝 **快速词汇测试**：20 题自适应测试，动态评估词汇量
+
+**水平等级参考**：
+| 词汇量 | 等级 | 对应考试 |
+|-------|------|---------|
+| < 3000 | 初级 | - |
+| 3000-5000 | 中级 | CET-4 |
+| 5000-8000 | 中高级 | CET-6、IELTS |
+| 8000-12000 | 高级 | TOEFL |
+| > 12000 | 专家级 | GRE |
+
+### 2.3 动态学习系统
+
+```
+┌─────────────────────────────────────────────────────┐
+│  用户行为 → 贝叶斯更新 → 调整词汇量估计 → 优化翻译    │
+└─────────────────────────────────────────────────────┘
+```
+
+**用户交互**：
+- ✅ **标记为认识**：该词不再高亮，词汇量估计可能上调
+- ❌ **标记为不认识**：加入生词本，词汇量估计可能下调
+- 📚 **加入生词本**：保存词汇、翻译和上下文
+
+### 2.4 生词本管理
+
+- **自动收集**：标记为"不认识"的词汇自动收录
+- **上下文保存**：记录词汇出现的原文句子
+- **复习提醒**：基于间隔重复算法计算复习优先级
+- **导出功能**：支持导出生词本为多种格式
+
+### 2.5 批量翻译与缓存
+
+**批量翻译优势**：
+- 合并多个段落为单次 API 调用（最多15个段落/批次）
+- 大幅减少 API 请求次数，降低成本
+- 智能缓存机制，避免重复翻译
+
+**缓存策略**：
+- **段落级缓存**：相同内容的段落直接从缓存读取
+- **LRU 淘汰**：500条缓存上限，自动淘汰最久未使用
+- **7天过期**：缓存自动过期，确保翻译时效性
+
+---
+
+## 3. 技术架构
+
+### 3.1 整体架构图
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Chrome Extension                          │
-├─────────────┬─────────────┬─────────────┬───────────────────────┤
-│  Background │   Content   │    Popup    │       Options         │
-│  Service    │   Script    │    UI       │        UI             │
-│   Worker    │             │             │                       │
-├─────────────┼─────────────┼─────────────┼───────────────────────┤
-│ • Message   │ • Page      │ • Quick     │ • Full Settings       │
-│   Routing   │   Scanning  │   Toggle    │ • API Configuration   │
-│ • LLM API   │ • DOM       │ • Stats     │ • Level Assessment    │
-│   Calls     │   Injection │             │ • Vocabulary Book     │
-│ • Storage   │ • Tooltip   │             │                       │
-│   Manager   │   UI        │             │                       │
-│ • Bayesian  │ • Event     │             │                       │
-│   Updates   │   Handling  │             │                       │
-└─────────────┴─────────────┴─────────────┴───────────────────────┘
+│                         Chrome Extension                        │
+│                   (Manifest V3 + React + TypeScript)            │
+├─────────────────┬─────────────────┬─────────────────┬───────────┤
+│   Background    │    Content      │      Popup      │  Options  │
+│  (Service       │   (注入页面)     │   (点击图标)     │  (设置页)  │
+│   Worker)       │                 │                 │           │
+├─────────────────┼─────────────────┼─────────────────┼───────────┤
+│ • 消息路由       │ • DOM 高亮      │ • 快速操作      │ • API配置  │
+│ • LLM API调用   │ • 翻译展示      │ • 统计概览      │ • 水平设置 │
+│ • 用户水平管理   │ • 交互事件      │ • 生词列表      │ • 偏好设置 │
+│ • 存储管理       │ • 批量翻译管理   │                 │ • 词汇管理 │
+└─────────────────┴─────────────────┴─────────────────┴───────────┘
                               │
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-            ┌──────────────┐    ┌──────────────┐
-            │ Chrome Sync  │    │ Chrome Local │
-            │   Storage    │    │   Storage    │
-            │  (Cloud)     │    │  (Device)    │
-            └──────────────┘    └──────────────┘
-                    │                   │
-            ┌───────┴───────┐    ┌──────┴──────┐
-            ▼               ▼    ▼             ▼
-       User Profile    Settings   Known     Translation
-       (词汇量估计)     API Keys   Words       Cache
-                              Unknown
-                              Words
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         Data Storage                            │
+├─────────────────────────┬───────────────────────────────────────┤
+│   Chrome Sync Storage   │         Chrome Local Storage          │
+│   (云端同步)             │            (本地存储)                  │
+├─────────────────────────┼───────────────────────────────────────┤
+│ • 用户档案               │ • 认识的词汇列表                       │
+│ • 设置配置               │ • 不认识的词汇列表                     │
+│ • API 密钥               │ • 翻译缓存 (500条上限)                 │
+└─────────────────────────┴───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      External Services                          │
+├─────────────────────────────────────────────────────────────────┤
+│  OpenAI    Anthropic    国内大模型    本地部署    自定义API      │
+│ (GPT-4o)   (Claude)    (DeepSeek等)   (Ollama)   (OpenAI兼容)   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 技术栈
+### 3.2 技术栈详解
 
-| 类别 | 技术 |
-|------|------|
-| **框架** | React 18 + TypeScript 5.x |
-| **构建工具** | Vite 5.x + @crxjs/vite-plugin |
-| **样式** | Tailwind CSS 3.x |
-| **状态管理** | Zustand (with Chrome Storage persistence) |
-| **浏览器 API** | Chrome Extension Manifest V3 |
-| **LLM APIs** | OpenAI, Anthropic, Gemini, DeepSeek, etc. |
-| **测试** | Playwright (E2E), Vitest (Unit) |
+| 层级 | 技术 | 说明 |
+|-----|------|------|
+| **框架** | React 18 + TypeScript | 类型安全的前端开发 |
+| **构建** | Vite + @crxjs/vite-plugin | Chrome 扩展打包 |
+| **样式** | Tailwind CSS | 原子化 CSS 框架 |
+| **状态** | Zustand | 轻量级状态管理，支持 Chrome Storage 持久化 |
+| **通信** | Chrome Message API | 组件间消息传递 |
+| **存储** | Chrome Storage API | Sync + Local 双存储策略 |
+| **测试** | Vitest + Playwright | 单元测试 + E2E 测试 |
 
 ---
 
-## 工作流程
+## 4. 工作流程
 
-### 核心翻译流程
-
-```
-1. 页面加载
-        │
-        ▼
-2. Content Script 初始化
-   ├─ 加载用户设置
-   ├─ 检查页面语言（跳过中文页面）
-   └─ 检查黑名单
-        │
-        ▼
-3. 可视区域观察器启动
-   └─ 注册页面段落到 Intersection Observer
-        │
-        ▼
-4. 用户滚动 → 段落进入可视区域
-        │
-        ▼
-5. 批量翻译管理器处理
-   ├─ 检查缓存
-   ├─ 分批发送翻译请求
-   └─ 应用翻译结果到 DOM
-        │
-        ▼
-6. 用户交互
-   ├─ 悬停 → 显示翻译提示框
-   ├─ 点击 → 显示详细操作
-   ├─ 标记 → 更新用户画像
-   └─ 导航 → J/K 切换高亮词
-```
-
-### 批量翻译优化流程
+### 4.1 完整数据流
 
 ```
-┌─────────────────┐
-│ 段落进入可视区域 │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐     命中    ┌─────────────┐
-│  检查本地缓存   │ ───────────→ │ 直接显示译文 │
-└────────┬────────┘              └─────────────┘
-         │ 未命中
-         ▼
-┌─────────────────┐
-│  加入待翻译队列  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   防抖处理      │ (300ms)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  分批组装请求   │ (最多15段/批)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  LLM API 调用   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  解析响应结果   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  缓存并应用翻译 │
-└─────────────────┘
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   用户访问    │────▶│   页面扫描    │────▶│  可视区域检测 │
+│   英文网页    │     │  识别段落     │     │  批量处理     │
+└──────────────┘     └──────────────┘     └──────────────┘
+                                                   │
+                                                   ▼
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  展示翻译     │◀────│  LLM 翻译     │◀────│   缓存查询    │
+│  高亮生词     │     │  智能分析     │     │  命中检查     │
+└──────────────┘     └──────────────┘     └──────────────┘
+         │                                            ▲
+         ▼                                            │
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   用户交互    │────▶│  标记词汇     │────▶│   更新缓存    │
+│  点击/悬停   │     │  认识/不认识  │     │  存储结果     │
+└──────────────┘     └──────────────┘     └──────────────┘
+                              │
+                              ▼
+                       ┌──────────────┐
+                       │  贝叶斯更新   │
+                       │  调整水平估计 │
+                       └──────────────┘
+```
+
+### 4.2 页面加载流程
+
+```
+用户访问英文网页
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Content Script 初始化                                        │
+│ ├─ 检查页面语言（中文页面跳过）                               │
+│ ├─ 检查黑名单                                                │
+│ └─ 加载用户设置                                              │
+└─────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 扫描页面段落                                                 │
+│ └─ 注册到可视区域观察器                                       │
+└─────────────────────────────────────────────────────────────┘
+       │
+       ▼
+用户滚动页面 ──▶ 段落进入可视区域
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 批量翻译处理                                                 │
+│ ├─ 检查本地缓存（命中则直接显示）                            │
+│ ├─ 过滤中文占比过高的段落                                    │
+│ ├─ 本地词频过滤（行内模式）                                  │
+│ ├─ 组装批量请求（最多15段）                                  │
+│ ├─ 调用 LLM API                                              │
+│ └─ 缓存并应用翻译                                            │
+└─────────────────────────────────────────────────────────────┘
+       │
+       ▼
+用户点击高亮词汇 ──▶ 显示 Tooltip
+       │
+       ▼
+用户标记"认识"/"不认识" ──▶ 贝叶斯更新词汇量估计
 ```
 
 ---
 
-## 组件说明
+## 5. 组件说明
 
-### Background Service Worker (`src/background/`)
+### 5.1 Background (Service Worker)
 
-| 文件 | 职责 |
+**文件位置**: `src/background/`
+
+| 文件 | 职责 | 关键功能 |
+|------|------|---------|
+| `index.ts` | 消息路由中心 | 处理所有组件发来的消息，分发到对应处理器 |
+| `translation.ts` | 翻译服务 | 调用 LLM API，解析响应，缓存结果 |
+| `batchTranslation.ts` | 批量翻译 | 合并多个段落，单次 API 调用 |
+| `userLevel.ts` | 用户水平管理 | 贝叶斯更新算法，词汇量估计 |
+| `storage.ts` | 存储封装 | Chrome Storage 读写封装 |
+| `translationApi.ts` | API 统一层 | 支持多供应商的通用 API 调用 |
+| `enhancedCache.ts` | 增强缓存 | 段落级缓存，LRU 淘汰策略 |
+| `frequencyManager.ts` | 词频管理 | 本地词频表，静态难度评估 |
+
+### 5.2 Content Script (页面注入)
+
+**文件位置**: `src/content/`
+
+| 文件 | 职责 | 关键功能 |
+|------|------|---------|
+| `index.ts` | 主控制器 | 初始化所有模块，协调工作流程 |
+| `highlighter.ts` | 高亮渲染 | DOM 高亮，样式应用 |
+| `tooltip.ts` | 悬浮提示 | 词汇详情展示，操作按钮 |
+| `marker.ts` | 标记服务 | 处理"认识/不认识"标记逻辑 |
+| `translationDisplay.ts` | 翻译展示 | 三种模式渲染实现 |
+| `viewportObserver.ts` | 可视观察 | Intersection Observer 封装 |
+| `batchTranslationManager.ts` | 批量管理 | 段落队列，防抖处理 |
+| `floatingButton.ts` | 浮动按钮 | 模式切换快捷入口 |
+| `core/` | 核心模块 | PageScanner, NavigationManager, HoverManager |
+
+### 5.3 Popup (扩展图标页面)
+
+**文件位置**: `src/popup/`
+
+| 组件 | 功能 |
 |------|------|
-| `index.ts` | 消息路由中心、上下文菜单设置、事件监听 |
-| `translation.ts` | 翻译服务，构建 Prompt、调用 LLM、解析响应 |
-| `translationApi.ts` | 统一 API 服务，处理多供应商 API 调用 |
-| `batchTranslation.ts` | 批量翻译服务，管理批量请求队列和响应聚合 |
-| `storage.ts` | Chrome Storage 封装，读写用户数据和缓存 |
-| `userLevel.ts` | 用户水平管理，贝叶斯更新算法实现 |
-| `enhancedCache.ts` | 增强缓存管理，支持段落级 LRU 缓存 |
-| `frequencyManager.ts` | 词频管理器，优化词汇难度评估 |
+| `StatsCard` | 显示词汇量、掌握单词数等统计 |
+| `QuickActions` | 快速开关、模式切换 |
+| `VocabularyList` | 最近添加的生词预览 |
+| `ApiSwitcher` | 快速切换 API 配置 |
 
-### Content Script (`src/content/`)
+### 5.4 Options (设置页面)
 
-| 文件 | 职责 |
+**文件位置**: `src/options/`
+
+| 组件 | 功能 |
 |------|------|
-| `index.ts` | 内容脚本主入口，协调各组件工作 |
-| `highlighter.ts` | 文本高亮逻辑，管理高亮样式和状态 |
-| `tooltip.ts` | 翻译提示框 UI，显示翻译和操作按钮 |
-| `marker.ts` | 词汇标记服务，处理认识/不认识标记 |
-| `translationDisplay.ts` | 翻译展示管理，应用不同模式译文到 DOM |
-| `viewportObserver.ts` | 可视区域观察器，使用 Intersection Observer |
-| `batchTranslationManager.ts` | 批量翻译管理器，协调批量请求和显示 |
-| `floatingButton.ts` | 浮动模式切换按钮，快速切换翻译模式 |
+| `ApiSettings` | 多供应商 API 配置，密钥管理 |
+| `LevelSelector` | 水平评估，考试选择，快速测试 |
+| `GeneralSettings` | 翻译模式、高亮样式、黑名单 |
+| `VocabularySettings` | 生词本管理，复习功能 |
+| `StatsCharts` | 学习进度图表（Recharts） |
+| `QuickTest` | 20 题词汇测试 |
 
-### Core 模块 (`src/content/core/`)
+### 5.5 Shared (共享模块)
 
-| 文件 | 职责 |
+**文件位置**: `src/shared/`
+
+| 目录 | 内容 |
 |------|------|
-| `pageScanner.ts` | 页面扫描器，识别可翻译段落 |
-| `navigationManager.ts` | 导航管理器，键盘导航高亮词 |
-| `hoverManager.ts` | 悬停管理器，处理悬停延迟触发 |
-
-### Shared 模块 (`src/shared/`)
-
-| 文件 | 职责 |
-|------|------|
-| `types/index.ts` | TypeScript 类型定义 |
-| `constants/index.ts` | 常量定义、Prompt 模板、配置默认值 |
-| `constants/providers.ts` | API 供应商配置 |
-| `utils/index.ts` | 通用工具函数 |
-| `utils/logger.ts` | 日志工具 |
-| `hooks/useStore.ts` | Zustand Store Hooks |
-
-### UI 组件
-
-| 目录 | 职责 |
-|------|------|
-| `src/popup/` | 扩展图标点击弹窗，快速开关和统计 |
-| `src/options/` | 完整设置页面，API 配置、水平评估、生词本 |
+| `types/` | TypeScript 类型定义，消息类型，API 类型 |
+| `constants/` | 常量，提示词模板，配置默认值 |
+| `utils/` | 工具函数，贝叶斯计算，缓存哈希，重试机制 |
+| `hooks/` | React Hooks，Store 集成 |
 
 ---
 
-## 数据流
+## 6. 数据流设计
 
-### 消息通信架构
+### 6.1 消息传递机制
+
+**Chrome Message API** 是组件间通信的核心方式：
+
+```typescript
+// 消息类型定义
+export type MessageType =
+  | 'TRANSLATE_TEXT'           // 单段翻译
+  | 'BATCH_TRANSLATE_TEXT'     // 批量翻译
+  | 'MARK_WORD_KNOWN'          // 标记认识
+  | 'MARK_WORD_UNKNOWN'        // 标记不认识
+  | 'GET_USER_PROFILE'         // 获取档案
+  | 'UPDATE_USER_PROFILE'      // 更新档案
+  | 'GET_SETTINGS'             // 获取设置
+  | 'UPDATE_SETTINGS'          // 更新设置
+  | 'GET_VOCABULARY'           // 获取生词本
+  | 'ADD_TO_VOCABULARY'        // 添加到生词本
+  | 'REMOVE_FROM_VOCABULARY'   // 从生词本移除
+  | 'SETTINGS_UPDATED';        // 设置更新通知
+
+// 消息结构
+interface Message<T = unknown> {
+  type: MessageType;
+  payload?: T;
+}
+
+// 响应结构
+interface MessageResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+```
+
+### 6.2 状态管理
+
+**Zustand + Chrome Storage** 双状态管理：
 
 ```
-┌──────────────┐         Chrome Runtime Messaging          ┌──────────────┐
-│              │ ◄────────────────────────────────────────► │              │
-│   Content    │    Message Type: TRANSLATE_TEXT            │  Background  │
-│   Script     │    Payload: { text, mode, userLevel }      │  Service     │
-│              │ ◄────────────────────────────────────────► │   Worker     │
-│              │    Response: { words, sentences,           │              │
-│              │              grammarPoints, fullText }      │              │
-└──────────────┘                                            └──────────────┘
-       │                                                           │
-       │                                                           │
-       │ DOM 操作                                                   │ LLM API
-       ▼                                                           ▼
-┌──────────────┐                                            ┌──────────────┐
-│   Web Page   │                                            │   LLM API    │
-│   (Display)  │                                            │ (OpenAI/etc) │
-└──────────────┘                                            └──────────────┘
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  React UI   │◀───▶│   Zustand   │◀───▶│ Chrome      │
+│   Layer     │     │   Store     │     │ Storage     │
+└─────────────┘     └─────────────┘     └─────────────┘
 ```
 
-### 核心消息类型
+**持久化策略**：
+- **Sync Storage** (云端同步)：用户档案、设置、API 配置
+- **Local Storage** (本地存储)：词汇列表、翻译缓存
 
-| 消息类型 | 方向 | 说明 |
-|----------|------|------|
-| `TRANSLATE_TEXT` | C → B | 请求翻译单个段落 |
-| `BATCH_TRANSLATE_TEXT` | C → B | 批量翻译多个段落 |
-| `MARK_WORD_KNOWN` | C → B | 标记单词为认识 |
-| `MARK_WORD_UNKNOWN` | C → B | 标记单词为不认识 |
-| `GET_USER_PROFILE` | C → B | 获取用户画像 |
-| `UPDATE_USER_PROFILE` | C → B | 更新用户画像 |
-| `GET_SETTINGS` | C → B | 获取设置 |
-| `UPDATE_SETTINGS` | C → B | 更新设置 |
-| `SHOW_TRANSLATION` | B → C | 右键菜单触发翻译 |
-| `WORD_MARKED` | B → C | 标记结果通知 |
-| `SETTINGS_UPDATED` | B → C | 设置更新通知 |
+### 6.3 存储策略
 
-### 数据流向图
-
-```
-                    ┌──────────────────┐
-                    │   User Actions   │
-                    └────────┬─────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         │                   │                   │
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  Mark Known/    │ │   Change        │ │   Scroll/       │
-│  Unknown        │ │   Settings      │ │   Navigate      │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │                   │                   │
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  Bayesian       │ │  Save to        │ │  Batch          │
-│  Update         │ │  Sync Storage   │ │  Translation    │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │                   │                   │
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  Update         │ │  Notify All     │ │  Cache Results  │
-│  Vocabulary     │ │  Tabs           │ │  in Local       │
-│  Estimate       │ │                 │ │  Storage        │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-```
+| 数据类型 | 存储位置 | 容量限制 | 同步 |
+|---------|---------|---------|------|
+| 用户档案 | Sync | ~100KB | 跨设备同步 |
+| 设置配置 | Sync | ~100KB | 跨设备同步 |
+| API 密钥 | Sync | ~100KB | 跨设备同步 |
+| 认识词汇 | Local | ~5MB | 仅本地 |
+| 不认识词汇 | Local | ~5MB | 仅本地 |
+| 翻译缓存 | Local | 500条 LRU | 仅本地 |
 
 ---
 
-## LLM 集成
+## 7. LLM 集成
 
-### 支持的 API 供应商
+### 7.1 多供应商支持
 
-| 供应商 | 默认模型 | 区域 |
-|--------|----------|------|
-| OpenAI | gpt-4o-mini | 国际 |
-| Anthropic | claude-3-haiku | 国际 |
-| Gemini | gemini-pro | 国际 |
-| Groq | llama-3.1-70b | 国际 |
-| DeepSeek | deepseek-chat | 国内 |
-| 智谱 | glm-4 | 国内 |
-| 阿里 | qwen-turbo | 国内 |
-| 百度 | ernie-bot | 国内 |
-| Ollama | 本地模型 | 本地 |
-| Custom | 自定义 | 灵活 |
+支持 10+ 个大模型供应商：
 
-### Prompt 工程
+| 分类 | 供应商 | 默认模型 | 特点 |
+|------|-------|---------|------|
+| **国际** | OpenAI | gpt-4o-mini | 稳定，响应快 |
+| | Anthropic | claude-3-haiku | 质量高 |
+| | Gemini | gemini-pro | Google 生态 |
+| | Groq | mixtral-8x7b | 速度快 |
+| **国内** | DeepSeek | deepseek-chat | 性价比高 |
+| | Zhipu | chatglm3 | 中文优化 |
+| | Alibaba | qwen-turbo | 阿里云 |
+| | Baidu | ernie-bot | 百度文心 |
+| **本地** | Ollama | llama2 | 隐私保护 |
+| **自定义** | Custom | 任意 | OpenAI 兼容接口 |
 
-翻译 Prompt 模板结构：
+### 7.2 API 统一层
+
+**TranslationApiService** (`src/background/translationApi.ts`) 提供统一的 API 调用接口：
+
+```typescript
+// 统一的调用接口，自动处理不同供应商的格式差异
+static async call(
+  prompt: string,
+  apiKey: string,
+  settings: UserSettings,
+  retryOptions?: RetryOptions
+): Promise<string>
+
+// 支持的 API 格式
+export type ApiFormat =
+  | 'openai'     // OpenAI / DeepSeek / Zhipu 等
+  | 'anthropic'  // Anthropic Claude
+  | 'gemini'     // Google Gemini
+  | 'dashscope'  // 阿里云
+  | 'baidu'      // 百度文心
+  | 'ollama';    // Ollama 本地部署
+```
+
+### 7.3 翻译提示词设计
+
+**提示词模板** (`src/shared/constants/index.ts`)：
 
 ```
 你是一个英语学习助手。用户的英语水平约为 {vocabulary_size} 词汇量
-（相当于 {exam_level} 水平）。
+（相当于{exam_level}水平）。
 
 请分析以下英文文本，找出可能超出用户水平的：
-1. 单词（超出 {exam_level} 词汇范围的）
+1. 单词（超出{exam_level}词汇范围的）
 2. 短语/习语
-3. 复杂语法结构（如倒装句、虚拟语气、复杂从句等）
+3. 复杂语法结构
 
-对于每个识别出的内容，提供：
-- 中文翻译
-- 难度等级（1-10）
-
-同时提供整段文本的完整中文翻译。
-
-请以 JSON 格式返回结果...
+返回格式：
+{
+  "fullText": "完整中文翻译",
+  "words": [{"original": "", "translation": "", "difficulty": 1-10}],
+  "sentences": [{"original": "", "translation": "", "grammarNote": ""}],
+  "grammarPoints": [{"original": "", "explanation": "", "type": ""}]
+}
 ```
 
-### API 统一封装
+### 7.4 响应解析
 
-`TranslationApiService` 提供统一的 API 调用接口：
-
-```typescript
-// 多供应商支持，统一调用方式
-const content = await TranslationApiService.call(prompt, apiKey, settings);
-
-// 内部处理不同供应商的：
-// - 请求格式转换
-// - 认证头设置
-// - 响应解析
-// - 错误处理
-```
+**JSON 解析容错机制**：
+1. 提取 Markdown 代码块中的 JSON
+2. 尝试修复常见的 JSON 语法错误（如末尾逗号）
+3. 兼容不同的返回格式（直接数组或包装对象）
+4. 按 ID 匹配段落，顺序回退
 
 ---
 
-## 存储策略
+## 8. 特色设计
 
-### Chrome Sync Storage（云同步）
+### 8.1 贝叶斯水平估计
 
-存储用户配置，跨设备同步：
-
-```typescript
-interface SyncStorageData {
-  userProfile: UserProfile;      // 用户画像（不含词汇列表）
-  settings: UserSettings;        // 用户设置
-  apiKey: string;                // API 密钥
-}
-```
-
-### Chrome Local Storage（本地存储）
-
-存储大量数据，仅当前设备可用：
+**算法核心** (`src/shared/utils/index.ts`)：
 
 ```typescript
-interface LocalStorageData {
-  knownWords: string[];                    // 认识的单词列表
-  unknownWords: UnknownWordEntry[];        // 生词本
-  translationCache: Record<string, TranslationResult>;  // 翻译缓存
-}
+export function updateVocabularyEstimate(
+  currentEstimate: number,    // 当前词汇量估计
+  wordDifficulty: number,    // 单词难度 1-10
+  isKnown: boolean,          // 用户是否认识
+  confidence: number         // 当前置信度
+): { newEstimate: number; newConfidence: number }
 ```
 
-### 缓存策略
+**更新逻辑**：
+- 认识一个难度高于当前水平的词 → 上调词汇量估计
+- 不认识一个难度低于当前水平的词 → 下调词汇量估计
+- 置信度随交互次数增加而提高
 
-```typescript
-// 段落级缓存
-interface ParagraphCacheEntry {
-  textHash: string;           // 文本内容哈希
-  result: TranslationResult;  // 翻译结果
-  mode: TranslationMode;      // 翻译模式
-  pageUrl: string;            // 页面 URL
-  createdAt: number;          // 创建时间
-  lastAccessedAt: number;     // 最后访问时间（LRU）
-}
+### 8.2 词频驱动的本地过滤
 
-// 默认缓存配置
-const DEFAULT_BATCH_CONFIG = {
-  maxParagraphsPerBatch: 15,  // 单批最大段落数
-  maxCharsPerBatch: 10000,    // 单批最大字符数
-  debounceDelay: 300,         // 防抖延迟（毫秒）
-  maxCacheEntries: 500,       // 缓存最大条目数
-  cacheExpireTime: 7 * 24 * 60 * 60 * 1000,  // 7天过期
-};
+**频率管理器** (`src/background/frequencyManager.ts`)：
+
 ```
+┌────────────────────────────────────────┐
+│         COCA-like 词频表              │
+├────────────────────────────────────────┤
+│  难度1 (最常见) │ the, be, to, of...  │
+│  难度5         │ analyze, concept... │
+│  难度10 (罕见)  │ serendipity, ...    │
+└────────────────────────────────────────┘
+```
+
+**本地静态过滤**：在行内翻译模式下，先本地判断段落是否可能包含生词，避免不必要的 API 调用。
+
+### 8.3 智能视口管理
+
+**ViewportObserver** (`src/content/viewportObserver.ts`)：
+
+- 使用 `IntersectionObserver` 高效检测段落进入视口
+- 防抖处理避免频繁触发
+- 批量处理减少 API 调用次数
+
+**优势**：
+- 只翻译用户看到的段落，节省 API 成本
+- 避免初始加载时大量并发请求
+- 平滑滚动时逐步加载翻译
+
+### 8.4 中文页面检测
+
+**多维度检测** (`src/content/index.ts`)：
+
+1. **HTML lang 属性**：检查 `<html lang="zh">`
+2. **Content-Language Meta**：检查 meta 标签
+3. **内容采样**：取页面内容计算中文字符比例 (>30% 视为中文页面)
+
+### 8.5 键盘导航
+
+**快捷键支持**：
+
+| 快捷键 | 功能 |
+|-------|------|
+| `J` / `↓` | 跳转到下一个高亮词汇 |
+| `K` / `↑` | 跳转到上一个高亮词汇 |
+| `Esc` | 关闭 Tooltip |
 
 ---
 
-## 开发指南
-
-### 项目结构
+## 9. 项目结构
 
 ```
 notOnlyTranslator/
 ├── src/
-│   ├── background/          # Service Worker
-│   │   ├── index.ts         # 消息路由、上下文菜单
-│   │   ├── translation.ts   # 翻译服务
-│   │   ├── translationApi.ts # API 统一封装
-│   │   ├── batchTranslation.ts # 批量翻译
-│   │   ├── storage.ts       # 存储管理
-│   │   ├── userLevel.ts     # 用户水平管理
-│   │   ├── enhancedCache.ts # 增强缓存
-│   │   └── frequencyManager.ts # 词频管理
+│   ├── background/              # Background Service Worker
+│   │   ├── index.ts             # 消息路由，入口
+│   │   ├── translation.ts       # 单段翻译服务
+│   │   ├── batchTranslation.ts  # 批量翻译服务
+│   │   ├── translationApi.ts    # 多供应商 API 封装
+│   │   ├── userLevel.ts         # 用户水平管理（贝叶斯更新）
+│   │   ├── storage.ts           # Chrome Storage 封装
+│   │   ├── enhancedCache.ts     # 段落级增强缓存
+│   │   └── frequencyManager.ts  # 词频管理
 │   │
-│   ├── content/             # Content Script
-│   │   ├── index.ts         # 主入口
-│   │   ├── highlighter.ts   # 文本高亮
-│   │   ├── tooltip.ts       # 翻译提示框
-│   │   ├── marker.ts        # 词汇标记
-│   │   ├── translationDisplay.ts # 翻译展示
-│   │   ├── viewportObserver.ts   # 可视区域观察
+│   ├── content/                 # Content Script（注入页面）
+│   │   ├── index.ts             # 主控制器
+│   │   ├── highlighter.ts       # DOM 高亮渲染
+│   │   ├── tooltip.ts           # 悬浮提示框
+│   │   ├── marker.ts            # 词汇标记逻辑
+│   │   ├── translationDisplay.ts # 翻译展示（三种模式）
+│   │   ├── viewportObserver.ts  # 可视区域观察器
 │   │   ├── batchTranslationManager.ts # 批量翻译管理
-│   │   ├── floatingButton.ts     # 浮动按钮
-│   │   └── core/            # 核心模块
-│   │       ├── pageScanner.ts
-│   │       ├── navigationManager.ts
-│   │       └── hoverManager.ts
+│   │   ├── floatingButton.ts    # 浮动模式切换按钮
+│   │   ├── core/                # 核心模块
+│   │   │   ├── pageScanner.ts   # 页面段落扫描
+│   │   │   ├── navigationManager.ts # 键盘导航
+│   │   │   └── hoverManager.ts  # 悬停触发管理
+│   │   └── styles.css           # 样式文件
 │   │
-│   ├── popup/               # 扩展弹窗 UI
+│   ├── popup/                   # Popup UI（点击图标）
 │   │   ├── App.tsx
-│   │   └── components/
+│   │   ├── components/
+│   │   │   ├── StatsCard.tsx
+│   │   │   ├── QuickActions.tsx
+│   │   │   ├── VocabularyList.tsx
+│   │   │   └── ApiSwitcher.tsx
+│   │   └── index.tsx
 │   │
-│   ├── options/             # 设置页面 UI
+│   ├── options/                 # Options UI（设置页）
 │   │   ├── App.tsx
-│   │   └── components/
+│   │   ├── components/
+│   │   │   ├── ApiSettings.tsx
+│   │   │   ├── LevelSelector.tsx
+│   │   │   ├── GeneralSettings.tsx
+│   │   │   ├── VocabularySettings.tsx
+│   │   │   ├── StatsCharts.tsx
+│   │   │   └── QuickTest.tsx
+│   │   └── index.tsx
 │   │
-│   ├── shared/              # 共享代码
-│   │   ├── types/           # TypeScript 类型
-│   │   ├── constants/       # 常量、配置
-│   │   ├── utils/           # 工具函数
-│   │   └── hooks/           # React Hooks
-│   │
-│   └── data/                # 静态数据
-│       └── vocabulary/      # 词汇表
+│   └── shared/                  # 共享代码
+│       ├── types/
+│       │   └── index.ts         # TypeScript 类型定义
+│       ├── constants/
+│       │   ├── index.ts         # 常量，提示词模板
+│       │   └── providers.ts     # 供应商配置
+│       ├── utils/
+│       │   ├── index.ts         # 工具函数
+│       │   └── logger.ts        # 日志服务
+│       ├── hooks/
+│       │   └── useStore.ts      # Zustand Store
+│       └── services/
+│           └── modelService.ts  # 模型列表获取
 │
 ├── public/
-│   ├── manifest.json        # 扩展清单（Manifest V3）
-│   └── icons/               # 图标资源
+│   ├── manifest.json            # 扩展清单（MV3）
+│   └── icons/                   # 图标资源
 │
-├── e2e/                     # E2E 测试
-├── plans/                   # 架构文档
-└── vite.config.ts           # Vite 配置
+├── scripts/
+│   └── create-icons.cjs         # 图标生成脚本
+│
+├── package.json                 # 依赖配置
+├── vite.config.ts               # Vite 配置
+├── tsconfig.json                # TypeScript 配置
+├── tailwind.config.js           # Tailwind 配置
+├── eslint.config.js             # ESLint 配置
+├── README.md                    # 项目说明
+└── CLAUDE.md                    # 开发指南
 ```
 
-### 开发命令
+---
+
+## 10. 开发指南
+
+### 10.1 常用命令
 
 ```bash
-# 安装依赖
+# 安装依赖（会自动生成图标）
 npm install
 
-# 启动开发服务器（热重载）
+# 开发模式（热更新）
 npm run dev
 
 # 生产构建
@@ -503,32 +596,48 @@ npm run lint
 
 # 类型检查
 npm run type-check
+
+# 单元测试
+npm run test
+
+# E2E 测试
+npm run test:e2e
 ```
 
-### 代码规范
+### 10.2 本地加载测试
 
-- **语言**: 中文注释，英文代码
-- **类型**: 严格 TypeScript，无 `any`
-- **路径**: 使用 `@/` 别名映射到 `src/`
-- **样式**: Tailwind CSS，禁止内联样式
-- **未使用变量**: 前缀 `_`（ESLint 配置）
+1. 执行 `npm run build` 生成 `dist` 目录
+2. 打开 Chrome，访问 `chrome://extensions/`
+3. 开启「开发者模式」
+4. 点击「加载已解压的扩展程序」
+5. 选择 `dist` 文件夹
 
-### 调试技巧
+### 10.3 调试技巧
 
-1. **查看日志**: 扩展管理页面 → 背景页 → Console
-2. **Content Script**: 网页 F12 → Console → 筛选 `NotOnlyTranslator`
-3. **网络请求**: 背景页 → Network → 查看 LLM API 调用
-4. **Storage**: 扩展管理 → 存储 → 查看 Local/Sync 数据
+| 调试目标 | 方法 |
+|---------|------|
+| Background | 扩展管理页 → 查看 Service Worker 控制台 |
+| Content | 网页 DevTools → Console 面板 |
+| Popup | 右键扩展图标 →「检查弹出内容」 |
+| Options | 设置页面 → F12 打开 DevTools |
 
 ---
 
-## 总结
+## 11. 贡献指南
 
-NotOnlyTranslator 是一款面向英语学习者的智能翻译扩展，通过 LLM 技术实现个性化、上下文感知的翻译体验。其核心创新在于：
+欢迎提交 Pull Request！请遵循以下规范：
 
-1. **水平自适应**: 只翻译超出用户当前水平的词汇
-2. **动态学习**: 贝叶斯更新持续优化用户画像
-3. **批量优化**: 智能分批、缓存机制降低 API 成本
-4. **多模式支持**: 行内、双文对照、全文翻译满足不同场景
+1. **代码风格**：遵循 ESLint 配置，零警告提交
+2. **类型安全**：所有代码使用 TypeScript，避免 `any`
+3. **注释**：关键逻辑添加中文注释
+4. **测试**：新功能需配套单元测试
 
-技术实现上采用 Chrome Extension Manifest V3 架构，React + TypeScript + Vite 技术栈，支持多供应商 LLM API，具备良好的扩展性和可维护性。
+---
+
+## 12. 许可证
+
+MIT License
+
+---
+
+> 📚 **快速开始**：如果您是项目新人，建议先阅读 `CLAUDE.md` 开发指南，然后查看 `src/background/index.ts` 和 `src/content/index.ts` 了解核心流程。
