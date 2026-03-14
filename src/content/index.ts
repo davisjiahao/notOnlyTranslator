@@ -14,6 +14,7 @@ import { TranslationDisplay } from './translationDisplay';
 import { ViewportObserver, VisibleParagraph } from './viewportObserver';
 import { BatchTranslationManager } from './batchTranslationManager';
 import { FloatingButton } from './floatingButton';
+import { NavigationManager, PageScanner, HoverManager } from './core';
 
 /**
  * Content Script - main entry point for page interaction
@@ -35,21 +36,17 @@ class NotOnlyTranslator {
   /** 是否使用批量翻译模式 */
   private useBatchMode: boolean = true;
 
-  /** 悬停触发 Tooltip 的定时器 */
-  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
-  /** 当前悬停的元素 */
-  private hoverElement: HTMLElement | null = null;
-
-  /** 当前导航的高亮词索引 */
-  private currentNavigateIndex: number = -1;
-  /** 可导航的高亮词列表 */
-  private navigableHighlights: HTMLElement[] = [];
-
   /** 浮动模式切换按钮 */
   private floatingButton: FloatingButton | null = null;
 
-  /** 导航高亮清除定时器 */
-  private navHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 导航管理器 */
+  private navigationManager: NavigationManager;
+
+  /** 页面扫描器 */
+  private pageScanner: PageScanner;
+
+  /** 悬停管理器 */
+  private hoverManager: HoverManager | null = null;
 
   /** 刷新翻译定时器 */
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,62 +69,11 @@ class NotOnlyTranslator {
 
   private handleMouseOver = (e: MouseEvent): void => {
     if (!this.settings?.enabled) return;
-
-    const target = e.target as HTMLElement;
-
-    const highlightElement = target.classList.contains(CSS_CLASSES.HIGHLIGHT)
-      ? target
-      : target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) as HTMLElement | null;
-
-    const grammarElement = target.classList.contains('not-translator-grammar-highlight')
-      ? target
-      : target.closest('.not-translator-grammar-highlight') as HTMLElement | null;
-
-    const highlightedWord = target.classList.contains('not-translator-highlighted-word')
-      ? target
-      : target.closest('.not-translator-highlighted-word') as HTMLElement | null;
-
-    const highlightedTranslation = target.classList.contains('not-translator-highlighted-translation')
-      ? target
-      : target.closest('.not-translator-highlighted-translation') as HTMLElement | null;
-
-    const validElement = highlightElement || grammarElement || highlightedWord || highlightedTranslation;
-
-    if (!validElement) return;
-
-    if (this.hoverElement === validElement) return;
-
-    this.clearHoverTimer();
-
-    this.hoverElement = validElement;
-
-    const hoverDelay = this.settings?.hoverDelay ?? TIMING.DEFAULT_HOVER_DELAY;
-    this.hoverTimer = setTimeout(() => {
-      this.handleHoverShow(validElement);
-    }, hoverDelay);
+    this.hoverManager?.handleMouseOver(e);
   };
 
   private handleMouseOut = (e: MouseEvent): void => {
-    const target = e.target as HTMLElement;
-
-    const isLeavingHighlight =
-      target.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
-      target.classList.contains('not-translator-grammar-highlight') ||
-      target.classList.contains('not-translator-highlighted-word') ||
-      target.classList.contains('not-translator-highlighted-translation') ||
-      target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) ||
-      target.closest('.not-translator-grammar-highlight') ||
-      target.closest('.not-translator-highlighted-word') ||
-      target.closest('.not-translator-highlighted-translation');
-
-    if (isLeavingHighlight) {
-      this.clearHoverTimer();
-      this.hoverElement = null;
-
-      if (!this.tooltip.getPinned()) {
-        this.tooltip.hide();
-      }
-    }
+    this.hoverManager?.handleMouseOut(e);
   };
 
   private handleKeyDown = (e: KeyboardEvent): void => {
@@ -149,14 +95,37 @@ class NotOnlyTranslator {
 
     const key = e.key;
 
-    if (key === 'j' || key === 'J' || key === 'l' || key === 'L' || key === 'ArrowDown') {
+    // 使用导航管理器处理导航
+    if (this.navigationManager.isNavigationKey(key)) {
       e.preventDefault();
-      this.navigateToNext();
-    } else if (key === 'h' || key === 'H' || key === 'ArrowUp') {
-      e.preventDefault();
-      this.navigateToPrevious();
+      const result = this.navigationManager.handleNavigation(key);
+      if (result?.element) {
+        this.handleNavigationToElement(result.element, result.index, result.direction);
+      }
     }
   };
+
+  /**
+   * 处理导航到指定元素
+   */
+  private handleNavigationToElement(
+    element: HTMLElement,
+    index: number,
+    _direction: 'next' | 'prev'
+  ): void {
+    // 滚动到元素
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // 添加导航高亮效果
+    this.navigationManager.highlightNavigationElement(element);
+
+    // 显示 Tooltip
+    this.handleHoverShow(element);
+
+    // 显示位置指示
+    const highlights = this.navigationManager.getNavigableHighlights();
+    this.navigationManager.showNavigationIndicator(index, highlights.length);
+  }
 
   constructor() {
     logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
@@ -170,6 +139,10 @@ class NotOnlyTranslator {
       onAddToVocabulary: (word, translation) =>
         this.handleAddToVocabulary(word, translation),
     });
+
+    // 初始化管理器
+    this.navigationManager = new NavigationManager();
+    this.pageScanner = new PageScanner();
 
     this.init();
   }
@@ -222,6 +195,13 @@ class NotOnlyTranslator {
 
     // Setup event listeners
     this.setupEventListeners();
+
+    // 初始化悬停管理器
+    this.hoverManager = new HoverManager(
+      this.tooltip,
+      (element) => this.handleHoverShow(element),
+      this.settings?.hoverDelay
+    );
 
     // Setup message listener for background script
     this.setupMessageListener();
@@ -547,148 +527,6 @@ class NotOnlyTranslator {
   }
 
   /**
-   * 获取页面上所有可导航的高亮元素
-   */
-  private getNavigableHighlights(): HTMLElement[] {
-    const selectors = [
-      `.${CSS_CLASSES.HIGHLIGHT}`,
-      '.not-translator-grammar-highlight',
-      '.not-translator-highlighted-word',
-      '.not-translator-highlighted-translation',
-    ];
-
-    const elements: HTMLElement[] = [];
-    selectors.forEach((selector) => {
-      document.querySelectorAll(selector).forEach((el) => {
-        if (el instanceof HTMLElement) {
-          elements.push(el);
-        }
-      });
-    });
-
-    // 按在页面中的位置排序（从上到下）
-    elements.sort((a, b) => {
-      const rectA = a.getBoundingClientRect();
-      const rectB = b.getBoundingClientRect();
-      if (rectA.top !== rectB.top) {
-        return rectA.top - rectB.top;
-      }
-      return rectA.left - rectB.left;
-    });
-
-    return elements;
-  }
-
-  /**
-   * 导航到下一个高亮词
-   */
-  private navigateToNext(): void {
-    this.navigableHighlights = this.getNavigableHighlights();
-    if (this.navigableHighlights.length === 0) return;
-
-    this.currentNavigateIndex++;
-    if (this.currentNavigateIndex >= this.navigableHighlights.length) {
-      this.currentNavigateIndex = 0; // 循环到第一个
-    }
-
-    this.showNavigationTooltip();
-  }
-
-  /**
-   * 导航到上一个高亮词
-   */
-  private navigateToPrevious(): void {
-    this.navigableHighlights = this.getNavigableHighlights();
-    if (this.navigableHighlights.length === 0) return;
-
-    this.currentNavigateIndex--;
-    if (this.currentNavigateIndex < 0) {
-      this.currentNavigateIndex = this.navigableHighlights.length - 1; // 循环到最后一个
-    }
-
-    this.showNavigationTooltip();
-  }
-
-  /**
-   * 显示当前导航位置的 Tooltip
-   */
-  private showNavigationTooltip(): void {
-    const element = this.navigableHighlights[this.currentNavigateIndex];
-    if (!element) return;
-
-    // 滚动到元素
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // 添加导航高亮效果
-    this.highlightNavigationElement(element);
-
-    // 显示 Tooltip
-    this.handleHoverShow(element);
-
-    // 显示位置指示
-    this.showNavigationIndicator();
-  }
-
-  /**
-   * 高亮当前导航的元素
-   */
-  private highlightNavigationElement(element: HTMLElement): void {
-    // 移除之前的高亮
-    document.querySelectorAll('.not-translator-nav-highlight').forEach((el) => {
-      el.classList.remove('not-translator-nav-highlight');
-    });
-
-    // 清除之前的导航高亮定时器
-    if (this.navHighlightTimer) {
-      clearTimeout(this.navHighlightTimer);
-      this.navHighlightTimer = null;
-    }
-
-    // 添加新的高亮
-    element.classList.add('not-translator-nav-highlight');
-
-    // 2秒后移除高亮效果
-    this.navHighlightTimer = setTimeout(() => {
-      element.classList.remove('not-translator-nav-highlight');
-      this.navHighlightTimer = null;
-    }, TIMING.NAVIGATION_HIGHLIGHT_DURATION);
-  }
-
-  /**
-   * 显示导航位置指示器
-   */
-  private showNavigationIndicator(): void {
-    // 更新 tooltip 标题显示位置
-    const current = this.currentNavigateIndex + 1;
-    const total = this.navigableHighlights.length;
-
-    // 在 tooltip 中添加位置信息
-    const tooltipElement = document.getElementById('not-translator-tooltip');
-    if (tooltipElement) {
-      let indicator = tooltipElement.querySelector('.not-translator-nav-indicator');
-      if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.className = 'not-translator-nav-indicator';
-        const content = tooltipElement.querySelector('.not-translator-tooltip-content');
-        if (content) {
-          content.insertBefore(indicator, content.firstChild);
-        }
-      }
-      indicator.textContent = `${current} / ${total}`;
-    }
-  }
-
-  /**
-   * 清除悬停定时器
-   */
-  private clearHoverTimer(): void {
-    if (this.hoverTimer) {
-      clearTimeout(this.hoverTimer);
-      this.hoverTimer = null;
-    }
-  }
-
-  /**
    * 处理悬停显示 Tooltip
    */
   private handleHoverShow(element: HTMLElement): void {
@@ -971,7 +809,7 @@ class NotOnlyTranslator {
     logger.info(`NotOnlyTranslator: Starting scan with mode: ${mode}`);
 
     // Get paragraphs to translate
-    const paragraphs = this.getParagraphs();
+    const paragraphs = this.pageScanner.getParagraphs();
     logger.info(`NotOnlyTranslator: Found ${paragraphs.length} paragraphs to scan`);
 
     // 批量翻译模式：使用可视区域观察器
@@ -1083,59 +921,6 @@ class NotOnlyTranslator {
         });
       }
     });
-  }
-
-  /**
-   * Get paragraphs to translate
-   */
-  private getParagraphs(): HTMLElement[] {
-    const contentAreas = this.getContentAreas();
-    const paragraphs: HTMLElement[] = [];
-
-    for (const area of contentAreas) {
-      // Get all paragraph-like elements
-      const elements = area.querySelectorAll<HTMLElement>('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption');
-      elements.forEach((el) => {
-        // Skip if already processed or has no meaningful content
-        if (!TranslationDisplay.isProcessed(el) && el.textContent && el.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
-          paragraphs.push(el);
-        }
-      });
-
-      // If no specific elements found, treat the whole area as one paragraph
-      if (paragraphs.length === 0 && area.textContent && area.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
-        paragraphs.push(area);
-      }
-    }
-
-    return paragraphs;
-  }
-
-  /**
-   * Get content areas to scan
-   */
-  private getContentAreas(): HTMLElement[] {
-    // Try to find main content areas
-    const selectors = [
-      'article',
-      'main',
-      '[role="main"]',
-      '.content',
-      '.post-content',
-      '.article-content',
-      '.entry-content',
-      '#content',
-    ];
-
-    for (const selector of selectors) {
-      const elements = document.querySelectorAll<HTMLElement>(selector);
-      if (elements.length > 0) {
-        return Array.from(elements);
-      }
-    }
-
-    // Fallback to body
-    return [document.body];
   }
 
   /**
@@ -1378,12 +1163,11 @@ class NotOnlyTranslator {
     document.removeEventListener('mouseout', this.handleMouseOut);
     document.removeEventListener('keydown', this.handleKeyDown);
 
+    // 清理管理器
+    this.hoverManager?.destroy();
+    this.navigationManager.destroy();
+
     // 清理定时器
-    this.clearHoverTimer();
-    if (this.navHighlightTimer) {
-      clearTimeout(this.navHighlightTimer);
-      this.navHighlightTimer = null;
-    }
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
