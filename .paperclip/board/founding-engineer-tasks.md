@@ -1,16 +1,67 @@
 # Founding Engineer 任务分配
 
-## 当前任务: US-002-T1 🔄 进行中
+## 当前任务: US-003 🔄 待开始
 
-**任务**: 实现 Tooltip 组件
-**状态**: 🔄 进行中
-**优先级**: High
-**估计工时**: 4 小时
-**依赖**: US-001 已完成
+**任务**: 标记已知/未知单词
+**状态**: ⏳ 待开始
+**优先级**: Critical
+**估计工时**: 6 小时
+**依赖**: US-002 已完成
 
 ---
 
 ## 已完成的任务
+
+### ✅ US-002-T2: Tooltip 测试修复
+**状态**: 已完成 ✓
+**实际工时**: 15 分钟
+**完成时间**: 2026-03-15
+
+修复 3 个失败的测试用例，添加缺失的 `vi.useFakeTimers()` 和 `vi.useRealTimers()`。
+
+**修复的测试**:
+- `destroy > should clear any pending timeouts`
+- `scroll handling > should hide tooltip on scroll when not pinned`
+- `scroll handling > should not hide tooltip on scroll when pinned`
+
+---
+
+### ✅ US-002-T1: Tooltip 组件
+**状态**: 已完成 ✓
+**实际工时**: 4 小时
+**完成时间**: 2026-03-15
+
+实现 Tooltip 组件，当用户悬停或点击高亮单词时显示翻译详情。
+
+**完成的功能**:
+- ✅ 悬停高亮单词时显示 Tooltip
+- ✅ 显示单词翻译、难度等级（简单/中等/困难）
+- ✅ 提供"标记已知"(K)、"标记未知"(U)、"加入生词本"(A)按钮
+- ✅ 支持点击外部关闭 Tooltip
+- ✅ 自动定位（避免超出视口，支持上下翻转）
+- ✅ 钉住功能（滚动时保持可见）
+- ✅ 快捷键帮助面板
+- ✅ 句子翻译和语法说明支持
+
+**文件位置**:
+- 实现: `src/content/tooltip.ts` (705 行)
+- 测试: `tests/unit/content/tooltip.test.ts` (38 个测试全部通过)
+
+---
+
+### ✅ US-002-T2: Tooltip 测试修复
+**状态**: 已完成 ✓
+**实际工时**: 15 分钟
+**完成时间**: 2026-03-15
+
+修复 3 个失败的测试用例，添加缺失的 `vi.useFakeTimers()` 和 `vi.useRealTimers()`。
+
+**修复的测试**:
+- `destroy > should clear any pending timeouts`
+- `scroll handling > should hide tooltip on scroll when not pinned`
+- `scroll handling > should not hide tooltip on scroll when pinned`
+
+---
 
 ### ✅ US-001-T2: VocabularyFilter 词汇过滤服务
 **状态**: 已完成 ✓
