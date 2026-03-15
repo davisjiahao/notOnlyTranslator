@@ -17,6 +17,34 @@ import { frequencyManager } from './frequencyManager';
 
 logger.info('NotOnlyTranslator: Background service worker started');
 
+// Keep-alive mechanism for Manifest V3 service worker
+// Chrome may terminate idle service workers, which breaks message passing
+// This alarm keeps the service worker alive during active sessions
+
+// Create alarm at startup (service worker may restart without onInstalled firing)
+chrome.alarms.get('keep-alive', (alarm) => {
+  if (!alarm) {
+    chrome.alarms.create('keep-alive', { periodInMinutes: 0.5 }); // Every 30 seconds
+    logger.info('NotOnlyTranslator: Keep-alive alarm created at startup');
+  } else {
+    logger.debug('NotOnlyTranslator: Keep-alive alarm already exists');
+  }
+});
+
+// Also create on install/update (for first-time setup)
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create('keep-alive', { periodInMinutes: 0.5 });
+  logger.info('NotOnlyTranslator: Keep-alive alarm created on install');
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'keep-alive') {
+    // Service worker stays alive as long as it has active event listeners
+    // This alarm firing is enough to prevent termination
+    logger.debug('NotOnlyTranslator: Keep-alive alarm fired');
+  }
+});
+
 // 初始化核心服务
 Promise.all([
   enhancedCache.initialize().then(() => logger.info('NotOnlyTranslator: 增强缓存已初始化')),
@@ -372,6 +400,17 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         return { success: true, data: info };
       } catch (error) {
         logger.error('NotOnlyTranslator: 获取单词掌握度信息失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_LEARNING_STATISTICS': {
+      try {
+        const { days = 90 } = message.payload as { days?: number };
+        const stats = await MasteryManager.getLearningStatistics(days);
+        return { success: true, data: stats };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取学习统计数据失败', error);
         return { success: false, error: (error as Error).message };
       }
     }

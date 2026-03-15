@@ -13,6 +13,9 @@ import type {
   MasteryTrend,
   MasteryDataPoint,
   ReviewReminder,
+  LearningActivity,
+  HeatmapDataPoint,
+  LearningStatistics,
 } from '../types/mastery';
 import type { UnknownWordEntry } from '../types';
 import {
@@ -501,4 +504,190 @@ function getCEFRLevelByVocabulary(vocabularySize: number): CEFRLevel {
   if (vocabularySize < 6000) return 'B2';
   if (vocabularySize < 9000) return 'C1';
   return 'C2';
+}
+
+/**
+ * 计算学习活动数据
+ *
+ * @param wordMastery - 单词掌握度映射
+ * @param days - 统计天数
+ * @returns 学习活动记录数组
+ */
+export function calculateLearningActivity(
+  wordMastery: Record<string, WordMasteryEntry>,
+  days: number = 30
+): LearningActivity[] {
+  const entries = Object.values(wordMastery);
+  const now = Date.now();
+  const activities: LearningActivity[] = [];
+
+  // 生成过去 days 天的活动记录
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now - i * 24 * 60 * 60 * 1000);
+    const dateStr = date.toISOString().split('T')[0];
+    const dayStart = new Date(dateStr).getTime();
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+    // 统计该日期的活动
+    const dayEntries = entries.filter(e => e.markedAt >= dayStart && e.markedAt < dayEnd);
+    const reviewEntries = entries.filter(e => e.lastReviewAt && e.lastReviewAt >= dayStart && e.lastReviewAt < dayEnd);
+
+    const newWords = dayEntries.length;
+    const reviewWords = reviewEntries.length;
+    const knownCount = dayEntries.filter(e => e.knownCount > 0).length;
+    const unknownCount = dayEntries.filter(e => e.unknownCount > 0).length;
+
+    // 估算学习时长：每个新词 30 秒，每个复习 10 秒
+    const studyMinutes = Math.round((newWords * 0.5 + reviewWords * 0.17));
+
+    activities.push({
+      date: dateStr,
+      newWords,
+      reviewWords,
+      knownCount,
+      unknownCount,
+      studyMinutes,
+      streakDays: 0, // 将在后续计算
+    });
+  }
+
+  // 计算连续学习天数
+  let currentStreak = 0;
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const activity = activities[i];
+    const totalActivity = activity.newWords + activity.reviewWords;
+
+    if (totalActivity > 0) {
+      currentStreak++;
+      activity.streakDays = currentStreak;
+    } else {
+      currentStreak = 0;
+      activity.streakDays = 0;
+    }
+  }
+
+  return activities;
+}
+
+/**
+ * 生成学习热力图数据
+ *
+ * @param wordMastery - 单词掌握度映射
+ * @param weeks - 显示周数（默认 26 周 ≈ 6 个月）
+ * @returns 热力图数据点数组
+ */
+export function generateHeatmapData(
+  wordMastery: Record<string, WordMasteryEntry>,
+  weeks: number = 26
+): HeatmapDataPoint[] {
+  const entries = Object.values(wordMastery);
+  const now = new Date();
+  const heatmapData: HeatmapDataPoint[] = [];
+
+  // 计算起始日期（周日开始）
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - weeks * 7);
+  startDate.setHours(0, 0, 0, 0);
+
+  // 调整到最近的周日
+  const dayOfWeek = startDate.getDay();
+  startDate.setDate(startDate.getDate() - dayOfWeek);
+
+  // 生成每一天的数据
+  for (let i = 0; i < weeks * 7; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const dateStr = date.toISOString().split('T')[0];
+
+    const dayStart = date.getTime();
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+    // 统计当天的活动
+    const newWords = entries.filter(e => e.markedAt >= dayStart && e.markedAt < dayEnd).length;
+    const reviewWords = entries.filter(
+      e => e.lastReviewAt && e.lastReviewAt >= dayStart && e.lastReviewAt < dayEnd
+    ).length;
+
+    const totalCount = newWords + reviewWords;
+
+    // 计算活动强度 (0-4)
+    let intensity = 0;
+    if (totalCount >= 20) intensity = 4;
+    else if (totalCount >= 10) intensity = 3;
+    else if (totalCount >= 5) intensity = 2;
+    else if (totalCount > 0) intensity = 1;
+
+    // 确定活动类型
+    let type: 'new' | 'review' | 'mixed' = 'mixed';
+    if (newWords > 0 && reviewWords === 0) type = 'new';
+    else if (newWords === 0 && reviewWords > 0) type = 'review';
+
+    heatmapData.push({
+      date: dateStr,
+      intensity,
+      count: totalCount,
+      type,
+    });
+  }
+
+  return heatmapData;
+}
+
+/**
+ * 计算综合学习统计数据
+ *
+ * @param wordMastery - 单词掌握度映射
+ * @param days - 统计天数
+ * @returns 学习统计数据
+ */
+export function calculateLearningStatistics(
+  wordMastery: Record<string, WordMasteryEntry>,
+  days: number = 90
+): LearningStatistics {
+  const activities = calculateLearningActivity(wordMastery, days);
+  const heatmapData = generateHeatmapData(wordMastery, Math.ceil(days / 7));
+
+  // 计算有学习活动的天数
+  const activeDays = activities.filter(a => a.newWords > 0 || a.reviewWords > 0);
+  const totalStudyDays = activeDays.length;
+
+  // 计算当前连续学习天数
+  const currentStreak = activities.length > 0 ? activities[activities.length - 1].streakDays : 0;
+
+  // 计算最长连续学习天数
+  let longestStreak = 0;
+  let tempStreak = 0;
+  for (const activity of activities) {
+    if (activity.newWords > 0 || activity.reviewWords > 0) {
+      tempStreak++;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else {
+      tempStreak = 0;
+    }
+  }
+
+  // 本周学习天数
+  const weeklyStudyDays = activities.slice(-7).filter(a => a.newWords > 0 || a.reviewWords > 0).length;
+
+  // 本月学习天数（最近30天）
+  const monthlyStudyDays = activities.slice(-30).filter(a => a.newWords > 0 || a.reviewWords > 0).length;
+
+  // 平均每日学习单词数
+  const totalWords = activeDays.reduce((sum, a) => sum + a.newWords + a.reviewWords, 0);
+  const averageDailyWords = totalStudyDays > 0 ? Math.round(totalWords / totalStudyDays) : 0;
+
+  // 总学习时长
+  const totalStudyMinutes = activeDays.reduce((sum, a) => sum + a.studyMinutes, 0);
+
+  return {
+    totalStudyDays,
+    currentStreak,
+    longestStreak,
+    weeklyStudyDays,
+    monthlyStudyDays,
+    averageDailyWords,
+    totalStudyMinutes,
+    heatmapData,
+    recentActivity: activities.slice(-7),
+  };
 }

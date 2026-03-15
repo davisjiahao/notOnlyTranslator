@@ -80,6 +80,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   apiConfigs: [],
   activeApiConfigId: undefined,
   hoverDelay: 500, // 默认悬停 500ms 后显示 Tooltip
+  theme: 'system', // 默认跟随系统主题
 };
 
 // Default user profile

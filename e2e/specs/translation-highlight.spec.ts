@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../utils/extensionTest';
 import { waitForTranslationMarkers, getHighlightedWords, waitForExtensionLoaded } from '../fixtures/extension';
 
 /**
@@ -6,17 +6,13 @@ import { waitForTranslationMarkers, getHighlightedWords, waitForExtensionLoaded 
  * 验证扩展是否正确识别和高亮难词
  */
 test.describe('翻译高亮功能', () => {
-  test.beforeEach(async ({ page }) => {
-    // 每个测试前都先导航到测试页面
-    // 使用 http://localhost 而不是 file:// 协议，避免跨域问题
-    await page.goto('https://example.com');
-    await page.waitForLoadState('domcontentloaded');
-    // 给扩展一些时间来注入 content script
-    await page.waitForTimeout(3000);
-  });
+  test('应该识别并高亮页面中的难词', async ({ extensionPage, waitForExtensionLoaded: waitExtLoaded, configureExtensionApi }) => {
+    const page = extensionPage;
 
-  test('应该识别并高亮页面中的难词', async ({ page }) => {
-    // 先设置页面内容为英文测试文本
+    // 配置扩展 API
+    await configureExtensionApi();
+
+    // 设置页面内容为英文测试文本
     await page.setContent(`
       <!DOCTYPE html>
       <html>
@@ -30,6 +26,8 @@ test.describe('翻译高亮功能', () => {
     `);
 
     // 等待页面加载和扩展处理
+    await page.waitForLoadState('domcontentloaded');
+    await waitExtLoaded(page);
     await page.waitForTimeout(5000);
 
     // 等待翻译标记出现
@@ -51,7 +49,9 @@ test.describe('翻译高亮功能', () => {
     expect(highlightedWords.length).toBeGreaterThanOrEqual(0);
   });
 
-  test('简单词汇不应该被高亮', async ({ page }) => {
+  test('简单词汇不应该被高亮', async ({ extensionPage, waitForExtensionLoaded: waitExtLoaded }) => {
+    const page = extensionPage;
+
     // 设置简单文本页面
     await page.setContent(`
       <!DOCTYPE html>
@@ -64,6 +64,8 @@ test.describe('翻译高亮功能', () => {
       </html>
     `);
 
+    await page.waitForLoadState('domcontentloaded');
+    await waitExtLoaded(page);
     await page.waitForTimeout(3000);
 
     // 获取所有高亮的单词
@@ -76,7 +78,12 @@ test.describe('翻译高亮功能', () => {
     expect(highlightedWords).toBeDefined();
   });
 
-  test('点击高亮单词应该显示翻译提示框', async ({ page }) => {
+  test('点击高亮单词应该显示翻译提示框', async ({ extensionPage, waitForExtensionLoaded: waitExtLoaded, configureExtensionApi }) => {
+    const page = extensionPage;
+
+    // 配置扩展 API
+    await configureExtensionApi();
+
     // 设置测试页面
     await page.setContent(`
       <!DOCTYPE html>
@@ -89,11 +96,12 @@ test.describe('翻译高亮功能', () => {
       </html>
     `);
 
-    // 等待扩展处理
+    await page.waitForLoadState('domcontentloaded');
+    await waitExtLoaded(page);
     await page.waitForTimeout(5000);
 
     // 找到第一个高亮的单词（如果存在）
-    const firstHighlighted = await page.locator('[data-translation-marker], .translation-highlight, .word-highlight').first();
+    const firstHighlighted = await page.locator('[data-translation-marker], .translation-highlight, .word-highlight, [data-word]').first();
 
     // 如果没有高亮单词，测试跳过
     const count = await firstHighlighted.count();
@@ -107,7 +115,7 @@ test.describe('翻译高亮功能', () => {
 
     // 等待提示框出现（使用更通用的选择器）
     try {
-      await page.waitForSelector('.translation-tooltip, [data-tooltip], .word-tooltip, .tooltip-content, [role="dialog"]', {
+      await page.waitForSelector('.translation-tooltip, [data-tooltip], .word-tooltip, .tooltip-content, [role="dialog"], .not-translator-tooltip', {
         timeout: 5000,
         state: 'visible',
       });

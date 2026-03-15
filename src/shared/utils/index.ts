@@ -7,6 +7,9 @@ export { logger } from './logger';
 // 导出掌握度工具
 export * from './mastery';
 
+// 导出主题工具
+export * from './theme';
+
 /**
  * 生成唯一ID
  * @returns 唯一标识符字符串

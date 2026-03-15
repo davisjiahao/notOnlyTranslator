@@ -178,23 +178,38 @@ class NotOnlyTranslator {
 
     if (!this.settings) {
       logger.error('NotOnlyTranslator: Failed to load settings after retries');
+      // 设置加载失败标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'settings-failed');
+      (window as any).__EXTENSION_LOADED__ = false;
       return;
     }
 
     if (!this.settings.enabled) {
       logger.info('NotOnlyTranslator: Extension is disabled');
+      // 设置禁用标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'disabled');
+      (window as any).__EXTENSION_LOADED__ = true;
+      (window as any).__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
     // 检查当前页面是否在黑名单中
     if (this.isCurrentPageBlacklisted()) {
       logger.info('NotOnlyTranslator: Current page is blacklisted, skipping');
+      // 设置黑名单标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'blacklisted');
+      (window as any).__EXTENSION_LOADED__ = true;
+      (window as any).__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
     // 检查页面是否为中文页面
     if (this.isChinesePage()) {
       logger.info('NotOnlyTranslator: Current page is Chinese, skipping translation');
+      // 设置中文页面标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'chinese-page');
+      (window as any).__EXTENSION_LOADED__ = true;
+      (window as any).__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
@@ -229,6 +244,11 @@ class NotOnlyTranslator {
     this.initFloatingButton();
 
     logger.info('NotOnlyTranslator initialized with settings:', this.settings);
+
+    // 设置扩展加载完成标记（供E2E测试检测）
+    document.body.setAttribute('data-extension-loaded', 'true');
+    (window as any).__EXTENSION_LOADED__ = true;
+    (window as any).__NOT_ONLY_TRANSLATOR__ = this;
   }
 
   /**

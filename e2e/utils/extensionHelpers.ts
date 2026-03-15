@@ -6,18 +6,13 @@
 import { type Page, type BrowserContext, expect } from '@playwright/test';
 import path from 'path';
 
-// 扩展 ID 缓存
-let extensionId: string | undefined;
+// 注意：不缓存 extensionId，每个测试上下文独立获取（支持并行执行）
 
 /**
  * 获取 Chrome Extension ID
  * 通过访问 chrome://extensions 页面获取
  */
 export async function getExtensionId(context: BrowserContext): Promise<string> {
-  if (extensionId) {
-    return extensionId;
-  }
-
   // 打开扩展管理页面
   const page = await context.newPage();
   await page.goto('chrome://extensions');
@@ -25,9 +20,7 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
   // 获取扩展 ID
   // 通过查找包含扩展名称的元素来获取 ID
   const idElement = await page.$('text=NotOnlyTranslator >> xpath=../../.. >> [class*="id"]');
-  if (idElement) {
-    extensionId = await idElement.textContent() || undefined;
-  }
+  const extensionId = idElement ? await idElement.textContent() : null;
 
   await page.close();
 
@@ -35,7 +28,7 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
     throw new Error('无法获取扩展 ID');
   }
 
-  return extensionId;
+  return extensionId.trim();
 }
 
 /**
@@ -60,15 +53,31 @@ export async function openExtensionOptions(context: BrowserContext): Promise<Pag
 
 /**
  * 获取背景页（Background Service Worker）
+ * 注意：Manifest V3 使用 Service Worker，不是传统的背景页
  */
 export async function getBackgroundPage(context: BrowserContext): Promise<Page | null> {
-  // 等待背景页加载
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // 等待 Service Worker 注册
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // 获取所有页面
+  // 首先尝试获取 Service Worker
+  const serviceWorkers = context.serviceWorkers();
+  if (serviceWorkers.length > 0) {
+    return serviceWorkers[0];
+  }
+
+  // 如果没有找到，等待 Service Worker 事件
+  try {
+    await context.waitForEvent('serviceworker', { timeout: 5000 });
+    const sw = context.serviceWorkers();
+    if (sw.length > 0) {
+      return sw[0];
+    }
+  } catch {
+    // Service Worker 可能还没有注册，继续尝试其他方法
+  }
+
+  // 备选：查找扩展页面
   const pages = context.pages();
-
-  // 查找背景页 - Service Worker 通常没有 visible 属性或者是特殊的页面
   for (const page of pages) {
     const url = page.url();
     if (url.includes('background') || url.includes('service-worker')) {
@@ -76,8 +85,7 @@ export async function getBackgroundPage(context: BrowserContext): Promise<Page |
     }
   }
 
-  // 如果没有找到，返回第一个页面（可能是背景页）
-  return pages[0] || null;
+  return null;
 }
 
 /**
@@ -127,16 +135,30 @@ export async function clickExtensionIcon(context: BrowserContext): Promise<void>
  * 清除扩展存储的数据
  */
 export async function clearExtensionStorage(context: BrowserContext): Promise<void> {
-  const backgroundPage = await getBackgroundPage(context);
+  // 等待 Service Worker 可用
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  const serviceWorkers = context.serviceWorkers();
+  const backgroundPages = context.backgroundPages();
+  const backgroundPage = serviceWorkers[0] || backgroundPages[0];
+
   if (!backgroundPage) {
-    throw new Error('无法获取背景页');
+    throw new Error('无法获取扩展 background page 或 service worker');
   }
 
   await backgroundPage.evaluate(() => {
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       chrome.storage.local.clear(() => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
         chrome.storage.sync.clear(() => {
-          resolve();
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
         });
       });
     });
@@ -151,9 +173,15 @@ export async function setExtensionStorage(
   data: Record<string, unknown>,
   storageArea: 'local' | 'sync' = 'local'
 ): Promise<void> {
-  const backgroundPage = await getBackgroundPage(context);
+  // 等待 Service Worker 可用
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  const serviceWorkers = context.serviceWorkers();
+  const backgroundPages = context.backgroundPages();
+  const backgroundPage = serviceWorkers[0] || backgroundPages[0];
+
   if (!backgroundPage) {
-    throw new Error('无法获取背景页');
+    throw new Error('无法获取扩展 background page 或 service worker');
   }
 
   await backgroundPage.evaluate(([storageData, area]) => {
@@ -178,9 +206,15 @@ export async function getExtensionStorage(
   keys: string | string[] | null = null,
   storageArea: 'local' | 'sync' = 'local'
 ): Promise<Record<string, unknown>> {
-  const backgroundPage = await getBackgroundPage(context);
+  // 等待 Service Worker 可用
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  const serviceWorkers = context.serviceWorkers();
+  const backgroundPages = context.backgroundPages();
+  const backgroundPage = serviceWorkers[0] || backgroundPages[0];
+
   if (!backgroundPage) {
-    throw new Error('无法获取背景页');
+    throw new Error('无法获取扩展 background page 或 service worker');
   }
 
   return await backgroundPage.evaluate(([storageKeys, area]) => {

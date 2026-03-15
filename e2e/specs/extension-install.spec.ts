@@ -1,28 +1,51 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../utils/extensionTest';
 import { waitForExtensionLoaded, isContentScriptInjected } from '../fixtures/extension';
+import { TEST_SERVER_URL } from '../global-setup';
 
 /**
  * 扩展安装测试
  * 验证扩展是否正确加载和注入
  */
 test.describe('扩展安装', () => {
-  test('扩展 content script 应该成功注入到页面', async ({ page }) => {
-    // 导航到测试页面
-    await page.goto('https://example.com');
+  test('扩展 content script 应该成功注入到页面', async ({ extensionPage, waitForExtensionLoaded: waitExtLoaded }) => {
+    const page = extensionPage;
+
+    // 使用测试服务器页面（setContent 不会触发 content script 注入）
+    await page.goto(`${TEST_SERVER_URL}/test-page.html`);
 
     // 等待页面加载完成
     await page.waitForLoadState('domcontentloaded');
 
-    // 验证 content script 是否已注入
-    const isInjected = await isContentScriptInjected(page);
-    expect(isInjected).toBe(true);
+    // 等待 content script 注入 - 使用轮询而非单次检查
+    // content script 在 document_idle 时注入，可能需要额外时间
+    await expect.poll(async () => {
+      return await isContentScriptInjected(page);
+    }, {
+      message: '等待 content script 注入',
+      timeout: 10000,
+      intervals: [100, 200, 500],
+    }).toBe(true);
   });
 
-  test('扩展应该在页面加载后初始化完成', async ({ page }) => {
-    await page.goto('https://example.com');
+  test('扩展应该在页面加载后初始化完成', async ({ extensionPage, waitForExtensionLoaded }) => {
+    const page = extensionPage;
 
-    // 等待扩展加载完成
-    await waitForExtensionLoaded(page, 15000);
+    // 使用测试服务器页面（setContent 不会触发 content script 注入）
+    await page.goto(`${TEST_SERVER_URL}/test-page.html`);
+
+    // 等待扩展加载完成 - 使用轮询确保正确初始化
+    await expect.poll(async () => {
+      try {
+        await waitForExtensionLoaded(page);
+        return true;
+      } catch {
+        return false;
+      }
+    }, {
+      message: '等待扩展初始化完成',
+      timeout: 15000,
+      intervals: [100, 200, 500],
+    }).toBe(true);
 
     // 验证扩展的全局对象存在
     const extensionState = await page.evaluate(() => {
@@ -32,9 +55,14 @@ test.describe('扩展安装', () => {
     expect(extensionState).toBe(true);
   });
 
-  test('扩展的样式应该正确注入到页面', async ({ page }) => {
-    await page.goto('https://example.com');
-    await page.waitForLoadState('networkidle');
+  test('扩展的样式应该正确注入到页面', async ({ extensionPage, waitForExtensionLoaded }) => {
+    const page = extensionPage;
+
+    // 使用测试服务器页面（setContent 不会触发 content script 注入）
+    await page.goto(`${TEST_SERVER_URL}/test-page.html`);
+
+    await page.waitForLoadState('domcontentloaded');
+    await waitForExtensionLoaded(page);
 
     // 检查扩展样式是否注入
     const hasExtensionStyles = await page.evaluate(() => {

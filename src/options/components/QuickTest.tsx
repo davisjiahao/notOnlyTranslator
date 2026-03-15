@@ -213,25 +213,25 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
     const result = calculateResult();
 
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-10 h-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">测评完成</h2>
-          <p className="text-gray-500">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">测评完成</h2>
+          <p className="text-gray-500 dark:text-gray-400">
             答对 {result.correctCount} / {result.totalQuestions} 题
           </p>
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-6 mb-6 text-center">
-          <div className="text-sm text-gray-500 mb-2">估计词汇量</div>
+        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 mb-6 text-center">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">估计词汇量</div>
           <div className="text-4xl font-bold text-primary-600">
             {result.estimatedVocabulary.toLocaleString()}
           </div>
-          <div className="text-sm text-gray-500 mt-2">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
             正确率: {Math.round(result.accuracy * 100)}%
           </div>
         </div>
@@ -239,7 +239,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             返回
           </button>
@@ -255,18 +255,18 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">快速测评</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">快速测评</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             第 {currentIndex + 1} / {questions.length} 题
           </p>
         </div>
         <button
           onClick={onCancel}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -275,7 +275,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-8">
+      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-8">
         <div
           className="h-full bg-primary-500 rounded-full transition-all duration-300"
           style={{ width: `${progress}%` }}
@@ -285,11 +285,11 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
       {/* Question */}
       <div className="mb-8">
         <div className="text-center mb-6">
-          <span className="text-3xl font-bold text-gray-900">
+          <span className="text-3xl font-bold text-gray-900 dark:text-white">
             {currentQuestion.word}
           </span>
         </div>
-        <p className="text-center text-gray-500">选择正确的中文释义</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">选择正确的中文释义</p>
       </div>
 
       {/* Options */}
@@ -299,15 +299,15 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
           const isCorrect = index === currentQuestion.correctIndex;
           const showFeedback = selectedAnswer !== null;
 
-          let buttonClass = 'border-gray-200 bg-white hover:border-primary-300 hover:bg-primary-50';
+          let buttonClass = 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20';
 
           if (showFeedback) {
             if (isCorrect) {
-              buttonClass = 'border-green-500 bg-green-50 text-green-700';
+              buttonClass = 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400';
             } else if (isSelected && !isCorrect) {
-              buttonClass = 'border-red-500 bg-red-50 text-red-700';
+              buttonClass = 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400';
             } else {
-              buttonClass = 'border-gray-200 bg-gray-50 opacity-50';
+              buttonClass = 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 opacity-50';
             }
           }
 
@@ -318,7 +318,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
               disabled={selectedAnswer !== null}
               className={`w-full p-4 border rounded-lg text-left font-medium transition-colors ${buttonClass}`}
             >
-              <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 rounded-full text-sm text-gray-500 mr-3">
+              <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded-full text-sm text-gray-500 dark:text-gray-400 mr-3">
                 {String.fromCharCode(65 + index)}
               </span>
               {option}
@@ -328,14 +328,14 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
       </div>
 
       {/* Difficulty indicator */}
-      <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400">
+      <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-gray-500">
         <span>难度:</span>
         <div className="flex gap-0.5">
           {Array.from({ length: 10 }).map((_, i) => (
             <div
               key={i}
               className={`w-2 h-2 rounded-full ${
-                i < currentQuestion.difficulty ? 'bg-primary-500' : 'bg-gray-200'
+                i < currentQuestion.difficulty ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-700'
               }`}
             />
           ))}

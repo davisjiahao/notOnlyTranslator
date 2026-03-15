@@ -155,3 +155,63 @@ export interface CEFRLevelResponse {
   confidence: number;
   vocabularyEstimate: number;
 }
+
+/**
+ * 学习活动记录
+ * 追踪用户每日学习行为
+ */
+export interface LearningActivity {
+  /** 日期 (YYYY-MM-DD) */
+  date: string;
+  /** 新学单词数 */
+  newWords: number;
+  /** 复习单词数 */
+  reviewWords: number;
+  /** 标记认识的单词数 */
+  knownCount: number;
+  /** 标记不认识的单词数 */
+  unknownCount: number;
+  /** 学习时长（分钟，估算） */
+  studyMinutes: number;
+  /** 连续学习天数 */
+  streakDays: number;
+}
+
+/**
+ * 学习热力图数据点
+ */
+export interface HeatmapDataPoint {
+  /** 日期 (YYYY-MM-DD) */
+  date: string;
+  /** 活动强度 (0-4) */
+  intensity: number;
+  /** 具体数量 */
+  count: number;
+  /** 活动类型 */
+  type: 'new' | 'review' | 'mixed';
+}
+
+/**
+ * 学习统计数据
+ * 用于统计仪表盘
+ */
+export interface LearningStatistics {
+  /** 总学习天数 */
+  totalStudyDays: number;
+  /** 当前连续学习天数 */
+  currentStreak: number;
+  /** 最长连续学习天数 */
+  longestStreak: number;
+  /** 本周学习天数 */
+  weeklyStudyDays: number;
+  /** 本月学习天数 */
+  monthlyStudyDays: number;
+  /** 平均每日学习单词数 */
+  averageDailyWords: number;
+  /** 总学习时长（分钟） */
+  totalStudyMinutes: number;
+  /** 热力图数据 */
+  heatmapData: HeatmapDataPoint[];
+  /** 最近活动记录 */
+  recentActivity: LearningActivity[];
+}

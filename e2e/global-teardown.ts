@@ -1,4 +1,5 @@
 import { FullConfig } from '@playwright/test';
+import { server } from './global-setup';
 
 /**
  * Playwright 全局清理
@@ -7,10 +8,12 @@ import { FullConfig } from '@playwright/test';
 async function globalTeardown(config: FullConfig) {
   console.log('[Global Teardown] Starting cleanup...');
 
-  // 这里可以添加清理逻辑，例如：
-  // - 清理测试数据
-  // - 关闭共享资源
-  // - 生成测试报告
+  // 关闭 HTTP 服务器
+  if (server) {
+    server.close(() => {
+      console.log('[Global Teardown] HTTP server closed');
+    });
+  }
 
   console.log('[Global Teardown] Cleanup completed');
 }

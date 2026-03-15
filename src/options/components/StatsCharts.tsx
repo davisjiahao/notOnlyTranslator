@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/shared/utils';
 import {
   Radar,
   RadarChart,
@@ -30,6 +31,15 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
   unknownCount,
   confidence,
 }) => {
+  const { isDark } = useTheme();
+
+  // 根据主题设置颜色
+  const gridColor = isDark ? '#374151' : '#e5e7eb';
+  const axisTextColor = isDark ? '#9ca3af' : '#4b5563';
+  const cartesianGridColor = isDark ? '#1f2937' : '#f3f4f6';
+  const xAxisTextColor = isDark ? '#6b7280' : '#9ca3af';
+  const tooltipBgColor = isDark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+  const tooltipTextColor = isDark ? '#e5e7eb' : '#1f2937';
   // 能力模型雷达图数据
   const radarData = [
     { subject: '词汇量', A: Math.min(100, (vocabularySize / 10000) * 100), fullMark: 100 },
@@ -55,14 +65,14 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
     <div className="space-y-4">
       {/* 雷达图：能力模型 */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-2">能力模型</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">能力模型</h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-              <PolarGrid stroke="#e5e7eb" />
+              <PolarGrid stroke={gridColor} />
               <PolarAngleAxis
                 dataKey="subject"
-                tick={{ fill: '#4b5563', fontSize: 12, fontWeight: 500 }}
+                tick={{ fill: axisTextColor, fontSize: 12, fontWeight: 500 }}
               />
               <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
               <Radar
@@ -80,7 +90,7 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
 
       {/* 面积图：增长趋势 */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-2">词汇量增长趋势</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">词汇量增长趋势</h3>
         <div className="h-32 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={growthData}>
@@ -90,16 +100,17 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={cartesianGridColor} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: xAxisTextColor }} axisLine={false} tickLine={false} />
               <YAxis hide domain={['dataMin - 100', 'dataMax + 100']} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  backgroundColor: tooltipBgColor,
                   borderRadius: '8px',
                   border: 'none',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
                   fontSize: '12px',
+                  color: tooltipTextColor,
                 }}
               />
               <Area

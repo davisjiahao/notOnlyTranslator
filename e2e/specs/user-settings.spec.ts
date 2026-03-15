@@ -1,5 +1,11 @@
-import { test, expect, BrowserContext, Page } from '@playwright/test';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { test, expect, BrowserContext, Page, chromium } from '@playwright/test';
 import { openExtensionOptions, openExtensionPopup } from '../fixtures/extension';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * 用户设置测试
@@ -9,9 +15,21 @@ test.describe('用户设置', () => {
   let extensionId: string;
   let context: BrowserContext;
 
-  test.beforeAll(async ({ browser }) => {
-    // 创建共享的 browser context
-    context = await browser.newContext();
+  test.beforeAll(async () => {
+    // 创建带扩展的 browser context
+    const extensionPath = path.resolve(__dirname, '../../dist');
+    context = await chromium.launchPersistentContext('', {
+      headless: false,
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+        '--no-first-run',
+        '--no-default-browser-check',
+      ],
+    });
+
+    // 等待扩展加载
+    await new Promise(resolve => setTimeout(resolve, 2000));
   });
 
   test.afterAll(async () => {
@@ -22,16 +40,44 @@ test.describe('用户设置', () => {
    * 从 context 获取扩展 ID
    */
   async function getExtensionId(context: BrowserContext): Promise<string> {
-    const serviceWorkers = context.serviceWorkers();
+    // 方法1: 尝试从已有的 service worker 获取
+    let serviceWorkers = context.serviceWorkers();
+
+    // 方法2: 等待 service worker 注册（带超时）
     if (serviceWorkers.length === 0) {
-      await context.waitForEvent('serviceworker');
-      return getExtensionId(context);
+      try {
+        await context.waitForEvent('serviceworker', { timeout: 5000 });
+        serviceWorkers = context.serviceWorkers();
+      } catch {
+        // 超时继续尝试其他方法
+      }
     }
 
-    const serviceWorker = serviceWorkers[0];
-    const url = serviceWorker.url();
-    const match = url.match(/chrome-extension:\/\/([^\/]+)/);
-    return match ? match[1] : '';
+    if (serviceWorkers.length > 0) {
+      const url = serviceWorkers[0].url();
+      const match = url.match(/chrome-extension:\/\/([^\/]+)/);
+      if (match) return match[1];
+    }
+
+    // 方法3: 通过 chrome://extensions 页面获取
+    const tempPage = await context.newPage();
+    try {
+      await tempPage.goto('chrome://extensions');
+      await tempPage.waitForSelector('extensions-item', { timeout: 5000 });
+
+      const items = await tempPage.$$('extensions-item');
+      for (const item of items) {
+        const name = await item.$eval('#name', el => el.textContent).catch(() => null);
+        if (name?.includes('NotOnlyTranslator')) {
+          const id = await item.$eval('#extension-id', el => el.textContent).catch(() => null);
+          if (id) return id.trim();
+        }
+      }
+    } finally {
+      await tempPage.close();
+    }
+
+    throw new Error('无法获取扩展 ID，请确保扩展已正确加载');
   }
 
   test.beforeEach(async () => {

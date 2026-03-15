@@ -138,6 +138,8 @@ export interface ApiConfig {
 }
 
 // Settings Types
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export interface UserSettings {
   enabled: boolean;
   autoHighlight: boolean;
@@ -160,6 +162,8 @@ export interface UserSettings {
   activeApiConfigId?: string;
   /** 悬停触发 Tooltip 延迟时间（毫秒），0 表示关闭悬停触发 */
   hoverDelay: number;
+  /** 主题模式 */
+  theme: ThemeMode;
 }
 
 // Storage Types
@@ -198,6 +202,7 @@ export type MessageType =
   | 'GET_CEFR_LEVEL'
   | 'GET_REVIEW_WORDS'
   | 'GET_MASTERY_TREND'
+  | 'GET_LEARNING_STATISTICS'
   | 'SYNC_USER_VOCABULARY'
   | 'EXPORT_MASTERY_DATA'
   | 'IMPORT_MASTERY_DATA'

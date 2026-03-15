@@ -7,6 +7,7 @@ import type {
   WordMasteryStats,
   MasteryTrend,
   ReviewReminder,
+  LearningStatistics,
 } from '@/shared/types/mastery';
 import { StorageManager } from './storage';
 import { logger } from '@/shared/utils';
@@ -17,6 +18,7 @@ import {
   calculateOverallCEFRLevel,
   getReviewReminders,
   calculateMasteryTrend,
+  calculateLearningStatistics,
 } from '@/shared/utils/mastery';
 
 /**
@@ -346,6 +348,22 @@ export class MasteryManager {
       ...entry,
       daysUntilReview,
     };
+  }
+
+  /**
+   * 获取学习统计数据（用于统计仪表盘）
+   *
+   * @param days - 统计天数
+   * @returns 学习统计数据
+   */
+  static async getLearningStatistics(days: number = 90): Promise<LearningStatistics | null> {
+    const profile = await StorageManager.getMasteryProfile();
+
+    if (!profile) {
+      return null;
+    }
+
+    return calculateLearningStatistics(profile.wordMastery, days);
   }
 
   /**

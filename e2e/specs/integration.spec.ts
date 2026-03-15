@@ -8,12 +8,50 @@ import { WebPage, PopupPage, OptionsPage } from '../utils/pageObjects';
 import { waitForPageLoad, safeClick } from '../utils/testHelpers';
 import { setExtensionStorage, getExtensionStorage } from '../utils/extensionHelpers';
 
+// 创建本地测试页面内容的辅助函数
+function createTestPageContent(title: string, paragraphs: string[]): string {
+  const paragraphsHtml = paragraphs.map(p => `<p>${p}</p>`).join('\n        ');
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><title>${title}</title></head>
+    <body>
+      <h1>${title}</h1>
+      ${paragraphsHtml}
+    </body>
+    </html>
+  `;
+}
+
+const TEST_CONTENT = {
+  article: {
+    title: 'Test Article Page',
+    paragraphs: [
+      'The ubiquitous nature of smartphones has revolutionized modern communication.',
+      'People from all walks of life now carry powerful computing devices in their pockets.',
+      'This democratization of technology has both advantages and challenges.',
+      'However, the proliferation of misinformation through social media platforms has become a significant concern.',
+      'The ephemeral nature of digital content creates unique archival challenges.',
+      'The juxtaposition of rapid technological advancement with long-term preservation needs requires innovative solutions.',
+    ],
+  },
+  computer: {
+    title: 'Computer Test Page',
+    paragraphs: [
+      'A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations.',
+      'Modern computers can perform generic sets of operations known as programs.',
+      'These programs enable computers to perform a wide range of tasks, from simple calculations to complex simulations.',
+    ],
+  },
+};
+
 test.describe('集成测试 - 完整用户流程', () => {
   test('完整流程：设置 API -> 浏览网页 -> 查看翻译', async ({
     context,
     extensionPage,
     openOptions,
     waitForExtensionLoaded,
+    configureExtensionApi,
   }) => {
     // Step 1: 配置 API 设置
     console.log('Step 1: 配置 API 设置');
@@ -35,10 +73,13 @@ test.describe('集成测试 - 完整用户流程', () => {
     await options.close();
     console.log('API 配置完成');
 
-    // Step 2: 导航到测试页面
+    // Step 2: 导航到测试页面（使用本地内容）
     console.log('Step 2: 导航到测试页面');
-    const webPage = new WebPage(extensionPage);
-    await webPage.goto('https://en.wikipedia.org/wiki/Artificial_intelligence');
+    const content = createTestPageContent(
+      TEST_CONTENT.article.title,
+      TEST_CONTENT.article.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // Step 3: 等待扩展加载和处理
@@ -48,6 +89,7 @@ test.describe('集成测试 - 完整用户流程', () => {
 
     // Step 4: 验证单词被标注
     console.log('Step 4: 验证单词标注');
+    const webPage = new WebPage(extensionPage);
     const highlightedWords = await webPage.getHighlightedWords();
     console.log(`找到 ${highlightedWords.length} 个标注的单词`);
 
@@ -100,7 +142,11 @@ test.describe('集成测试 - 完整用户流程', () => {
     context,
     extensionPage,
     waitForExtensionLoaded,
+    configureExtensionApi,
   }) => {
+    // 配置 mock API 和翻译缓存
+    await configureExtensionApi();
+
     // 设置初始词汇表
     await setExtensionStorage(context, {
       vocabulary: {
@@ -114,8 +160,12 @@ test.describe('集成测试 - 完整用户流程', () => {
       },
     }, 'local');
 
-    // 导航到测试页面
-    await extensionPage.goto('https://en.wikipedia.org/wiki/Computer');
+    // 导航到测试页面（使用本地内容）
+    const content = createTestPageContent(
+      TEST_CONTENT.computer.title,
+      TEST_CONTENT.computer.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
     await waitForExtensionLoaded(extensionPage);
     await extensionPage.waitForTimeout(3000);

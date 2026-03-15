@@ -24,7 +24,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
 
   /* 并行 workers */
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1, // Chrome 扩展测试必须使用单个 worker，避免多个浏览器上下文冲突
 
   /* 报告器配置 */
   reporter: [

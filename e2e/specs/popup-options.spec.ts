@@ -1,37 +1,14 @@
-import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { openExtensionPopup, openExtensionOptions, getServiceWorker } from '../fixtures/extension';
+import { test, expect } from '../utils/extensionTest';
+import { openExtensionPopup, openExtensionOptions } from '../fixtures/extension';
 
 /**
  * Popup 和 Options 页面测试
  * 验证扩展的 UI 组件功能正常
  */
 test.describe('Popup 和 Options 页面', () => {
-  let extensionId: string;
-
-  test.beforeEach(async ({ context }) => {
-    // 获取扩展 ID
-    extensionId = await getExtensionId(context);
-  });
-
-  /**
-   * 从 context 获取扩展 ID
-   */
-  async function getExtensionId(context: BrowserContext): Promise<string> {
-    // 获取 service worker
-    const serviceWorkers = context.serviceWorkers();
-    if (serviceWorkers.length === 0) {
-      await context.waitForEvent('serviceworker');
-      return getExtensionId(context);
-    }
-
-    const serviceWorker = serviceWorkers[0];
-    const url = serviceWorker.url();
-    const match = url.match(/chrome-extension:\/\/([^\/]+)/);
-    return match ? match[1] : '';
-  }
 
   test.describe('Popup 页面', () => {
-    test('Popup 页面应该正确加载', async ({ context }) => {
+    test('Popup 页面应该正确加载', async ({ context, extensionId }) => {
       // 创建新页面
       const page = await context.newPage();
 
@@ -47,7 +24,7 @@ test.describe('Popup 和 Options 页面', () => {
       await expect(mainContent).toBeVisible();
     });
 
-    test('Popup 应该显示用户词汇量级别', async ({ context }) => {
+    test('Popup 应该显示用户词汇量级别', async ({ context, extensionId }) => {
       const page = await context.newPage();
       await openExtensionPopup(page, extensionId);
 
@@ -58,7 +35,7 @@ test.describe('Popup 和 Options 页面', () => {
       expect(levelIndicator).toBeDefined();
     });
 
-    test('Popup 的设置按钮应该可以打开选项页', async ({ context }) => {
+    test('Popup 的设置按钮应该可以打开选项页', async ({ context, extensionId }) => {
       const page = await context.newPage();
       await openExtensionPopup(page, extensionId);
 
@@ -79,7 +56,7 @@ test.describe('Popup 和 Options 页面', () => {
   });
 
   test.describe('Options 页面', () => {
-    test('Options 页面应该正确加载', async ({ context }) => {
+    test('Options 页面应该正确加载', async ({ context, extensionId }) => {
       const page = await context.newPage();
       await openExtensionOptions(page, extensionId);
 
@@ -92,7 +69,7 @@ test.describe('Popup 和 Options 页面', () => {
       await expect(mainContent).toBeVisible();
     });
 
-    test('Options 页面应该包含 API 设置部分', async ({ context }) => {
+    test('Options 页面应该包含 API 设置部分', async ({ context, extensionId }) => {
       const page = await context.newPage();
       await openExtensionOptions(page, extensionId);
 
@@ -103,7 +80,7 @@ test.describe('Popup 和 Options 页面', () => {
       expect(apiSection).toBeDefined();
     });
 
-    test('Options 页面应该包含词汇量设置', async ({ context }) => {
+    test('Options 页面应该包含词汇量设置', async ({ context, extensionId }) => {
       const page = await context.newPage();
       await openExtensionOptions(page, extensionId);
 
@@ -115,7 +92,7 @@ test.describe('Popup 和 Options 页面', () => {
       expect(vocabSection).toBeDefined();
     });
 
-    test('保存设置后应该显示成功提示', async ({ context }) => {
+    test('保存设置后应该显示成功提示', async ({ context, extensionId }) => {
       const page = await context.newPage();
       await openExtensionOptions(page, extensionId);
 
@@ -135,7 +112,7 @@ test.describe('Popup 和 Options 页面', () => {
   });
 
   test.describe('扩展状态同步', () => {
-    test('Options 中的设置更改应该同步到 Popup', async ({ context }) => {
+    test('Options 中的设置更改应该同步到 Popup', async ({ context, extensionId }) => {
       // 打开 Options 页面
       const optionsPage = await context.newPage();
       await openExtensionOptions(optionsPage, extensionId);
