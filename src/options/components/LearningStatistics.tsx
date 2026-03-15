@@ -69,6 +69,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
 
   useEffect(() => {
     loadStatisticsData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
 
   const loadStatisticsData = async () => {
