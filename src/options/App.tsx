@@ -9,8 +9,9 @@ import GeneralSettings from './components/GeneralSettings';
 import VocabularySettings from './components/VocabularySettings';
 import MasteryOverview from './components/MasteryOverview';
 import FlashcardReview from './components/FlashcardReview';
+import LearningStatistics from './components/LearningStatistics';
 
-type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -61,6 +62,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       );
+    case 'statistics':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      );
   }
 };
 
@@ -71,6 +78,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'vocabulary', label: '生词本' },
   { id: 'mastery', label: '掌握度' },
   { id: 'review', label: '闪卡复习' },
+  { id: 'statistics', label: '学习统计' },
   { id: 'general', label: '通用设置' },
 ];
 
@@ -91,7 +99,7 @@ export default function App() {
     // 从 URL 参数读取要打开的标签页
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general'].includes(tabParam)) {
+    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general', 'statistics'].includes(tabParam)) {
       setActiveTab(tabParam as Tab);
     }
   }, []);
@@ -340,6 +348,8 @@ export default function App() {
             {activeTab === 'mastery' && <MasteryOverview isSaving={isSaving} />}
 
             {activeTab === 'review' && <FlashcardReview isSaving={isSaving} />}
+
+            {activeTab === 'statistics' && <LearningStatistics isSaving={isSaving} />}
 
             {activeTab === 'general' && (
               <GeneralSettings
