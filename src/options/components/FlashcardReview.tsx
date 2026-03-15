@@ -60,6 +60,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
   const [lastUpdateResult, setLastUpdateResult] = useState<MasteryUpdateResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const handleRatingRef = useRef<(rating: number) => Promise<void>>();
 
   // 加载复习单词
   const loadReviewWords = useCallback(async () => {
@@ -108,14 +109,14 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
         const rating = parseInt(e.key, 10);
         if (rating >= 1 && rating <= 5) {
           e.preventDefault();
-          handleRating(rating);
+          handleRatingRef.current?.(rating);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFlipped, isComplete, isSubmitting, currentIndex, reviewWords]);
+  }, [isFlipped, isComplete, isSubmitting]);
 
   // 处理评分
   const handleRating = async (rating: number) => {
@@ -138,8 +139,8 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
         },
       });
 
-      if (response.success && response.data) {
-        setLastUpdateResult(response.data as MasteryUpdateResult);
+      if (response.success && response.data?.masteryResult) {
+        setLastUpdateResult(response.data.masteryResult as MasteryUpdateResult);
       }
 
       // 更新统计
@@ -177,6 +178,9 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
       setIsSubmitting(false);
     }
   };
+
+  // 更新 ref 以便键盘事件使用
+  handleRatingRef.current = handleRating;
 
   // 跳过当前单词
   const handleSkip = () => {

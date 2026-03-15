@@ -269,7 +269,7 @@ describe('FlashcardReview', () => {
         if (message.type === 'MARK_WORD_KNOWN') {
           return Promise.resolve({
             success: true,
-            data: mockMasteryUpdateResult,
+            data: { masteryResult: mockMasteryUpdateResult },
           });
         }
         return Promise.resolve({ success: false });
@@ -384,7 +384,7 @@ describe('FlashcardReview', () => {
         if (message.type === 'MARK_WORD_KNOWN') {
           return Promise.resolve({
             success: true,
-            data: mockMasteryUpdateResult,
+            data: { masteryResult: mockMasteryUpdateResult },
           });
         }
         return Promise.resolve({ success: false });
@@ -487,7 +487,7 @@ describe('FlashcardReview', () => {
         if (message.type === 'MARK_WORD_KNOWN') {
           return Promise.resolve({
             success: true,
-            data: mockMasteryUpdateResult,
+            data: { masteryResult: mockMasteryUpdateResult },
           });
         }
         return Promise.resolve({ success: false });
@@ -581,7 +581,7 @@ describe('FlashcardReview', () => {
         if (message.type === 'MARK_WORD_KNOWN') {
           return Promise.resolve({
             success: true,
-            data: mockMasteryUpdateResult,
+            data: { masteryResult: mockMasteryUpdateResult },
           });
         }
         return Promise.resolve({ success: false });
@@ -722,9 +722,11 @@ describe('FlashcardReview', () => {
           return Promise.resolve({
             success: true,
             data: {
-              ...mockMasteryUpdateResult,
-              levelUpgraded: true,
-              newLevel: 'C1',
+              masteryResult: {
+                ...mockMasteryUpdateResult,
+                levelUpgraded: true,
+                newLevel: 'C1',
+              },
             },
           });
         }
@@ -818,8 +820,10 @@ describe('FlashcardReview', () => {
           return Promise.resolve({
             success: true,
             data: {
-              ...mockMasteryUpdateResult,
-              nextReviewInterval: 0.5, // 半天
+              masteryResult: {
+                ...mockMasteryUpdateResult,
+                nextReviewInterval: 0.5, // 半天
+              },
             },
           });
         }

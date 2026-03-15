@@ -19,6 +19,16 @@ import { NavigationManager, PageScanner, HoverManager } from './core';
 import { VocabularyHighlighter } from './vocabularyHighlighter';
 
 /**
+ * 扩展 Window 接口以支持 E2E 测试所需的属性
+ */
+declare global {
+  interface Window {
+    __EXTENSION_LOADED__?: boolean;
+    __NOT_ONLY_TRANSLATOR__?: NotOnlyTranslator;
+  }
+}
+
+/**
  * Content Script - main entry point for page interaction
  */
 class NotOnlyTranslator {
@@ -180,7 +190,7 @@ class NotOnlyTranslator {
       logger.error('NotOnlyTranslator: Failed to load settings after retries');
       // 设置加载失败标记（供E2E测试检测）
       document.body.setAttribute('data-extension-loaded', 'settings-failed');
-      (window as any).__EXTENSION_LOADED__ = false;
+      window.__EXTENSION_LOADED__ = false;
       return;
     }
 
@@ -188,8 +198,8 @@ class NotOnlyTranslator {
       logger.info('NotOnlyTranslator: Extension is disabled');
       // 设置禁用标记（供E2E测试检测）
       document.body.setAttribute('data-extension-loaded', 'disabled');
-      (window as any).__EXTENSION_LOADED__ = true;
-      (window as any).__NOT_ONLY_TRANSLATOR__ = this;
+      window.__EXTENSION_LOADED__ = true;
+      window.__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
@@ -198,8 +208,8 @@ class NotOnlyTranslator {
       logger.info('NotOnlyTranslator: Current page is blacklisted, skipping');
       // 设置黑名单标记（供E2E测试检测）
       document.body.setAttribute('data-extension-loaded', 'blacklisted');
-      (window as any).__EXTENSION_LOADED__ = true;
-      (window as any).__NOT_ONLY_TRANSLATOR__ = this;
+      window.__EXTENSION_LOADED__ = true;
+      window.__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
@@ -208,8 +218,8 @@ class NotOnlyTranslator {
       logger.info('NotOnlyTranslator: Current page is Chinese, skipping translation');
       // 设置中文页面标记（供E2E测试检测）
       document.body.setAttribute('data-extension-loaded', 'chinese-page');
-      (window as any).__EXTENSION_LOADED__ = true;
-      (window as any).__NOT_ONLY_TRANSLATOR__ = this;
+      window.__EXTENSION_LOADED__ = true;
+      window.__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
@@ -247,8 +257,8 @@ class NotOnlyTranslator {
 
     // 设置扩展加载完成标记（供E2E测试检测）
     document.body.setAttribute('data-extension-loaded', 'true');
-    (window as any).__EXTENSION_LOADED__ = true;
-    (window as any).__NOT_ONLY_TRANSLATOR__ = this;
+    window.__EXTENSION_LOADED__ = true;
+    window.__NOT_ONLY_TRANSLATOR__ = this;
   }
 
   /**

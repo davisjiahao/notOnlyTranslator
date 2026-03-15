@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type {
   CEFRLevel,
   WordMasteryStats,
@@ -62,9 +62,10 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
   const [learningStats, setLearningStats] = useState<LearningStatistics | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const [isLoading, setIsLoading] = useState(true);
+  const loadMasteryDataRef = useRef<() => Promise<void>>();
 
   useEffect(() => {
-    loadMasteryData();
+    loadMasteryDataRef.current?.();
   }, [timeRange]);
 
   const loadMasteryData = async () => {
@@ -116,6 +117,9 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
       setIsLoading(false);
     }
   };
+
+  // 更新 ref 以便 useEffect 使用
+  loadMasteryDataRef.current = loadMasteryData;
 
   // 获取当前 CEFR 等级信息
   const currentLevelInfo = cefrLevel

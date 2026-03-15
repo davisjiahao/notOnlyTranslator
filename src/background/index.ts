@@ -214,33 +214,47 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
     }
 
     case 'MARK_WORD_KNOWN': {
-      const { word, difficulty, context } = message.payload as {
+      const { word, context, translation, isKnown, wordDifficulty } = message.payload as {
         word: string;
-        difficulty: number;
         context?: string;
+        translation?: string;
+        isKnown?: boolean;
+        wordDifficulty?: number;
       };
 
-      // 添加到已知词汇列表
-      await StorageManager.addKnownWord(word);
+      // 确定实际的认识状态和难度（兼容旧调用和闪卡复习调用）
+      const actualIsKnown = isKnown ?? true;
+      const actualDifficulty = wordDifficulty ?? 5;
+      const actualContext = context || '';
+      const actualTranslation = translation || '';
+
+      // 添加到已知词汇列表（如果认识）
+      if (actualIsKnown) {
+        await StorageManager.addKnownWord(word);
+      }
 
       // 更新用户档案
       const profile = await UserLevelManager.updateFromMarking(
         word,
-        true,
-        difficulty
+        actualIsKnown,
+        actualDifficulty
       );
 
       // 更新掌握度系统
       const wordEntry: UnknownWordEntry = {
         word,
-        context: context || '',
-        translation: '',
+        context: actualContext,
+        translation: actualTranslation,
         markedAt: Date.now(),
         reviewCount: 0,
       };
-      await MasteryManager.markWord(wordEntry, true, difficulty);
+      const masteryResult = await MasteryManager.markWord(
+        wordEntry,
+        actualIsKnown,
+        actualDifficulty
+      );
 
-      return { success: true, data: profile };
+      return { success: true, data: { profile, masteryResult } };
     }
 
     case 'MARK_WORD_UNKNOWN': {
