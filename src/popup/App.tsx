@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
-import { logger } from '@/shared/utils';
+import { logger, useTheme } from '@/shared/utils';
 import ApiSwitcher from './components/ApiSwitcher';
 
 interface Stats {
@@ -20,6 +20,9 @@ export default function App() {
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // 初始化主题
+  useTheme(settings?.theme ?? 'system');
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -156,7 +159,7 @@ export default function App() {
   const confidencePercent = Math.round((stats?.confidence || 0) * 100);
 
   return (
-    <div className="bg-gray-50 w-[360px] max-h-[600px] flex flex-col font-sans text-gray-900 overflow-y-auto custom-scrollbar">
+    <div className="bg-gray-50 dark:bg-gray-900 w-[360px] max-h-[600px] flex flex-col font-sans text-gray-900 dark:text-gray-100 overflow-y-auto custom-scrollbar">
       {/* Toast 提示 */}
       {toast && (
         <div className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium ${
@@ -167,7 +170,7 @@ export default function App() {
       )}
 
       {/* Header */}
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm z-10 sticky top-0">
+      <header className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-700 shadow-sm z-10 sticky top-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-primary-600 rounded-md flex items-center justify-center text-white font-bold text-xs">
             N
@@ -194,27 +197,27 @@ export default function App() {
       <main className="flex-1 p-3 flex flex-col gap-2">
 
         {/* 词汇量卡片（含统计） */}
-        <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">词汇量估算</div>
-              <div className="text-xl font-bold text-gray-800">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">词汇量估算</div>
+              <div className="text-xl font-bold text-gray-800 dark:text-gray-100">
                 {stats?.estimatedVocabulary.toLocaleString() || '---'}
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-primary-600 font-medium bg-primary-50 px-2 py-0.5 rounded-full inline-block mb-1">
+              <div className="text-xs text-primary-600 font-medium bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full inline-block mb-1">
                 {stats?.level || '未评估'}
               </div>
               {profile && (
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-gray-400 dark:text-gray-500">
                   {EXAM_DISPLAY_NAMES[profile.examType]}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="h-px bg-gray-100 mb-2"></div>
+          <div className="h-px bg-gray-100 dark:bg-gray-700 mb-2"></div>
 
           {/* 统计行 */}
           <div className="flex items-center gap-4 mb-2">
@@ -234,30 +237,30 @@ export default function App() {
 
           {/* 置信度进度条 */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 flex-shrink-0">置信度</span>
-            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">置信度</span>
+            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
               <div
                 className="bg-primary-500 h-1.5 rounded-full transition-all"
                 style={{ width: `${confidencePercent}%` }}
               />
             </div>
-            <span className="text-xs text-gray-500 font-medium flex-shrink-0">{confidencePercent}%</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">{confidencePercent}%</span>
           </div>
         </div>
 
         {/* 翻译模式 + API 切换 */}
         {settings && (
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
             {/* 模式选择器 */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-500 font-medium">翻译模式</label>
-              <div className="grid grid-cols-3 gap-1.5 bg-gray-50 p-1 rounded-lg">
+              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">翻译模式</label>
+              <div className="grid grid-cols-3 gap-1.5 bg-gray-50 dark:bg-gray-700/50 p-1 rounded-lg">
                 <button
                   onClick={() => updateSettings({ translationMode: 'inline-only' })}
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
                     settings.translationMode === 'inline-only'
-                      ? 'bg-white text-primary-600 shadow-sm font-medium'
-                      : 'text-gray-500 hover:bg-gray-100'
+                      ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -270,8 +273,8 @@ export default function App() {
                   onClick={() => updateSettings({ translationMode: 'bilingual' })}
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
                     settings.translationMode === 'bilingual'
-                      ? 'bg-white text-primary-600 shadow-sm font-medium'
-                      : 'text-gray-500 hover:bg-gray-100'
+                      ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -283,8 +286,8 @@ export default function App() {
                   onClick={() => updateSettings({ translationMode: 'full-translate' })}
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
                     settings.translationMode === 'full-translate'
-                      ? 'bg-white text-primary-600 shadow-sm font-medium'
-                      : 'text-gray-500 hover:bg-gray-100'
+                      ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -296,7 +299,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="h-px bg-gray-100"></div>
+            <div className="h-px bg-gray-100 dark:bg-gray-700"></div>
 
             <ApiSwitcher
               settings={settings}
@@ -308,7 +311,7 @@ export default function App() {
 
         {/* 网站开关 */}
         {currentHostname ? (
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
             {isRefreshing ? (
               /* 刷新提示 */
               <div className="flex items-center justify-center gap-2 py-1">
@@ -319,10 +322,10 @@ export default function App() {
               /* 正常显示 */
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0 mr-3">
-                  <div className="text-sm font-medium text-gray-900 truncate" title={currentHostname}>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={currentHostname}>
                     {currentHostname}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
                     {isSiteTranslationEnabled ? '翻译已开启' : '翻译已禁用'}
                   </div>
                 </div>
@@ -330,7 +333,7 @@ export default function App() {
                   onClick={toggleSiteTranslation}
                   disabled={isRefreshing}
                   className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${
-                    isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200'
+                    isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
                   } ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div
@@ -343,7 +346,7 @@ export default function App() {
             )}
           </div>
         ) : (
-          <div className="bg-gray-100 rounded-lg p-3 text-center text-gray-500 text-xs">
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center text-gray-500 dark:text-gray-400 text-xs">
             当前页面不支持翻译
           </div>
         )}
@@ -352,7 +355,7 @@ export default function App() {
         <div className="grid grid-cols-2 gap-2 mt-auto">
           <button
             onClick={openOptions}
-            className="flex items-center justify-center gap-1.5 bg-white border border-gray-200 p-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-primary-600 hover:border-primary-200 transition-colors"
+            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -362,7 +365,7 @@ export default function App() {
           </button>
           <button
             onClick={openVocabulary}
-            className="flex items-center justify-center gap-1.5 bg-white border border-gray-200 p-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-primary-600 hover:border-primary-200 transition-colors"
+            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />

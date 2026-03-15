@@ -12,6 +12,64 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * Mock 翻译 API 响应数据
+ */
+const MOCK_TRANSLATION_RESPONSE = {
+  words: [
+    {
+      original: 'ubiquitous',
+      translation: '无处不在的；普遍存在的',
+      position: [4, 14],
+      difficulty: 8,
+      isPhrase: false,
+    },
+    {
+      original: 'revolutionized',
+      translation: '彻底改变的；革命的',
+      position: [35, 49],
+      difficulty: 7,
+      isPhrase: false,
+    },
+    {
+      original: 'democratization',
+      translation: '民主化；普及化',
+      position: [75, 90],
+      difficulty: 9,
+      isPhrase: false,
+    },
+    {
+      original: 'proliferation',
+      translation: '激增；扩散',
+      position: [40, 53],
+      difficulty: 8,
+      isPhrase: false,
+    },
+    {
+      original: 'ephemeral',
+      translation: '短暂的；转瞬即逝的',
+      position: [4, 13],
+      difficulty: 9,
+      isPhrase: false,
+    },
+    {
+      original: 'juxtaposition',
+      translation: '并置；并列对照',
+      position: [4, 17],
+      difficulty: 10,
+      isPhrase: false,
+    },
+  ],
+  sentences: [
+    {
+      original: 'The ubiquitous nature of smartphones has revolutionized modern communication.',
+      translation: '智能手机无处不在的特性彻底改变了现代通信方式。',
+    },
+  ],
+  grammarPoints: [],
+  fullText: '智能手机无处不在的特性彻底改变了现代通信方式。',
+};
+
+/**
  * 扩展测试固件类型定义
  */
 export interface ExtensionFixtures {
@@ -29,6 +87,8 @@ export interface ExtensionFixtures {
   getBackgroundPage: () => Promise<Page | null>;
   // 等待扩展加载
   waitForExtensionLoaded: (page: Page) => Promise<void>;
+  // 配置扩展 API（注入 mock API key）
+  configureExtensionApi: () => Promise<void>;
 }
 
 /**
@@ -51,6 +111,22 @@ export const test = base.extend<ExtensionFixtures>({
         '--disable-features=IsolateOrigins,site-per-process',
       ],
     });
+
+    // 等待 Service Worker 注册（使用 waitForEvent 而非 expect.poll）
+    // 注意：expect.poll 在 fixture 中会导致上下文提前关闭
+    let serviceWorker = context.serviceWorkers()[0];
+    if (!serviceWorker) {
+      try {
+        serviceWorker = await context.waitForEvent('serviceworker', { timeout: 10000 });
+      } catch {
+        // 如果事件等待失败，尝试手动轮询
+        const startTime = Date.now();
+        while (!serviceWorker && Date.now() - startTime < 10000) {
+          await new Promise(r => setTimeout(r, 100));
+          serviceWorker = context.serviceWorkers()[0];
+        }
+      }
+    }
 
     await use(context);
 
@@ -98,14 +174,35 @@ export const test = base.extend<ExtensionFixtures>({
   // 等待扩展加载的辅助函数
   waitForExtensionLoaded: async ({}, use) => {
     await use(async (page: Page) => {
-      // 等待内容脚本注入
+      // 等待内容脚本注入（与内容脚本中设置的标记保持一致）
+      // 支持多种加载状态：true（正常）、false（设置失败）、disabled（禁用）、blacklisted（黑名单）、chinese-page（中文页面）
       await page.waitForFunction(() => {
-        return document.body?.hasAttribute('data-not-only-translator') ||
-               !!document.querySelector('.not-only-translator-tooltip');
+        const loadedAttr = document.body?.getAttribute('data-extension-loaded');
+        const hasLoadedMarker = loadedAttr !== null && loadedAttr !== '';
+        const hasWindowFlag = !!(window as any).__EXTENSION_LOADED__;
+        const hasInstance = !!(window as any).__NOT_ONLY_TRANSLATOR__;
+        return hasLoadedMarker || hasWindowFlag || hasInstance;
       }, { timeout: 10000 });
 
-      // 额外等待确保扩展完全初始化
-      await page.waitForTimeout(1000);
+      // 使用手动轮询确保扩展完全初始化（而非 expect.poll）
+      // 注意：expect.poll 在 fixture 中会导致上下文提前关闭
+      const startTime = Date.now();
+      let isInitialized = false;
+      while (Date.now() - startTime < 5000) {
+        isInitialized = await page.evaluate(() => {
+          const instance = (window as any).__NOT_ONLY_TRANSLATOR__;
+          return !!(instance && instance.isInitialized !== false);
+        });
+        if (isInitialized) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+    });
+  },
+
+  // 配置扩展 API 的辅助函数
+  configureExtensionApi: async ({ context }, use) => {
+    await use(async () => {
+      await configureExtensionApiInContext(context);
     });
   },
 });
@@ -148,33 +245,161 @@ async function getExtensionIdFromContext(context: BrowserContext): Promise<strin
 }
 
 /**
- * 从上下文中获取背景页
+ * 从上下文中获取背景页（Service Worker）
  */
 async function getBackgroundPageFromContext(context: BrowserContext): Promise<Page | null> {
-  // 等待 Service Worker 注册
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // 方法1: 首先检查是否已经有 Service Worker
+  const existingWorkers = context.serviceWorkers();
+  if (existingWorkers.length > 0) {
+    return existingWorkers[0];
+  }
 
-  // 尝试获取 Service Worker 页面
-  const pages = context.pages();
+  // 方法2: 等待 Service Worker 事件（使用轮询）
+  try {
+    await context.waitForEvent('serviceworker', { timeout: 5000 });
+    const sw = context.serviceWorkers();
+    if (sw.length > 0) {
+      return sw[0];
+    }
+  } catch {
+    // Service Worker 可能还没有注册
+  }
 
-  for (const page of pages) {
-    const url = page.url();
-    // Service Worker 通常有特定的 URL 模式
-    if (url.includes('background') ||
-        url.includes('service-worker') ||
-        url.startsWith('chrome-extension://') && url.includes('sw.js')) {
-      return page;
+  // 方法3: 尝试多次获取（轮询方式）
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const workers = context.serviceWorkers();
+    if (workers.length > 0) {
+      return workers[0];
     }
   }
 
-  // 如果没有找到，返回第一个扩展页面
-  for (const page of pages) {
-    if (page.url().startsWith('chrome-extension://')) {
-      return page;
-    }
+  // 方法4: 尝试获取 backgroundPages（Manifest V2 兼容）
+  const backgroundPages = context.backgroundPages();
+  if (backgroundPages.length > 0) {
+    return backgroundPages[0];
   }
 
   return null;
+}
+
+/**
+ * 配置扩展 API 设置
+ * 注入 mock API key 到扩展存储中，并预填充翻译缓存
+ */
+async function configureExtensionApiInContext(context: BrowserContext): Promise<void> {
+  const serviceWorkers = context.serviceWorkers();
+  const backgroundPages = context.backgroundPages();
+  const backgroundPage = serviceWorkers[0] || backgroundPages[0];
+
+  if (!backgroundPage) {
+    console.warn('[E2E] Warning: Could not find background page or service worker');
+    return;
+  }
+
+  const configId = 'test-config-' + Date.now();
+
+  // 构建设置数据
+  const settings = {
+    enabled: true,
+    autoHighlight: true,
+    vocabHighlightEnabled: true,
+    translationMode: 'inline-only',
+    showDifficulty: true,
+    highlightColor: '#fef08a',
+    fontSize: 14,
+    apiProvider: 'openai',
+    customApiUrl: '',
+    customModelName: '',
+    blacklist: [],
+    apiConfigs: [
+      {
+        id: configId,
+        name: 'Test Config',
+        provider: 'openai',
+        apiUrl: '',
+        modelName: 'gpt-4o-mini',
+        apiKey: 'test-api-key-for-e2e-only',
+      },
+    ],
+    activeApiConfigId: configId,
+  };
+
+  // 预填充翻译缓存 - 为测试页面中的文本生成缓存条目
+  const translationCache: Record<string, typeof MOCK_TRANSLATION_RESPONSE> = {};
+
+  // 根据文本内容生成哈希键（使用简化的哈希函数）
+  const generateHash = (text: string): string => {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+  };
+
+  // 为测试页面中的段落生成缓存
+  const testParagraphs = [
+    'The ubiquitous nature of smartphones has revolutionized modern communication.',
+    'People from all walks of life now carry powerful computing devices in their pockets.',
+    'This democratization of technology has both advantages and challenges.',
+    'However, the proliferation of misinformation through social media platforms has become a significant concern.',
+    'The ephemeral nature of digital content creates unique archival challenges.',
+    'The juxtaposition of rapid technological advancement with long-term preservation needs requires innovative solutions.',
+  ];
+
+  for (const paragraph of testParagraphs) {
+    // 修复：使用与扩展一致的缓存键格式 mode_hash，而不是 hash(text+mode)
+    const hashKey = 'inline-only_' + generateHash(paragraph);
+    translationCache[hashKey] = {
+      ...MOCK_TRANSLATION_RESPONSE,
+      words: MOCK_TRANSLATION_RESPONSE.words.filter(() => Math.random() > 0.3), // 随机选择一些词
+    };
+  }
+
+  await backgroundPage.evaluate((data) => {
+    const { settingsData, cacheData } = data;
+    return new Promise<void>((resolve, reject) => {
+      // 同时设置 settings、userProfile 和 translationCache
+      chrome.storage.sync.set(
+        {
+          settings: settingsData,
+          userProfile: {
+            examType: 'cet4',
+            examScore: 425,
+            estimatedVocabulary: 4500,
+            levelConfidence: 0.5,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+
+          // 设置本地缓存
+          chrome.storage.local.set(
+            {
+              translationCache: cacheData,
+            },
+            () => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                console.log('[E2E] Extension settings and cache configured');
+                resolve();
+              }
+            }
+          );
+        }
+      );
+    });
+  }, { settingsData: settings, cacheData: translationCache });
+
+  console.log('[E2E] Extension API configured with mock translation cache');
 }
 
 // 导出 expect

@@ -90,6 +90,12 @@ export interface TranslatedWord {
   position: [number, number];
   difficulty: number;
   isPhrase: boolean;
+  /** 音标（可选） */
+  phonetic?: string;
+  /** 词性（可选） */
+  partOfSpeech?: string;
+  /** 例句（可选） */
+  examples?: string[];
 }
 
 export interface TranslatedSentence {
@@ -132,9 +138,13 @@ export interface ApiConfig {
 }
 
 // Settings Types
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export interface UserSettings {
   enabled: boolean;
   autoHighlight: boolean;
+  /** 是否启用 CEFR 词汇高亮功能 */
+  vocabHighlightEnabled: boolean;
   translationMode: TranslationMode;
   showDifficulty: boolean;
   highlightColor: string;
@@ -152,6 +162,8 @@ export interface UserSettings {
   activeApiConfigId?: string;
   /** 悬停触发 Tooltip 延迟时间（毫秒），0 表示关闭悬停触发 */
   hoverDelay: number;
+  /** 主题模式 */
+  theme: ThemeMode;
 }
 
 // Storage Types
@@ -184,7 +196,17 @@ export type MessageType =
   | 'WORD_MARKED'
   | 'ADDED_TO_VOCABULARY'
   | 'SETTINGS_UPDATED'
-  | 'TOGGLE_ENABLED';
+  | 'TOGGLE_ENABLED'
+  // 掌握度系统消息类型
+  | 'GET_MASTERY_OVERVIEW'
+  | 'GET_CEFR_LEVEL'
+  | 'GET_REVIEW_WORDS'
+  | 'GET_MASTERY_TREND'
+  | 'GET_LEARNING_STATISTICS'
+  | 'SYNC_USER_VOCABULARY'
+  | 'EXPORT_MASTERY_DATA'
+  | 'IMPORT_MASTERY_DATA'
+  | 'GET_WORD_MASTERY_INFO';
 
 export interface Message<T = unknown> {
   type: MessageType;

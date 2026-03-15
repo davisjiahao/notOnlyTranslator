@@ -11,10 +11,39 @@ import { StorageManager } from './storage';
 import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
 import { BatchTranslationService } from './batchTranslation';
+import { MasteryManager } from './mastery';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
 
 logger.info('NotOnlyTranslator: Background service worker started');
+
+// Keep-alive mechanism for Manifest V3 service worker
+// Chrome may terminate idle service workers, which breaks message passing
+// This alarm keeps the service worker alive during active sessions
+
+// Create alarm at startup (service worker may restart without onInstalled firing)
+chrome.alarms.get('keep-alive', (alarm) => {
+  if (!alarm) {
+    chrome.alarms.create('keep-alive', { periodInMinutes: 0.5 }); // Every 30 seconds
+    logger.info('NotOnlyTranslator: Keep-alive alarm created at startup');
+  } else {
+    logger.debug('NotOnlyTranslator: Keep-alive alarm already exists');
+  }
+});
+
+// Also create on install/update (for first-time setup)
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create('keep-alive', { periodInMinutes: 0.5 });
+  logger.info('NotOnlyTranslator: Keep-alive alarm created on install');
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'keep-alive') {
+    // Service worker stays alive as long as it has active event listeners
+    // This alarm firing is enough to prevent termination
+    logger.debug('NotOnlyTranslator: Keep-alive alarm fired');
+  }
+});
 
 // 初始化核心服务
 Promise.all([
@@ -185,27 +214,65 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
     }
 
     case 'MARK_WORD_KNOWN': {
-      const { word, difficulty } = message.payload as {
+      const { word, context, translation, isKnown, wordDifficulty } = message.payload as {
         word: string;
-        difficulty: number;
+        context?: string;
+        translation?: string;
+        isKnown?: boolean;
+        wordDifficulty?: number;
       };
-      await StorageManager.addKnownWord(word);
+
+      // 确定实际的认识状态和难度（兼容旧调用和闪卡复习调用）
+      const actualIsKnown = isKnown ?? true;
+      const actualDifficulty = wordDifficulty ?? 5;
+      const actualContext = context || '';
+      const actualTranslation = translation || '';
+
+      // 添加到已知词汇列表（如果认识）
+      if (actualIsKnown) {
+        await StorageManager.addKnownWord(word);
+      }
+
+      // 更新用户档案
       const profile = await UserLevelManager.updateFromMarking(
         word,
-        true,
-        difficulty
+        actualIsKnown,
+        actualDifficulty
       );
-      return { success: true, data: profile };
+
+      // 更新掌握度系统
+      const wordEntry: UnknownWordEntry = {
+        word,
+        context: actualContext,
+        translation: actualTranslation,
+        markedAt: Date.now(),
+        reviewCount: 0,
+      };
+      const masteryResult = await MasteryManager.markWord(
+        wordEntry,
+        actualIsKnown,
+        actualDifficulty
+      );
+
+      return { success: true, data: { profile, masteryResult } };
     }
 
     case 'MARK_WORD_UNKNOWN': {
       const entry = message.payload as UnknownWordEntry;
+
+      // 添加到未知词汇列表
       await StorageManager.addUnknownWord(entry);
+
+      // 更新用户档案
       const profile = await UserLevelManager.updateFromMarking(
         entry.word,
         false,
         5 // Default difficulty
       );
+
+      // 更新掌握度系统
+      await MasteryManager.markWord(entry, false, 5);
+
       return { success: true, data: profile };
     }
 
@@ -264,6 +331,102 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
       const { word } = message.payload as { word: string };
       await StorageManager.removeFromVocabulary(word);
       return { success: true };
+    }
+
+    // 掌握度系统相关消息
+    case 'GET_MASTERY_OVERVIEW': {
+      try {
+        const overview = await MasteryManager.getMasteryOverview();
+        return { success: true, data: overview };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取掌握度概览失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_CEFR_LEVEL': {
+      try {
+        const level = await MasteryManager.getUserCEFRLevel();
+        return { success: true, data: level };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取 CEFR 等级失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_REVIEW_WORDS': {
+      try {
+        const { limit = 20 } = message.payload as { limit?: number };
+        const words = await MasteryManager.getReviewWords(limit);
+        return { success: true, data: words };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取复习单词失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_MASTERY_TREND': {
+      try {
+        const { days = 30 } = message.payload as { days?: number };
+        const trend = await MasteryManager.getMasteryTrend(days);
+        return { success: true, data: trend };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取掌握度趋势失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'SYNC_USER_VOCABULARY': {
+      try {
+        await MasteryManager.syncUserVocabulary();
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 同步用户词汇量失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'EXPORT_MASTERY_DATA': {
+      try {
+        const data = await MasteryManager.exportData();
+        return { success: true, data };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 导出掌握度数据失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'IMPORT_MASTERY_DATA': {
+      try {
+        const data = message.payload as Partial<import('@/shared/types/mastery').MasteryProfile>;
+        await MasteryManager.importData(data);
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 导入掌握度数据失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_WORD_MASTERY_INFO': {
+      try {
+        const { word } = message.payload as { word: string };
+        const info = await MasteryManager.getWordMasteryInfo(word);
+        return { success: true, data: info };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取单词掌握度信息失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_LEARNING_STATISTICS': {
+      try {
+        const { days = 90 } = message.payload as { days?: number };
+        const stats = await MasteryManager.getLearningStatistics(days);
+        return { success: true, data: stats };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取学习统计数据失败', error);
+        return { success: false, error: (error as Error).message };
+      }
     }
 
     default:

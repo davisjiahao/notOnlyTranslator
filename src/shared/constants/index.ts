@@ -3,6 +3,9 @@ import type { ExamType, UserSettings, BatchTranslationConfig } from '../types';
 // 导出供应商配置
 export * from './providers';
 
+// 导出掌握度系统常量
+export * from './mastery';
+
 // Vocabulary size estimates for different exam levels
 export const EXAM_VOCABULARY_SIZES: Record<ExamType, number> = {
   cet4: 4500,
@@ -65,6 +68,7 @@ export const EXAM_SCORE_RANGES: Record<ExamType, { min: number; max: number; ste
 export const DEFAULT_SETTINGS: UserSettings = {
   enabled: true,
   autoHighlight: true,
+  vocabHighlightEnabled: true, // 默认启用 CEFR 词汇高亮
   translationMode: 'inline-only',
   showDifficulty: true,
   highlightColor: '#fef08a', // Light yellow
@@ -76,6 +80,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   apiConfigs: [],
   activeApiConfigId: undefined,
   hoverDelay: 500, // 默认悬停 500ms 后显示 Tooltip
+  theme: 'system', // 默认跟随系统主题
 };
 
 // Default user profile

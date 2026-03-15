@@ -24,6 +24,44 @@ class FrequencyManager {
   private wordSets: Map<string, WordList> = new Map();
   private initialized = false;
 
+  // 缓存正则表达式模式
+  private static readonly TOKENIZE_REGEX = /[^\w\s']/g;
+  private static readonly WHITESPACE_REGEX = /\s+/g;
+  private static readonly NUMBER_REGEX = /^\d+$/;
+
+  // 词集名称常量
+  private static readonly WORD_SET_NAMES = {
+    COMMON: 'common',
+    CET4: 'cet4',
+    CET6: 'cet6',
+    TOEFL: 'toefl',
+    IELTS: 'ielts',
+    GRE: 'gre',
+  } as const;
+
+  /**
+   * 分词 - 提取为共享方法
+   */
+  private tokenize(text: string): string[] {
+    if (!text) return [];
+    return text
+      .replace(FrequencyManager.TOKENIZE_REGEX, ' ')
+      .replace(FrequencyManager.WHITESPACE_REGEX, ' ')
+      .trim()
+      .split(' ')
+      .filter(w => w.length > 0);
+  }
+
+  /**
+   * 获取难度阈值 - 基于词汇量
+   */
+  private getDifficultyThreshold(vocabularySize: number): number {
+    if (vocabularySize < 3000) return 2;
+    if (vocabularySize < 5000) return 3;
+    if (vocabularySize < 8000) return 5;
+    return 7;
+  }
+
   /**
    * Initialize vocabulary lists
    */
@@ -48,27 +86,22 @@ class FrequencyManager {
 
   /**
    * Get difficulty level (1-10) for a word
-   * 1-2: Common/Stop words
-   * 3-4: CET-4
-   * 5-6: CET-6
-   * 7-8: TOEFL/IELTS
-   * 9-10: GRE/Unknown
    */
   getDifficulty(word: string): number {
     if (!this.initialized) return 5;
 
     const lowerWord = word.toLowerCase().trim();
+    const names = FrequencyManager.WORD_SET_NAMES;
 
     // Check lists in order of difficulty
-    if (this.wordSets.get('common')?.has(lowerWord)) return 1;
-    if (this.wordSets.get('cet4')?.has(lowerWord)) return 3;
-    if (this.wordSets.get('cet6')?.has(lowerWord)) return 5;
-    if (this.wordSets.get('toefl')?.has(lowerWord)) return 7;
-    if (this.wordSets.get('ielts')?.has(lowerWord)) return 7;
-    if (this.wordSets.get('gre')?.has(lowerWord)) return 9;
+    if (this.wordSets.get(names.COMMON)?.has(lowerWord)) return 1;
+    if (this.wordSets.get(names.CET4)?.has(lowerWord)) return 3;
+    if (this.wordSets.get(names.CET6)?.has(lowerWord)) return 5;
+    if (this.wordSets.get(names.TOEFL)?.has(lowerWord)) return 7;
+    if (this.wordSets.get(names.IELTS)?.has(lowerWord)) return 7;
+    if (this.wordSets.get(names.GRE)?.has(lowerWord)) return 9;
 
     // Not found in any list -> likely hard or rare
-    // Apply heuristics for length/suffix if not found (fallback handled by UserLevelManager)
     return 8;
   }
 
@@ -79,9 +112,10 @@ class FrequencyManager {
   isEasyWord(word: string): boolean {
     if (!this.initialized) return false;
     const lowerWord = word.toLowerCase().trim();
+    const names = FrequencyManager.WORD_SET_NAMES;
     return (
-      this.wordSets.get('common')?.has(lowerWord) ||
-      this.wordSets.get('cet4')?.has(lowerWord)
+      this.wordSets.get(names.COMMON)?.has(lowerWord) ||
+      this.wordSets.get(names.CET4)?.has(lowerWord)
     ) || false;
   }
 
@@ -118,26 +152,10 @@ class FrequencyManager {
   hasPotentialUnknownWords(text: string, userVocabularySize: number): boolean {
     if (!this.initialized || !text) return true; // Fail safe: assume it needs translation
 
-    // Simple tokenizer: remove punctuation, split by space
-    const words = text
-      .replace(/[^\w\s']/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(' ')
-      .filter(w => w.length > 0);
-
+    const words = this.tokenize(text);
     if (words.length === 0) return false;
 
-    // Determine difficulty threshold based on vocabulary size
-    // <3000 (Beginner): Threshold 2 (needs help with almost everything except basic)
-    // 3000-5000 (CET4): Threshold 3
-    // 5000-7000 (CET6): Threshold 5
-    // >7000 (Advanced): Threshold 7
-    let threshold = 3;
-    if (userVocabularySize < 3000) threshold = 2;
-    else if (userVocabularySize < 5000) threshold = 3;
-    else if (userVocabularySize < 8000) threshold = 5;
-    else threshold = 7;
+    const threshold = this.getDifficultyThreshold(userVocabularySize);
 
     // Count difficult words
     let difficultWordCount = 0;
@@ -145,7 +163,7 @@ class FrequencyManager {
 
     for (const word of words) {
       // Skip numbers and very short words
-      if (/^\d+$/.test(word) || word.length <= 2) continue;
+      if (FrequencyManager.NUMBER_REGEX.test(word) || word.length <= 2) continue;
 
       validWordCount++;
       const difficulty = this.getDifficulty(word);
@@ -157,12 +175,8 @@ class FrequencyManager {
     // 如果没有有效单词，不需要翻译
     if (validWordCount === 0) return false;
 
-    // 判断条件改进：
-    // 1. 只要有 1 个难词就发起翻译（保证翻译覆盖率，不再要求 5% 比例）
-    // 2. 依然保留对极短内容的过滤（如只有 1-2 个词且不是难词的情况）
-    const shouldTranslate = difficultWordCount >= 1;
-
-    return shouldTranslate;
+    // 只要有 1 个难词就发起翻译（保证翻译覆盖率）
+    return difficultWordCount >= 1;
   }
 
   /**
@@ -187,24 +201,14 @@ class FrequencyManager {
       };
     }
 
-    const words = text
-      .replace(/[^\w\s']/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(' ')
-      .filter(w => w.length > 0);
-
-    let threshold = 3;
-    if (userVocabularySize < 3000) threshold = 2;
-    else if (userVocabularySize < 5000) threshold = 3;
-    else if (userVocabularySize < 8000) threshold = 5;
-    else threshold = 7;
+    const words = this.tokenize(text);
+    const threshold = this.getDifficultyThreshold(userVocabularySize);
 
     let difficultWordCount = 0;
     let validWordCount = 0;
 
     for (const word of words) {
-      if (/^\d+$/.test(word) || word.length <= 2) continue;
+      if (FrequencyManager.NUMBER_REGEX.test(word) || word.length <= 2) continue;
       validWordCount++;
       if (this.getDifficulty(word) >= threshold) {
         difficultWordCount++;

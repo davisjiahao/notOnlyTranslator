@@ -19,6 +19,16 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 };
 
 /**
+ * 快速翻译重试配置
+ */
+const QUICK_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 2,
+  initialDelay: 500,
+  backoffMultiplier: 2,
+  maxDelay: 5000,
+};
+
+/**
  * API 错误响应类型
  */
 interface ApiErrorResponse {
@@ -28,37 +38,88 @@ interface ApiErrorResponse {
 }
 
 /**
- * OpenAI 格式 API 响应
+ * Provider 响应提取配置
  */
-interface OpenAIResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
+interface ProviderResponseExtractor {
+  /** 检查响应是否有效 */
+  isValid: (data: unknown) => boolean;
+  /** 从响应中提取内容 */
+  extractContent: (data: unknown) => string | undefined;
+  /** 从错误响应中提取错误信息 */
+  extractError?: (data: unknown) => string | undefined;
 }
 
 /**
- * Anthropic 格式 API 响应
+ * Provider API 调用配置
  */
-interface AnthropicResponse {
-  content?: Array<{
-    text?: string;
-  }>;
+interface ProviderCallConfig {
+  /** 构建请求 URL */
+  buildUrl: (endpoint: string, apiKey: string) => string;
+  /** 构建请求 headers */
+  buildHeaders: (apiKey: string) => Record<string, string>;
+  /** 构建请求 body */
+  buildBody: (model: string, messages: Array<{ role: string; content: string }>, useJsonFormat: boolean) => unknown;
+  /** 响应提取器 */
+  responseExtractor: ProviderResponseExtractor;
 }
 
 /**
- * Gemini 格式 API 响应
+ * OpenAI 格式响应提取器
  */
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-}
+const openAIExtractor: ProviderResponseExtractor = {
+  isValid: (data): data is { choices?: Array<{ message?: { content?: string } }> } => {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'choices' in data &&
+      Array.isArray((data as { choices?: unknown }).choices)
+    );
+  },
+  extractContent: (data) => {
+    const d = data as { choices?: Array<{ message?: { content?: string } }> };
+    return d.choices?.[0]?.message?.content;
+  },
+  extractError: (data) => {
+    if (typeof data !== 'object' || data === null) return undefined;
+    return (data as ApiErrorResponse).error?.message;
+  },
+};
+
+/**
+ * Anthropic 格式响应提取器
+ */
+const anthropicExtractor: ProviderResponseExtractor = {
+  isValid: (data): data is { content?: Array<{ text?: string }> } => {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'content' in data &&
+      Array.isArray((data as { content?: unknown }).content)
+    );
+  },
+  extractContent: (data) => {
+    const d = data as { content?: Array<{ text?: string }> };
+    return d.content?.[0]?.text;
+  },
+};
+
+/**
+ * Gemini 格式响应提取器
+ */
+const geminiExtractor: ProviderResponseExtractor = {
+  isValid: (data): data is { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> } => {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'candidates' in data &&
+      Array.isArray((data as { candidates?: unknown }).candidates)
+    );
+  },
+  extractContent: (data) => {
+    const d = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    return d.candidates?.[0]?.content?.parts?.[0]?.text;
+  },
+};
 
 /**
  * 百度 Token 响应类型
@@ -86,67 +147,78 @@ interface BaiduTokenCache {
   expiresAt: number;
 }
 
-let baiduTokenCache: BaiduTokenCache | null = null;
-
-/**
- * 类型守卫函数
- */
-function isOpenAIResponse(data: unknown): data is OpenAIResponse {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'choices' in data &&
-    Array.isArray((data as OpenAIResponse).choices)
-  );
-}
-
-function isAnthropicResponse(data: unknown): data is AnthropicResponse {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'content' in data &&
-    Array.isArray((data as AnthropicResponse).content)
-  );
-}
-
-function isGeminiResponse(data: unknown): data is GeminiResponse {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'candidates' in data &&
-    Array.isArray((data as GeminiResponse).candidates)
-  );
-}
-
-function getErrorMessage(errorData: unknown): string | undefined {
-  if (typeof errorData !== 'object' || errorData === null) {
-    return undefined;
-  }
-  const data = errorData as ApiErrorResponse;
-  return data.error?.message;
-}
-
-function isBaiduTokenResponse(data: unknown): data is BaiduTokenResponse {
-  return typeof data === 'object' && data !== null && 'access_token' in data;
-}
-
-function isBaiduResponse(data: unknown): data is BaiduResponse {
-  return typeof data === 'object' && data !== null;
-}
-
-function getBaiduErrorMessage(errorData: unknown): string | undefined {
-  if (typeof errorData !== 'object' || errorData === null) {
-    return undefined;
-  }
-  const data = errorData as { error_msg?: string };
-  return data.error_msg;
-}
-
 /**
  * 统一 API 调用服务
  * 支持多种 API 格式：OpenAI、Anthropic、Gemini、DashScope、百度
  */
 export class TranslationApiService {
+  /** 百度 access token 缓存（类静态成员，避免模块级别可变状态） */
+  private static baiduTokenCache: BaiduTokenCache | null = null;
+
+  /**
+   * Provider API 配置映射
+   */
+  private static readonly PROVIDER_CONFIGS: Record<string, ProviderCallConfig> = {
+    openai: {
+      buildUrl: (endpoint) => endpoint,
+      buildHeaders: (apiKey) => ({
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      }),
+      buildBody: (model, messages, useJsonFormat) => ({
+        model,
+        messages,
+        temperature: 0.3,
+        ...(useJsonFormat ? { response_format: { type: 'json_object' } } : {}),
+      }),
+      responseExtractor: openAIExtractor,
+    },
+    anthropic: {
+      buildUrl: (endpoint) => endpoint,
+      buildHeaders: (apiKey) => ({
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      }),
+      buildBody: (model, messages) => ({
+        model,
+        max_tokens: 4096,
+        messages,
+      }),
+      responseExtractor: anthropicExtractor,
+    },
+    gemini: {
+      buildUrl: (endpoint, apiKey) => `${endpoint}?key=${apiKey}`,
+      buildHeaders: () => ({
+        'Content-Type': 'application/json',
+      }),
+      buildBody: (_model, messages, useJsonFormat) => ({
+        contents: messages.map(m => ({
+          parts: [{ text: m.content }],
+        })),
+        generationConfig: {
+          temperature: 0.3,
+          ...(useJsonFormat ? { responseMimeType: 'application/json' } : { maxOutputTokens: 100 }),
+        },
+      }),
+      responseExtractor: geminiExtractor,
+    },
+    ollama: {
+      buildUrl: (endpoint) => endpoint,
+      buildHeaders: () => ({
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ollama',
+      }),
+      buildBody: (model, messages, useJsonFormat) => ({
+        model,
+        messages,
+        temperature: 0.3,
+        ...(useJsonFormat ? {} : { max_tokens: 100 }),
+      }),
+      responseExtractor: openAIExtractor,
+    },
+  };
+
   /**
    * 调用 LLM API 进行翻译
    */
@@ -158,12 +230,9 @@ export class TranslationApiService {
   ): Promise<string> {
     const provider = settings.apiProvider;
     const config = getProviderConfig(provider);
-    const apiFormat = config.apiFormat;
+    let apiFormat = config.apiFormat;
 
-    // 获取模型名称
     const model = settings.customModelName || config.recommendedModel;
-
-    // 获取 API 端点
     const endpoint = getChatEndpoint(provider, model, settings.customApiUrl);
 
     logger.info(`TranslationApiService: 调用 ${config.name} API`, {
@@ -173,274 +242,86 @@ export class TranslationApiService {
       apiFormat,
     });
 
-    switch (apiFormat) {
-      case 'openai':
-        return this.callOpenAIFormat(prompt, apiKey, model, endpoint, retryOptions);
-      case 'anthropic':
-        return this.callAnthropicFormat(prompt, apiKey, model, endpoint, retryOptions);
-      case 'gemini':
-        return this.callGeminiFormat(prompt, apiKey, model, endpoint, retryOptions);
-      case 'dashscope':
-        return this.callDashScopeFormat(prompt, apiKey, model, endpoint, retryOptions);
-      case 'baidu':
-        return this.callBaiduFormat(
-          prompt,
-          apiKey,
-          settings.secondaryApiKey || '',
-          model,
-          retryOptions
-        );
-      case 'ollama':
-        return this.callOllamaFormat(prompt, apiKey, model, endpoint, retryOptions);
-      default:
-        throw new Error(`不支持的 API 格式: ${apiFormat}`);
+    // 百度格式特殊处理（需要 access token）
+    if (apiFormat === 'baidu') {
+      return this.callBaiduFormat(prompt, apiKey, settings.secondaryApiKey || '', model, retryOptions);
     }
+
+    // DashScope 直接使用 OpenAI 兼容格式
+    if (apiFormat === 'dashscope') {
+      apiFormat = 'openai';
+    }
+
+    const providerConfig = this.PROVIDER_CONFIGS[apiFormat];
+    if (!providerConfig) {
+      throw new Error(`不支持的 API 格式: ${apiFormat}`);
+    }
+
+    // 准备消息
+    const systemMessage = apiFormat === 'gemini'
+      ? 'You are an English learning assistant. Always respond with valid JSON.\n\n' + prompt
+      : 'You are an English learning assistant. Always respond with valid JSON.';
+
+    const messages = apiFormat === 'anthropic'
+      ? [{ role: 'user', content: prompt + '\n\nPlease respond with valid JSON only.' }]
+      : [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: prompt },
+        ];
+
+    return this.executeApiCall(
+      providerConfig,
+      apiKey,
+      endpoint,
+      model,
+      messages,
+      true,
+      retryOptions,
+      config.name
+    );
   }
 
   /**
-   * 调用 OpenAI 格式 API
-   * 适用于：OpenAI、Groq、DeepSeek、智谱、自定义兼容 API
+   * 执行统一的 API 调用
    */
-  private static async callOpenAIFormat(
-    prompt: string,
+  private static async executeApiCall(
+    providerConfig: ProviderCallConfig,
     apiKey: string,
-    model: string,
     endpoint: string,
-    retryOptions: RetryOptions
+    model: string,
+    messages: Array<{ role: string; content: string }>,
+    useJsonFormat: boolean,
+    retryOptions: RetryOptions,
+    providerName: string
   ): Promise<string> {
     return retryWithBackoff(async () => {
-      const response = await fetch(endpoint, {
+      const url = providerConfig.buildUrl(endpoint, apiKey);
+      const headers = providerConfig.buildHeaders(apiKey);
+      const body = providerConfig.buildBody(model, messages, useJsonFormat);
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an English learning assistant. Always respond with valid JSON.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-        }),
+        headers,
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          getErrorMessage(errorData) ||
-          `API 请求失败 (${response.status})`;
+          providerConfig.responseExtractor.extractError?.(errorData) ||
+          `${providerName} API 请求失败 (${response.status})`;
         throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
       }
 
       const data = await response.json();
 
-      if (!isOpenAIResponse(data)) {
-        throw new ApiError('API 返回格式无效', undefined, true);
+      if (!providerConfig.responseExtractor.isValid(data)) {
+        throw new ApiError(`${providerName} API 返回格式无效`, undefined, true);
       }
 
-      const content = data.choices?.[0]?.message?.content;
-
+      const content = providerConfig.responseExtractor.extractContent(data);
       if (!content) {
-        throw new ApiError('API 返回空响应', undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
-  }
-
-  /**
-   * 调用 Anthropic 格式 API
-   */
-  private static async callAnthropicFormat(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 4096,
-          messages: [
-            {
-              role: 'user',
-              content: prompt + '\n\nPlease respond with valid JSON only.',
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          getErrorMessage(errorData) ||
-          `Anthropic API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-
-      if (!isAnthropicResponse(data)) {
-        throw new ApiError('Anthropic API 返回格式无效', undefined, true);
-      }
-
-      const content = data.content?.[0]?.text;
-
-      if (!content) {
-        throw new ApiError('Anthropic API 返回空响应', undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
-  }
-
-  /**
-   * 调用 Gemini 格式 API
-   * 注意：model 参数未使用，因为 Gemini 的端点 URL 已经包含了模型名
-   */
-  private static async callGeminiFormat(
-    prompt: string,
-    apiKey: string,
-    _model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    // Gemini 使用 URL 参数传递 API Key，模型名已在 endpoint 中
-    const urlWithKey = `${endpoint}?key=${apiKey}`;
-
-    return retryWithBackoff(async () => {
-      const response = await fetch(urlWithKey, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: 'You are an English learning assistant. Always respond with valid JSON.\n\n' + prompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          getErrorMessage(errorData) ||
-          `Gemini API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-
-      if (!isGeminiResponse(data)) {
-        throw new ApiError('Gemini API 返回格式无效', undefined, true);
-      }
-
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!content) {
-        throw new ApiError('Gemini API 返回空响应', undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
-  }
-
-  /**
-   * 调用 DashScope 格式 API（阿里通义）
-   * 实际使用 OpenAI 兼容模式
-   */
-  private static async callDashScopeFormat(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    // 阿里通义的兼容模式实际上就是 OpenAI 格式
-    return this.callOpenAIFormat(prompt, apiKey, model, endpoint, retryOptions);
-  }
-
-  /**
-   * 调用 Ollama API（使用 OpenAI 兼容格式）
-   * 使用 /v1/chat/completions 端点，避免 CORS 问题
-   */
-  private static async callOllamaFormat(
-    prompt: string,
-    _apiKey: string,
-    model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Ollama 的 OpenAI 兼容 API 不需要认证，但需要提供 Authorization 头
-          'Authorization': 'Bearer ollama',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an English learning assistant. Always respond with valid JSON only, no markdown formatting.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: 0.3,
-          // 注意：Ollama 的 OpenAI 兼容 API 不支持 response_format 参数
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          getErrorMessage(errorData) ||
-          `Ollama API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-      // OpenAI 兼容格式响应：{ choices: [{ message: { content: "..." } }] }
-
-      if (!isOpenAIResponse(data)) {
-        throw new ApiError('Ollama API 返回格式无效', undefined, true);
-      }
-
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new ApiError('Ollama API 返回空响应', undefined, true);
+        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
       }
 
       return content;
@@ -462,23 +343,18 @@ export class TranslationApiService {
       throw new Error('百度文心需要 Secret Key');
     }
 
-    // 获取 access token（带缓存）
     const accessToken = await this.getBaiduAccessToken(apiKey, secretKey);
-
     const chatUrl = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
 
     return retryWithBackoff(async () => {
       const response = await fetch(chatUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
             {
               role: 'user',
-              content:
-                'You are an English learning assistant. Always respond with valid JSON.\n\n' + prompt,
+              content: 'You are an English learning assistant. Always respond with valid JSON.\n\n' + prompt,
             },
           ],
           temperature: 0.3,
@@ -487,33 +363,22 @@ export class TranslationApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          getBaiduErrorMessage(errorData) ||
-          `百度 API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+        const errorMsg = (errorData as BaiduResponse).error_msg;
+        throw new ApiError(errorMsg || `百度 API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
       }
 
-      const data = await response.json();
-
-      if (!isBaiduResponse(data)) {
-        throw new ApiError('百度 API 返回格式无效', undefined, true);
-      }
+      const data = await response.json() as BaiduResponse;
 
       // 检查百度 API 错误
       if (data.error_code) {
-        // 如果是 token 过期错误，清除缓存
+        // token 过期，清除缓存后重试
         if (data.error_code === 110 || data.error_code === 111) {
-          baiduTokenCache = null;
+          TranslationApiService.baiduTokenCache = null;
         }
-        throw new ApiError(
-          data.error_msg || `百度 API 错误 (${data.error_code})`,
-          undefined,
-          true
-        );
+        throw new ApiError(data.error_msg || `百度 API 错误 (${data.error_code})`, undefined, true);
       }
 
       const content = data.result;
-
       if (!content) {
         throw new ApiError('百度 API 返回空响应', undefined, true);
       }
@@ -527,8 +392,8 @@ export class TranslationApiService {
    */
   private static async getBaiduAccessToken(apiKey: string, secretKey: string): Promise<string> {
     // 检查缓存是否有效（提前 5 分钟过期）
-    if (baiduTokenCache && baiduTokenCache.expiresAt > Date.now() + 5 * 60 * 1000) {
-      return baiduTokenCache.token;
+    if (TranslationApiService.baiduTokenCache && TranslationApiService.baiduTokenCache.expiresAt > Date.now() + 5 * 60 * 1000) {
+      return TranslationApiService.baiduTokenCache.token;
     }
 
     const tokenUrl = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${apiKey}&client_secret=${secretKey}`;
@@ -541,21 +406,22 @@ export class TranslationApiService {
 
     const data = await response.json();
 
-    if (!isBaiduTokenResponse(data)) {
+    if (!data || typeof data !== 'object' || !('access_token' in data)) {
       throw new Error('获取百度 access token 失败：响应格式无效');
     }
 
-    if (!data.access_token) {
-      throw new Error(data.error || '获取百度 access token 失败');
+    const tokenData = data as BaiduTokenResponse;
+    if (!tokenData.access_token) {
+      throw new Error(tokenData.error || '获取百度 access token 失败');
     }
 
     // 缓存 token
-    baiduTokenCache = {
-      token: data.access_token,
-      expiresAt: Date.now() + (data.expires_in || 2592000) * 1000,
+    TranslationApiService.baiduTokenCache = {
+      token: tokenData.access_token,
+      expiresAt: Date.now() + (tokenData.expires_in || 2592000) * 1000,
     };
 
-    return data.access_token;
+    return tokenData.access_token;
   }
 
   /**
@@ -568,159 +434,48 @@ export class TranslationApiService {
   ): Promise<string> {
     const provider = settings.apiProvider;
     const config = getProviderConfig(provider);
+    const apiFormat = config.apiFormat;
     const model = settings.customModelName || config.recommendedModel;
     const endpoint = getChatEndpoint(provider, model, settings.customApiUrl);
 
     const prompt = `Translate the following English word or phrase to Chinese. Only respond with the translation, nothing else.\n\n${text}`;
 
-    const quickRetryOptions: RetryOptions = {
-      maxRetries: 2,
-      initialDelay: 500,
-      backoffMultiplier: 2,
-      maxDelay: 5000,
-    };
-
-    // 根据 API 格式调用
-    switch (config.apiFormat) {
-      case 'anthropic':
-        return this.quickTranslateAnthropic(prompt, apiKey, model, endpoint, quickRetryOptions);
-      case 'gemini':
-        return this.quickTranslateGemini(prompt, apiKey, endpoint, quickRetryOptions);
-      case 'baidu':
-        return this.quickTranslateBaidu(prompt, apiKey, settings.secondaryApiKey || '', model, quickRetryOptions);
-      case 'ollama':
-        return this.quickTranslateOllama(prompt, apiKey, model, endpoint, quickRetryOptions);
-      default:
-        // OpenAI 兼容格式
-        return this.quickTranslateOpenAI(prompt, apiKey, model, endpoint, quickRetryOptions);
+    // 百度格式特殊处理
+    if (apiFormat === 'baidu') {
+      return this.quickTranslateBaidu(prompt, apiKey, settings.secondaryApiKey || '', model);
     }
+
+    // DashScope 使用 OpenAI 兼容格式
+    const actualFormat = apiFormat === 'dashscope' ? 'openai' : apiFormat;
+    const providerConfig = this.PROVIDER_CONFIGS[actualFormat];
+
+    if (!providerConfig) {
+      throw new Error(`不支持的 API 格式: ${apiFormat}`);
+    }
+
+    // 快速翻译使用简单消息格式
+    const messages = [{ role: 'user', content: prompt }];
+
+    return this.executeApiCall(
+      providerConfig,
+      apiKey,
+      endpoint,
+      model,
+      messages,
+      false, // 不使用 JSON 格式
+      QUICK_RETRY_OPTIONS,
+      config.name
+    ).catch(() => ''); // 快速翻译失败时返回空字符串
   }
 
   /**
-   * 快速翻译 - OpenAI 格式
-   */
-  private static async quickTranslateOpenAI(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 100,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-
-      if (!isOpenAIResponse(data)) {
-        return '';
-      }
-
-      return data.choices?.[0]?.message?.content || '';
-    }, retryOptions);
-  }
-
-  /**
-   * 快速翻译 - Anthropic 格式
-   */
-  private static async quickTranslateAnthropic(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 100,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-
-      if (!isAnthropicResponse(data)) {
-        return '';
-      }
-
-      return data.content?.[0]?.text || '';
-    }, retryOptions);
-  }
-
-  /**
-   * 快速翻译 - Gemini 格式
-   */
-  private static async quickTranslateGemini(
-    prompt: string,
-    apiKey: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    // Gemini endpoint 已经包含模型名，直接使用
-    const urlWithKey = `${endpoint}?key=${apiKey}`;
-
-    return retryWithBackoff(async () => {
-      const response = await fetch(urlWithKey, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 100 },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-
-      if (!isGeminiResponse(data)) {
-        return '';
-      }
-
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    }, retryOptions);
-  }
-
-  /**
-   * 快速翻译 - 百度格式
+   * 快速翻译 - 百度格式（特殊处理）
    */
   private static async quickTranslateBaidu(
     prompt: string,
     apiKey: string,
     secretKey: string,
-    model: string,
-    retryOptions: RetryOptions
+    model: string
   ): Promise<string> {
     const accessToken = await this.getBaiduAccessToken(apiKey, secretKey);
     const chatUrl = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
@@ -738,53 +493,8 @@ export class TranslationApiService {
         throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
       }
 
-      const data = await response.json();
-
-      if (!isBaiduResponse(data)) {
-        return '';
-      }
-
+      const data = await response.json() as BaiduResponse;
       return data.result || '';
-    }, retryOptions);
-  }
-
-  /**
-   * 快速翻译 - Ollama（使用 OpenAI 兼容格式）
-   */
-  private static async quickTranslateOllama(
-    prompt: string,
-    _apiKey: string,
-    model: string,
-    endpoint: string,
-    retryOptions: RetryOptions
-  ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ollama',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 100,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-      // OpenAI 兼容格式响应
-
-      if (!isOpenAIResponse(data)) {
-        return '';
-      }
-
-      return data.choices?.[0]?.message?.content || '';
-    }, retryOptions);
+    }, QUICK_RETRY_OPTIONS).catch(() => '');
   }
 }

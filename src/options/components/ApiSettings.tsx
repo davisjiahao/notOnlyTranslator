@@ -298,15 +298,15 @@ export default function ApiSettings({
     return (
       <div className="space-y-6">
         {/* 快速选择已测试的配置 */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">API 配置</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">API 配置</h2>
             <button
               onClick={() => {
                 resetConfigForm();
                 setEditMode('add');
               }}
-              className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
+              className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
             >
               + 添加配置
             </button>
@@ -314,7 +314,7 @@ export default function ApiSettings({
 
           {testedConfigs.length > 0 ? (
             <div className="space-y-3">
-              <p className="text-sm text-gray-500 mb-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                 点击选择要使用的 API 配置（仅显示测试通过的配置）
               </p>
               {testedConfigs.map((config) => (
@@ -322,8 +322,8 @@ export default function ApiSettings({
                   key={config.id}
                   className={`group p-4 border rounded-xl transition-all ${
                     activeApiConfigId === config.id
-                      ? 'border-primary-400 bg-primary-50 shadow-sm'
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                      ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 shadow-sm'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-sm'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -332,8 +332,8 @@ export default function ApiSettings({
                       className="flex-1 text-left"
                     >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-gray-900">{config.name}</span>
-                        <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                        <span className="font-medium text-gray-900 dark:text-white">{config.name}</span>
+                        <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                           {getProviderDisplayName(config.provider)}
                         </span>
                         {activeApiConfigId === config.id && (
@@ -345,7 +345,7 @@ export default function ApiSettings({
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {config.apiUrl || PROVIDER_CONFIGS[config.provider]?.defaultEndpoint || '默认端点'}
                         {config.modelName && ` · ${config.modelName}`}
                       </div>
@@ -353,7 +353,7 @@ export default function ApiSettings({
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => startEditConfig(config)}
-                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
                         title="编辑"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -362,7 +362,7 @@ export default function ApiSettings({
                       </button>
                       <button
                         onClick={() => deleteConfig(config.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="删除"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -376,14 +376,14 @@ export default function ApiSettings({
             </div>
           ) : (
             <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
                 <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <p className="text-gray-500 text-base mb-1">还没有配置 API</p>
-              <p className="text-gray-400 text-sm mb-6">添加您的第一个 API 配置以开始使用</p>
+              <p className="text-gray-500 dark:text-gray-400 text-base mb-1">还没有配置 API</p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mb-6">添加您的第一个 API 配置以开始使用</p>
               <button
                 onClick={() => {
                   resetConfigForm();
@@ -402,22 +402,22 @@ export default function ApiSettings({
 
         {/* 当前使用的配置（兼容旧版） */}
         {!activeApiConfigId && apiKey && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">当前 API 设置</h2>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">当前 API 设置</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               您有一个未保存为配置的 API 设置。可以继续使用，或保存为配置以便快速切换。
             </p>
 
-            <div className="p-4 border border-gray-200 rounded-lg">
+            <div className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-gray-900 dark:text-white">
                   {getProviderDisplayName(provider)}
                 </span>
-                <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
+                <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
                   当前使用
                 </span>
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 API Key: {apiKey.slice(0, 8)}...{apiKey.slice(-4)}
               </div>
             </div>
@@ -433,7 +433,7 @@ export default function ApiSettings({
                 setConfigTestResult(null);
                 setEditMode('add');
               }}
-              className="mt-4 px-4 py-2 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
+              className="mt-4 px-4 py-2 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
             >
               保存为配置
             </button>
@@ -441,8 +441,8 @@ export default function ApiSettings({
         )}
 
         {/* 安全提示 */}
-        <div className="p-4 bg-amber-50 rounded-lg">
-          <div className="flex items-start gap-2 text-sm text-amber-700">
+        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+          <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
             <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -460,27 +460,27 @@ export default function ApiSettings({
 
   // 添加/编辑配置视图
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-center gap-2 mb-6">
         <button
           onClick={() => {
             resetConfigForm();
             setEditMode('list');
           }}
-          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           {editMode === 'edit' ? '编辑配置' : '添加新配置'}
         </h2>
       </div>
 
       {/* 配置名称 */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           配置名称 <span className="text-red-500">*</span>
         </label>
         <input
@@ -488,10 +488,10 @@ export default function ApiSettings({
           value={configName}
           onChange={(e) => setConfigName(e.target.value)}
           placeholder="如：我的 OpenAI"
-          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white ${
             configTestResult === 'success' && !configName.trim()
-              ? 'border-red-300 bg-red-50'
-              : 'border-gray-200'
+              ? 'border-red-300 bg-red-50 dark:bg-red-900/20'
+              : 'border-gray-200 dark:border-gray-600'
           }`}
         />
         {configTestResult === 'success' && !configName.trim() && (
@@ -501,7 +501,7 @@ export default function ApiSettings({
 
       {/* Provider selection - 分组下拉框 */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           选择 API 服务商
         </label>
         <div className="relative">
@@ -512,7 +512,7 @@ export default function ApiSettings({
               setConfigTestResult(null);
               setConfigTestError(null);
             }}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
+            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white dark:bg-gray-800 dark:text-white"
           >
             {PROVIDER_GROUPS.map((group) => (
               <optgroup key={group.label} label={group.label}>
@@ -527,13 +527,13 @@ export default function ApiSettings({
               </optgroup>
             ))}
           </select>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {currentProviderConfig.description}
         </p>
       </div>
@@ -541,7 +541,7 @@ export default function ApiSettings({
       {/* Custom API URL */}
       {configProvider === 'custom' && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API 端点 URL <span className="text-red-500">*</span>
           </label>
           <input
@@ -549,7 +549,7 @@ export default function ApiSettings({
             value={configApiUrl}
             onChange={(e) => setConfigApiUrl(e.target.value)}
             placeholder="https://your-api.com/v1/chat/completions"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
         </div>
       )}
@@ -557,7 +557,7 @@ export default function ApiSettings({
       {/* API URL for non-custom (optional) */}
       {configProvider !== 'custom' && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API 端点 URL (可选，覆盖默认)
           </label>
           <input
@@ -565,9 +565,9 @@ export default function ApiSettings({
             value={configApiUrl}
             onChange={(e) => setConfigApiUrl(e.target.value)}
             placeholder={currentProviderConfig.chatEndpoint}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             留空使用官方 API，填写则覆盖默认端点（如使用代理）
           </p>
         </div>
@@ -575,7 +575,7 @@ export default function ApiSettings({
 
       {/* API Key input */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           API 密钥 <span className="text-red-500">*</span>
         </label>
         <div className="relative">
@@ -587,12 +587,12 @@ export default function ApiSettings({
               setConfigTestResult(null);
             }}
             placeholder={currentProviderConfig.apiKeyPlaceholder}
-            className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
           <button
             type="button"
             onClick={() => setShowConfigKey(!showConfigKey)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             {showConfigKey ? (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -607,7 +607,7 @@ export default function ApiSettings({
           </button>
         </div>
         {currentProviderConfig.docUrl && (
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             获取密钥:{' '}
             <a
               href={currentProviderConfig.docUrl}
@@ -624,7 +624,7 @@ export default function ApiSettings({
       {/* Secondary Key (百度需要) */}
       {requiresSecondaryKey(configProvider) && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Secret Key <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -636,12 +636,12 @@ export default function ApiSettings({
                 setConfigTestResult(null);
               }}
               placeholder="输入 Secret Key"
-              className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
             />
             <button
               type="button"
               onClick={() => setShowSecondaryKey(!showSecondaryKey)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               {showSecondaryKey ? (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -655,7 +655,7 @@ export default function ApiSettings({
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             百度文心需要同时提供 API Key 和 Secret Key
           </p>
         </div>
@@ -664,7 +664,7 @@ export default function ApiSettings({
       {/* Model selection */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             模型
           </label>
           <div className="flex items-center gap-2">
@@ -677,7 +677,7 @@ export default function ApiSettings({
                 {isLoadingModels ? '加载中...' : '刷新列表'}
               </button>
             )}
-            <label className="flex items-center gap-1 text-xs text-gray-500">
+            <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
               <input
                 type="checkbox"
                 checked={useCustomModel}
@@ -688,7 +688,7 @@ export default function ApiSettings({
                     setConfigModelName(recommended.id);
                   }
                 }}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:bg-gray-700"
               />
               自定义模型
             </label>
@@ -701,7 +701,7 @@ export default function ApiSettings({
             value={configModelName}
             onChange={(e) => setConfigModelName(e.target.value)}
             placeholder="输入模型名称"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
         ) : (
           <div className="relative">
@@ -709,7 +709,7 @@ export default function ApiSettings({
               value={configModelName}
               onChange={(e) => setConfigModelName(e.target.value)}
               disabled={isLoadingModels}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white disabled:opacity-50"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white dark:bg-gray-800 dark:text-white disabled:opacity-50"
             >
               {models.map((model) => (
                 <option key={model.id} value={model.id}>
@@ -719,7 +719,7 @@ export default function ApiSettings({
                 </option>
               ))}
             </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400">
               {isLoadingModels ? (
                 <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -733,7 +733,7 @@ export default function ApiSettings({
             </div>
           </div>
         )}
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {configTestResult === 'success'
             ? '测试成功后可获取最新模型列表'
             : '请先测试连接以获取模型列表'}
@@ -743,10 +743,10 @@ export default function ApiSettings({
       {/* Test result */}
       {configTestResult && (
         <div className={`mb-6 p-4 rounded-lg ${
-          configTestResult === 'success' ? 'bg-green-50' : 'bg-red-50'
+          configTestResult === 'success' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
         }`}>
           <div className={`flex items-center gap-2 text-sm ${
-            configTestResult === 'success' ? 'text-green-700' : 'text-red-700'
+            configTestResult === 'success' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
           }`}>
             {configTestResult === 'success' ? (
               <>
@@ -777,7 +777,7 @@ export default function ApiSettings({
             (configProvider === 'custom' && !configApiUrl) ||
             (requiresSecondaryKey(configProvider) && !configSecondaryKey)
           }
-          className="flex-1 py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isTestingConfig ? '测试中...' : '测试连接'}
         </button>
@@ -792,7 +792,7 @@ export default function ApiSettings({
 
       {/* 保存按钮禁用原因提示 */}
       {configApiKey && (
-        <p className="text-xs text-amber-600 mt-3 text-center">
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-3 text-center">
           {configTestResult !== 'success'
             ? '请先测试 API 连接成功后才能保存配置'
             : !configName.trim()

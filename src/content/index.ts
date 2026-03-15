@@ -5,6 +5,7 @@ import type {
   TranslationResult,
   UserSettings,
 } from '@/shared/types';
+import type { CEFRLevel } from '@/shared/types/mastery';
 import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, TIMING } from '@/shared/constants';
 import { debounce, logger, getChineseRatio } from '@/shared/utils';
 import { Highlighter } from './highlighter';
@@ -15,6 +16,17 @@ import { ViewportObserver, VisibleParagraph } from './viewportObserver';
 import { BatchTranslationManager } from './batchTranslationManager';
 import { FloatingButton } from './floatingButton';
 import { NavigationManager, PageScanner, HoverManager } from './core';
+import { VocabularyHighlighter } from './vocabularyHighlighter';
+
+/**
+ * 扩展 Window 接口以支持 E2E 测试所需的属性
+ */
+declare global {
+  interface Window {
+    __EXTENSION_LOADED__?: boolean;
+    __NOT_ONLY_TRANSLATOR__?: NotOnlyTranslator;
+  }
+}
 
 /**
  * Content Script - main entry point for page interaction
@@ -50,6 +62,9 @@ class NotOnlyTranslator {
 
   /** 刷新翻译定时器 */
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 词汇高亮器 - 用于 CEFR 词汇水平高亮 */
+  private vocabHighlighter: VocabularyHighlighter | null = null;
 
   // ---- 事件处理器（箭头函数保持 this 绑定）----
 
@@ -173,23 +188,38 @@ class NotOnlyTranslator {
 
     if (!this.settings) {
       logger.error('NotOnlyTranslator: Failed to load settings after retries');
+      // 设置加载失败标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'settings-failed');
+      window.__EXTENSION_LOADED__ = false;
       return;
     }
 
     if (!this.settings.enabled) {
       logger.info('NotOnlyTranslator: Extension is disabled');
+      // 设置禁用标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'disabled');
+      window.__EXTENSION_LOADED__ = true;
+      window.__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
     // 检查当前页面是否在黑名单中
     if (this.isCurrentPageBlacklisted()) {
       logger.info('NotOnlyTranslator: Current page is blacklisted, skipping');
+      // 设置黑名单标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'blacklisted');
+      window.__EXTENSION_LOADED__ = true;
+      window.__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
     // 检查页面是否为中文页面
     if (this.isChinesePage()) {
       logger.info('NotOnlyTranslator: Current page is Chinese, skipping translation');
+      // 设置中文页面标记（供E2E测试检测）
+      document.body.setAttribute('data-extension-loaded', 'chinese-page');
+      window.__EXTENSION_LOADED__ = true;
+      window.__NOT_ONLY_TRANSLATOR__ = this;
       return;
     }
 
@@ -202,6 +232,9 @@ class NotOnlyTranslator {
       (element) => this.handleHoverShow(element),
       this.settings?.hoverDelay
     );
+
+    // 初始化词汇高亮器（基于 CEFR 词汇水平）
+    await this.initVocabularyHighlighter();
 
     // Setup message listener for background script
     this.setupMessageListener();
@@ -221,6 +254,67 @@ class NotOnlyTranslator {
     this.initFloatingButton();
 
     logger.info('NotOnlyTranslator initialized with settings:', this.settings);
+
+    // 设置扩展加载完成标记（供E2E测试检测）
+    document.body.setAttribute('data-extension-loaded', 'true');
+    window.__EXTENSION_LOADED__ = true;
+    window.__NOT_ONLY_TRANSLATOR__ = this;
+
+    // 调试：确认全局变量已设置
+    console.log('[NotOnlyTranslator] Global set: __NOT_ONLY_TRANSLATOR__ =', typeof window.__NOT_ONLY_TRANSLATOR__);
+    console.log('[NotOnlyTranslator] Global set: __EXTENSION_LOADED__ =', window.__EXTENSION_LOADED__);
+  }
+
+  /**
+   * 初始化词汇高亮器
+   * 从后台获取用户 CEFR 等级并初始化词汇高亮
+   */
+  private async initVocabularyHighlighter(): Promise<void> {
+    try {
+      // 获取用户 CEFR 等级
+      const response = await this.sendMessage({ type: 'GET_CEFR_LEVEL' });
+
+      let userLevel: CEFRLevel = 'B1';
+      if (response.success && response.data) {
+        const cefrData = response.data as { level?: CEFRLevel; confidence?: number };
+        userLevel = cefrData.level || 'B1';
+        logger.info('NotOnlyTranslator: 获取到用户 CEFR 等级', {
+          level: userLevel,
+          confidence: cefrData.confidence,
+        });
+      } else {
+        // 如果获取失败，使用默认设置或从 userProfile 推断
+        const profileResponse = await this.sendMessage({ type: 'GET_USER_PROFILE' });
+        if (profileResponse.success && profileResponse.data) {
+          const profile = profileResponse.data as { estimatedVocabulary?: number };
+          userLevel = this.vocabularySizeToCEFR(profile.estimatedVocabulary || 3000);
+        }
+      }
+
+      // 初始化词汇高亮器
+      this.vocabHighlighter = new VocabularyHighlighter({
+        userLevel,
+        enabled: true,
+        highlightStyle: 'background',
+        showDifficultyIndicator: true,
+      });
+
+      logger.info('NotOnlyTranslator: 词汇高亮器已初始化', { userLevel });
+    } catch (error) {
+      logger.error('NotOnlyTranslator: 初始化词汇高亮器失败', error);
+    }
+  }
+
+  /**
+   * 词汇量转 CEFR 等级
+   */
+  private vocabularySizeToCEFR(vocabularySize: number): CEFRLevel {
+    if (vocabularySize < 1500) return 'A1';
+    if (vocabularySize < 2500) return 'A2';
+    if (vocabularySize < 4000) return 'B1';
+    if (vocabularySize < 6000) return 'B2';
+    if (vocabularySize < 9000) return 'C1';
+    return 'C2';
   }
 
   /**
@@ -457,7 +551,9 @@ class NotOnlyTranslator {
    */
   private async loadSettings(): Promise<void> {
     try {
+      console.log('[NotOnlyTranslator] Loading settings...');
       const response = await this.sendMessage({ type: 'GET_SETTINGS' });
+      console.log('[NotOnlyTranslator] Settings response:', response);
       if (response.success && response.data) {
         this.settings = response.data as UserSettings;
         this.isEnabled = this.settings.enabled;
@@ -809,8 +905,11 @@ class NotOnlyTranslator {
     logger.info(`NotOnlyTranslator: Starting scan with mode: ${mode}`);
 
     // Get paragraphs to translate
-    const paragraphs = this.pageScanner.getParagraphs();
+    const paragraphs = this.pageScanner.scan();
     logger.info(`NotOnlyTranslator: Found ${paragraphs.length} paragraphs to scan`);
+
+    // 提取 HTMLElement 数组用于后续处理
+    const paragraphElements = paragraphs.map(p => p.element);
 
     // 批量翻译模式：使用可视区域观察器
     if (this.useBatchMode && this.viewportObserver && this.batchManager) {
@@ -818,7 +917,7 @@ class NotOnlyTranslator {
       this.batchManager.setMode(mode);
 
       // 将所有段落注册到观察器
-      this.viewportObserver.observeAll(paragraphs);
+      this.viewportObserver.observeAll(paragraphElements);
 
       // 立即检查当前可视区域
       this.viewportObserver.checkCurrentViewport();
@@ -828,7 +927,14 @@ class NotOnlyTranslator {
     }
 
     // 非批量模式：使用原有的逐段翻译逻辑（保持向后兼容）
-    await this.scanPageSequential(paragraphs, mode);
+    await this.scanPageSequential(paragraphElements, mode);
+
+    // 词汇高亮：扫描完成后高亮超出 CEFR 水平的单词
+    if (this.vocabHighlighter && this.settings?.vocabHighlightEnabled) {
+      logger.info('NotOnlyTranslator: 开始词汇高亮扫描');
+      const highlighted = this.vocabHighlighter.highlightElements(paragraphElements);
+      logger.info(`NotOnlyTranslator: 词汇高亮完成，高亮了 ${highlighted.length} 个单词`);
+    }
   }
 
   /**
@@ -1002,7 +1108,7 @@ class NotOnlyTranslator {
   ): Promise<void> {
     try {
       const context = this.marker.getSelectionContext();
-      await this.marker.markUnknown(word, translation, context);
+      await this.marker.markUnknown(word, translation, { context });
       this.highlighter.markAsUnknown(word);
     } catch (error) {
       logger.error('Failed to mark as unknown:', error);
@@ -1134,18 +1240,24 @@ class NotOnlyTranslator {
             timeoutId = null;
           }
           if (chrome.runtime.lastError) {
+            console.log('[NotOnlyTranslator] sendMessage lastError:', chrome.runtime.lastError.message);
             resolve({
               success: false,
               error: chrome.runtime.lastError.message,
             });
-          } else {
+          } else if (!response) {
+            console.log('[NotOnlyTranslator] sendMessage no response received');
             resolve(response || { success: false, error: 'No response' });
+          } else {
+            console.log('[NotOnlyTranslator] sendMessage response:', response);
+            resolve(response);
           }
         });
       }),
       new Promise<MessageResponse>((resolve) => {
         timeoutId = setTimeout(() => {
           timeoutId = null;
+          console.log('[NotOnlyTranslator] sendMessage timeout');
           resolve({ success: false, error: '请求超时，请重试' });
         }, timeout);
       }),

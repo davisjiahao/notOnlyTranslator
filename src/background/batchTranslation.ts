@@ -16,6 +16,8 @@ import {
   normalizeText,
   getChineseRatio,
   logger,
+  extractJsonFromResponse,
+  repairMalformedJson,
   type RetryOptions,
 } from '@/shared/utils';
 import { StorageManager } from './storage';
@@ -62,10 +64,12 @@ export class BatchTranslationService {
 
     logger.info(`BatchTranslationService: 收到批量翻译请求，${paragraphs.length} 个段落`);
 
-    // 获取用户配置
-    const userProfile = request.userLevel || (await StorageManager.getUserProfile());
-    const settings = await StorageManager.getSettings();
-    const apiKey = await StorageManager.getApiKey();
+    // 并行获取用户配置
+    const [userProfile, settings, apiKey] = await Promise.all([
+      request.userLevel || StorageManager.getUserProfile(),
+      StorageManager.getSettings(),
+      StorageManager.getApiKey(),
+    ]);
 
     // 调试日志
     logger.info('BatchTranslationService: 配置信息', {
@@ -175,11 +179,11 @@ export class BatchTranslationService {
       }
     }
 
-    // 按原始顺序排序结果
-    const orderedResults = paragraphs.map((p) => {
-      const found = results.find((r) => r.id === p.id);
-      return found || { id: p.id, result: this.createEmptyResult(), cached: false };
-    });
+    // 按原始顺序排序结果 - 使用 Map 实现 O(1) 查找
+    const resultsById = new Map(results.map(r => [r.id, r]));
+    const orderedResults = paragraphs.map((p) =>
+      resultsById.get(p.id) ?? { id: p.id, result: this.createEmptyResult(), cached: false }
+    );
 
     return {
       results: orderedResults,
@@ -226,8 +230,8 @@ export class BatchTranslationService {
     expectedCount: number
   ): TranslationResult[] {
     try {
-      // 1. 提取 JSON 内容
-      const jsonStr = this.extractJson(content);
+      // 1. 提取 JSON 内容 (使用共享工具)
+      const jsonStr = extractJsonFromResponse(content);
       if (!jsonStr) {
         logger.error('BatchTranslationService: 无法从响应中提取 JSON');
         return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
@@ -238,7 +242,7 @@ export class BatchTranslationService {
       try {
         parsed = JSON.parse(jsonStr);
       } catch (e) {
-        const repairedJson = this.tryRepairJson(jsonStr);
+        const repairedJson = repairMalformedJson(jsonStr);
         try {
           parsed = JSON.parse(repairedJson);
         } catch (repairedError) {
@@ -300,47 +304,6 @@ export class BatchTranslationService {
       logger.error('BatchTranslationService: 解析响应发生致命错误', error);
       return Array(expectedCount).fill(null).map(() => this.createEmptyResult());
     }
-  }
-
-  /**
-   * 从字符串中提取 JSON 子串
-   */
-  private static extractJson(content: string): string | null {
-    // 优先匹配 Markdown 代码块
-    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) return codeBlockMatch[1].trim();
-
-    // 其次寻找第一个 { 和最后一个 }
-    const firstBrace = content.indexOf('{');
-    const lastBrace = content.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      return content.substring(firstBrace, lastBrace + 1).trim();
-    }
-
-    // 最后寻找第一个 [ 和最后一个 ] (兼容直接返回数组的情况)
-    const firstBracket = content.indexOf('[');
-    const lastBracket = content.lastIndexOf(']');
-    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-      return content.substring(firstBracket, lastBracket + 1).trim();
-    }
-
-    return null;
-  }
-
-  /**
-   * 尝试修复简单的 JSON 错误
-   */
-  private static tryRepairJson(json: string): string {
-    let s = json.trim();
-    
-    // 移除末尾的逗号 (处理 [1, 2, ] 或 {a:1, })
-    s = s.replace(/,\s*([\]}])/g, '$1');
-    
-    // 移除 JSON 中可能存在的控制字符（这是有意为之的行为）
-    // eslint-disable-next-line no-control-regex
-    s = s.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-
-    return s;
   }
 
   /**

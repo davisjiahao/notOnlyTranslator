@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '@/shared/constants';
-import { logger } from '@/shared/utils';
+import { logger, useTheme } from '@/shared/utils';
 import LevelSelector from './components/LevelSelector';
 import QuickTest from './components/QuickTest';
 import ApiSettings from './components/ApiSettings';
 import GeneralSettings from './components/GeneralSettings';
 import VocabularySettings from './components/VocabularySettings';
+import MasteryOverview from './components/MasteryOverview';
+import FlashcardReview from './components/FlashcardReview';
+import LearningStatistics from './components/LearningStatistics';
 
-type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'general';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -47,6 +50,24 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
       );
+    case 'mastery':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      );
+    case 'review':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      );
+    case 'statistics':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      );
   }
 };
 
@@ -55,6 +76,9 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'test', label: '快速测评' },
   { id: 'api', label: 'API 设置' },
   { id: 'vocabulary', label: '生词本' },
+  { id: 'mastery', label: '掌握度' },
+  { id: 'review', label: '闪卡复习' },
+  { id: 'statistics', label: '学习统计' },
   { id: 'general', label: '通用设置' },
 ];
 
@@ -67,12 +91,15 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
+  // 初始化主题
+  useTheme(settings.theme);
+
   useEffect(() => {
     loadData();
     // 从 URL 参数读取要打开的标签页
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general'].includes(tabParam)) {
+    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general', 'statistics'].includes(tabParam)) {
       setActiveTab(tabParam as Tab);
     }
   }, []);
@@ -232,16 +259,16 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
           <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
             N
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">NotOnlyTranslator</h1>
-            <p className="text-xs text-gray-500">根据您的英语水平智能翻译</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">NotOnlyTranslator</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">根据您的英语水平智能翻译</p>
           </div>
         </div>
       </header>
@@ -264,8 +291,8 @@ export default function App() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2.5 ${
                       activeTab === tab.id
-                        ? 'bg-primary-100 text-primary-700 shadow-sm'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                   >
                     <TabIcon id={tab.id} active={activeTab === tab.id} />
@@ -317,6 +344,12 @@ export default function App() {
             {activeTab === 'vocabulary' && (
               <VocabularySettings isSaving={isSaving} />
             )}
+
+            {activeTab === 'mastery' && <MasteryOverview isSaving={isSaving} />}
+
+            {activeTab === 'review' && <FlashcardReview isSaving={isSaving} />}
+
+            {activeTab === 'statistics' && <LearningStatistics isSaving={isSaving} />}
 
             {activeTab === 'general' && (
               <GeneralSettings

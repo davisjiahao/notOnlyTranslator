@@ -6,16 +6,58 @@
 import { test, expect } from '../utils/extensionTest';
 import { waitForPageLoad, safeClick, getElementText } from '../utils/testHelpers';
 
-// 测试用的英文页面
-const TEST_PAGES = {
-  simple: 'https://example.com',
-  article: 'https://en.wikipedia.org/wiki/Main_Page',
+// 创建本地测试页面内容的辅助函数
+function createTestPageContent(title: string, paragraphs: string[]): string {
+  const paragraphsHtml = paragraphs.map(p => `<p>${p}</p>`).join('\n        ');
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><title>${title}</title></head>
+    <body>
+      <h1>${title}</h1>
+      ${paragraphsHtml}
+    </body>
+    </html>
+  `;
+}
+
+const TEST_CONTENT = {
+  simple: {
+    title: 'Simple Test Page',
+    paragraphs: [
+      'The ubiquitous nature of smartphones has revolutionized modern communication.',
+      'This phenomenon epitomizes the juxtaposition of rapid innovation.',
+    ],
+  },
+  article: {
+    title: 'Article Test Page',
+    paragraphs: [
+      'The ubiquitous nature of smartphones has revolutionized modern communication.',
+      'People from all walks of life now carry powerful computing devices in their pockets.',
+      'This democratization of technology has both advantages and challenges.',
+      'However, the proliferation of misinformation through social media platforms has become a significant concern.',
+      'The ephemeral nature of digital content creates unique archival challenges.',
+      'The juxtaposition of rapid technological advancement with long-term preservation needs requires innovative solutions.',
+    ],
+  },
+  large: {
+    title: 'Large Page Test',
+    paragraphs: Array(20).fill(null).map((_, i) =>
+      `Paragraph ${i + 1}: The ubiquitous nature of smartphones has revolutionized modern communication. ` +
+      'People from all walks of life now carry powerful computing devices in their pockets. ' +
+      'This democratization of technology has both advantages and challenges.'
+    ),
+  },
 };
 
 test.describe('Content Script 测试', () => {
   test('内容脚本应该注入到网页中', async ({ extensionPage, waitForExtensionLoaded }) => {
-    // 导航到测试页面
-    await extensionPage.goto(TEST_PAGES.simple);
+    // 使用本地内容替代外部 URL
+    const content = createTestPageContent(
+      TEST_CONTENT.simple.title,
+      TEST_CONTENT.simple.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // 等待内容脚本注入
@@ -34,9 +76,16 @@ test.describe('Content Script 测试', () => {
     await extensionPage.screenshot({ path: 'e2e/screenshots/content-script-injected.png' });
   });
 
-  test('应该识别并标注难词', async ({ extensionPage, waitForExtensionLoaded }) => {
-    // 导航到包含英文内容的页面
-    await extensionPage.goto(TEST_PAGES.article);
+  test('应该识别并标注难词', async ({ extensionPage, waitForExtensionLoaded, configureExtensionApi }) => {
+    // 配置 mock API 和翻译缓存
+    await configureExtensionApi();
+
+    // 使用本地内容替代外部 URL
+    const content = createTestPageContent(
+      TEST_CONTENT.article.title,
+      TEST_CONTENT.article.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // 等待内容脚本加载
@@ -57,9 +106,16 @@ test.describe('Content Script 测试', () => {
     // 注意：由于词汇识别依赖于用户设置和页面内容，不做强制数量断言
   });
 
-  test('悬停难词应该显示翻译提示框', async ({ extensionPage, waitForExtensionLoaded }) => {
-    // 导航到测试页面
-    await extensionPage.goto(TEST_PAGES.article);
+  test('悬停难词应该显示翻译提示框', async ({ extensionPage, waitForExtensionLoaded, configureExtensionApi }) => {
+    // 配置 mock API 和翻译缓存
+    await configureExtensionApi();
+
+    // 使用本地内容替代外部 URL
+    const content = createTestPageContent(
+      TEST_CONTENT.article.title,
+      TEST_CONTENT.article.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // 等待内容脚本加载
@@ -97,9 +153,16 @@ test.describe('Content Script 测试', () => {
     await extensionPage.screenshot({ path: 'e2e/screenshots/tooltip-visible.png' });
   });
 
-  test('应该可以标记单词为已掌握', async ({ extensionPage, waitForExtensionLoaded }) => {
-    // 导航到测试页面
-    await extensionPage.goto(TEST_PAGES.article);
+  test('应该可以标记单词为已掌握', async ({ extensionPage, waitForExtensionLoaded, configureExtensionApi }) => {
+    // 配置 mock API 和翻译缓存
+    await configureExtensionApi();
+
+    // 使用本地内容替代外部 URL
+    const content = createTestPageContent(
+      TEST_CONTENT.article.title,
+      TEST_CONTENT.article.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // 等待内容脚本加载
@@ -145,8 +208,12 @@ test.describe('Content Script 测试', () => {
   });
 
   test('全文翻译模式应该可以激活', async ({ extensionPage, waitForExtensionLoaded }) => {
-    // 导航到测试页面
-    await extensionPage.goto(TEST_PAGES.article);
+    // 使用本地内容替代外部 URL
+    const content = createTestPageContent(
+      TEST_CONTENT.article.title,
+      TEST_CONTENT.article.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // 等待内容脚本加载
@@ -184,8 +251,12 @@ test.describe('Content Script 测试', () => {
 
 test.describe('Content Script - 性能测试', () => {
   test('大页面处理性能', async ({ extensionPage, waitForExtensionLoaded }) => {
-    // 导航到内容较多的页面
-    await extensionPage.goto('https://en.wikipedia.org/wiki/JavaScript');
+    // 使用本地大页面内容替代外部 URL
+    const content = createTestPageContent(
+      TEST_CONTENT.large.title,
+      TEST_CONTENT.large.paragraphs
+    );
+    await extensionPage.setContent(content);
     await waitForPageLoad(extensionPage);
 
     // 记录开始时间

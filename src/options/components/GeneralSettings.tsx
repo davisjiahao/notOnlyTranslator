@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { UserSettings, TranslationMode } from '@/shared/types';
+import type { UserSettings, TranslationMode, ThemeMode } from '@/shared/types';
 
 interface GeneralSettingsProps {
   settings: UserSettings;
@@ -91,6 +91,12 @@ export default function GeneralSettings({
     { value: '#fed7aa', label: '浅橙色', bg: 'bg-orange-200' },
   ];
 
+  const themeModes: { value: ThemeMode; label: string; icon: string }[] = [
+    { value: 'light', label: '浅色', icon: '☀️' },
+    { value: 'dark', label: '深色', icon: '🌙' },
+    { value: 'system', label: '跟随系统', icon: '💻' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Toast 提示 */}
@@ -98,8 +104,8 @@ export default function GeneralSettings({
         <div
           className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg animate-fade-in flex items-center gap-2 ${
             toastType === 'warning'
-              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-              : 'bg-green-50 text-green-700 border border-green-200'
+              ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+              : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
           }`}
         >
           {toastType === 'warning' ? (
@@ -116,17 +122,17 @@ export default function GeneralSettings({
       )}
 
       {/* 第 1 组：核心功能 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">核心功能</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">核心功能</h2>
         </div>
 
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {/* 启用翻译 */}
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
-              <div className="font-medium text-gray-900">启用翻译</div>
-              <div className="text-sm text-gray-500">
+              <div className="font-medium text-gray-900 dark:text-white">启用翻译</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 关闭后将停止自动翻译和高亮功能
               </div>
             </div>
@@ -148,8 +154,8 @@ export default function GeneralSettings({
           {/* 自动高亮 */}
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
-              <div className="font-medium text-gray-900">自动高亮</div>
-              <div className="text-sm text-gray-500">
+              <div className="font-medium text-gray-900 dark:text-white">自动高亮</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 自动识别并高亮页面中的生词
               </div>
             </div>
@@ -171,8 +177,8 @@ export default function GeneralSettings({
           {/* 显示难度等级 */}
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
-              <div className="font-medium text-gray-900">显示难度等级</div>
-              <div className="text-sm text-gray-500">
+              <div className="font-medium text-gray-900 dark:text-white">显示难度等级</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 在翻译结果中显示词汇难度标签
               </div>
             </div>
@@ -193,16 +199,56 @@ export default function GeneralSettings({
         </div>
       </div>
 
-      {/* 第 2 组：翻译设置 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">翻译设置</h2>
+      {/* 第 2 组：外观设置 */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">外观设置</h2>
+        </div>
+
+        <div className="p-6">
+          {/* 主题模式 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">主题模式</label>
+            <div className="grid grid-cols-3 gap-3">
+              {themeModes.map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() => onUpdate({ theme: mode.value })}
+                  disabled={isSaving}
+                  className={`p-4 border rounded-lg text-center transition-all ${
+                    settings.theme === mode.value
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 ring-2 ring-primary-200 dark:ring-primary-800'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                  } disabled:opacity-50`}
+                >
+                  <div className="text-2xl mb-2">{mode.icon}</div>
+                  <div className={`font-medium ${
+                    settings.theme === mode.value
+                      ? 'text-primary-700 dark:text-primary-400'
+                      : 'text-gray-900 dark:text-gray-100'
+                  }`}>
+                    {mode.label}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+              选择「跟随系统」将自动根据操作系统的主题设置切换亮/暗色模式
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 第 3 组：翻译设置 */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">翻译设置</h2>
         </div>
 
         <div className="p-6 space-y-6">
           {/* 翻译模式 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">翻译模式</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">翻译模式</label>
             <div className="space-y-3">
               {translationModes.map((mode) => (
                 <button
@@ -211,14 +257,14 @@ export default function GeneralSettings({
                   disabled={isSaving}
                   className={`w-full p-4 border rounded-lg text-left transition-colors ${
                     settings.translationMode === mode.value
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   } disabled:opacity-50`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium text-gray-900">{mode.label}</div>
-                      <div className="text-sm text-gray-500">{mode.description}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{mode.label}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{mode.description}</div>
                     </div>
                     {settings.translationMode === mode.value && (
                       <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0 ml-3">
@@ -235,7 +281,7 @@ export default function GeneralSettings({
 
           {/* 高亮颜色 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">高亮颜色</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">高亮颜色</label>
             <div className="grid grid-cols-3 gap-3">
               {highlightColors.map((color) => (
                 <button
@@ -244,20 +290,20 @@ export default function GeneralSettings({
                   disabled={isSaving}
                   className={`p-3 border rounded-lg transition-all ${
                     settings.highlightColor === color.value
-                      ? 'border-primary-500 ring-2 ring-primary-200'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   } disabled:opacity-50`}
                 >
                   <div className={`h-8 ${color.bg} rounded mb-2`} />
-                  <div className="text-sm text-gray-700 text-center">{color.label}</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 text-center">{color.label}</div>
                 </button>
               ))}
             </div>
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">预览效果:</div>
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="text-sm text-gray-600 dark:text-gray-300">预览效果:</div>
               <div className="mt-2">
                 <span
-                  className="px-2 py-1 rounded text-gray-900"
+                  className="px-2 py-1 rounded text-gray-900 dark:text-gray-900"
                   style={{ backgroundColor: settings.highlightColor }}
                 >
                   highlighted word
@@ -268,7 +314,7 @@ export default function GeneralSettings({
 
           {/* 字体大小 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">字体大小</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">字体大小</label>
             <div className="flex items-center gap-4">
               <input
                 type="range"
@@ -281,14 +327,14 @@ export default function GeneralSettings({
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
               />
               <div className="w-16 text-center">
-                <span className="text-lg font-medium text-gray-900">
+                <span className="text-lg font-medium text-gray-900 dark:text-gray-100">
                   {settings.fontSize}px
                 </span>
               </div>
             </div>
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600 mb-2">预览效果:</div>
-              <div style={{ fontSize: `${settings.fontSize}px` }} className="text-gray-900">
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">预览效果:</div>
+              <div style={{ fontSize: `${settings.fontSize}px` }} className="text-gray-900 dark:text-gray-100">
                 This is a sample text to preview font size. 这是预览字体大小的示例文本。
               </div>
             </div>
@@ -296,8 +342,8 @@ export default function GeneralSettings({
 
           {/* 悬停触发延迟 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">悬停触发延迟</label>
-            <p className="text-sm text-gray-500 mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">悬停触发延迟</label>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
               鼠标悬停在生词上多久后自动显示翻译。设为 0 毫秒可关闭悬停触发。
             </p>
             <div className="flex items-center gap-4">
@@ -309,23 +355,23 @@ export default function GeneralSettings({
                 value={settings.hoverDelay}
                 onChange={(e) => onUpdate({ hoverDelay: Number(e.target.value) })}
                 disabled={isSaving}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
+                className="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
               />
               <div className="w-24 text-center">
-                <span className="text-lg font-medium text-gray-900">
+                <span className="text-lg font-medium text-gray-900 dark:text-gray-100">
                   {settings.hoverDelay}ms
                 </span>
               </div>
             </div>
-            <div className="flex justify-between text-xs text-gray-400 mt-2">
+            <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-2">
               <span>关闭 (0ms)</span>
               <span>快 (300ms)</span>
               <span>中等 (500ms)</span>
               <span>慢 (1000ms)</span>
             </div>
             {settings.hoverDelay === 0 && (
-              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="text-sm text-amber-700">
+              <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="text-sm text-amber-700 dark:text-amber-400">
                   悬停触发已关闭，需要选中文本才能查看翻译。
                 </div>
               </div>
@@ -335,19 +381,19 @@ export default function GeneralSettings({
       </div>
 
       {/* 第 3 组：网站黑名单 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">网站黑名单</h2>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">网站黑名单</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           在黑名单中的网站将不会自动翻译。支持域名和通配符模式（如 *.example.com）。
         </p>
 
         {/* 快速添加当前页面 */}
         {currentTabUrl && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="text-sm">
-                <span className="text-gray-600">当前页面：</span>
-                <span className="font-medium text-gray-900">{currentTabUrl}</span>
+                <span className="text-gray-600 dark:text-gray-400">当前页面：</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{currentTabUrl}</span>
               </div>
               {isCurrentPageBlacklisted() ? (
                 <button
@@ -382,7 +428,7 @@ export default function GeneralSettings({
               }
             }}
             placeholder="输入域名，如 example.com"
-            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100"
           />
           <button
             onClick={() => addToBlacklist(newBlacklistItem)}
@@ -399,13 +445,13 @@ export default function GeneralSettings({
             {(settings.blacklist || []).map((item) => (
               <div
                 key={item}
-                className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
               >
-                <span className="text-sm text-gray-700">{item}</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
                 <button
                   onClick={() => removeFromBlacklist(item)}
                   disabled={isSaving}
-                  className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -415,16 +461,16 @@ export default function GeneralSettings({
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-400 text-center py-4">
+          <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
             黑名单为空
           </div>
         )}
       </div>
 
       {/* 第 4 组：数据管理 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">数据管理</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">数据管理</h2>
         </div>
 
         <div className="p-6">
@@ -443,7 +489,7 @@ export default function GeneralSettings({
               a.click();
               URL.revokeObjectURL(url);
             }}
-            className="w-full py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            className="w-full py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -456,9 +502,9 @@ export default function GeneralSettings({
       </div>
 
       {/* 第 5 组：危险区域 */}
-      <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
-        <div className="px-6 py-4 bg-red-50 border-b border-red-200">
-          <h2 className="text-base font-semibold text-red-700 flex items-center gap-2">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-900 overflow-hidden">
+        <div className="px-6 py-4 bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-900">
+          <h2 className="text-base font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -467,8 +513,8 @@ export default function GeneralSettings({
         </div>
 
         <div className="p-6">
-          <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-100">
-            <p className="text-sm text-red-700">
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
+            <p className="text-sm text-red-700 dark:text-red-400">
               以下操作不可撤销，请谨慎操作。建议在清除数据前先导出备份。
             </p>
           </div>
@@ -509,16 +555,16 @@ export default function GeneralSettings({
       </div>
 
       {/* 第 6 组：关于 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">关于</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">关于</h2>
         </div>
 
         <div className="p-6">
-          <div className="space-y-2 text-sm text-gray-600">
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex justify-between">
               <span>版本</span>
-              <span className="font-medium text-gray-900">0.1.0</span>
+              <span className="font-medium text-gray-900 dark:text-white">0.1.0</span>
             </div>
             <div className="flex justify-between">
               <span>项目</span>
@@ -526,7 +572,7 @@ export default function GeneralSettings({
                 href="https://github.com/yourusername/notOnlyTranslator"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
+                className="text-primary-600 dark:text-primary-400 hover:underline"
               >
                 GitHub
               </a>
@@ -537,7 +583,7 @@ export default function GeneralSettings({
                 href="https://github.com/yourusername/notOnlyTranslator/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
+                className="text-primary-600 dark:text-primary-400 hover:underline"
               >
                 提交问题
               </a>
