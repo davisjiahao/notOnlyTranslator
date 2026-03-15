@@ -119,7 +119,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
     const history: { date: string; level: CEFRLevel; levelValue: number }[] = [];
     let currentLevelIndex = 2; // 默认从 B1 开始
 
-    trendData.last30Days.forEach((day, index) => {
+    trendData.last30Days.forEach((day) => {
       // 根据词汇量估算模拟等级变化
       const vocabEstimate = day.estimatedVocabulary;
       let levelIndex = 0;
