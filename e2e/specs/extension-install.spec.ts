@@ -7,8 +7,11 @@ import { TEST_SERVER_URL } from '../global-setup';
  * 验证扩展是否正确加载和注入
  */
 test.describe('扩展安装', () => {
-  test('扩展 content script 应该成功注入到页面', async ({ extensionPage, waitForExtensionLoaded: waitExtLoaded }) => {
+  test('扩展 content script 应该成功注入到页面', async ({ extensionPage, configureExtensionApi }) => {
     const page = extensionPage;
+
+    // 先配置扩展 API，确保 content script 能正常初始化
+    await configureExtensionApi();
 
     // 使用测试服务器页面（setContent 不会触发 content script 注入）
     await page.goto(`${TEST_SERVER_URL}/test-page.html`);
@@ -27,8 +30,11 @@ test.describe('扩展安装', () => {
     }).toBe(true);
   });
 
-  test('扩展应该在页面加载后初始化完成', async ({ extensionPage, waitForExtensionLoaded }) => {
+  test('扩展应该在页面加载后初始化完成', async ({ extensionPage, waitForExtensionLoaded, configureExtensionApi }) => {
     const page = extensionPage;
+
+    // 先配置扩展 API，确保 content script 能正常初始化
+    await configureExtensionApi();
 
     // 使用测试服务器页面（setContent 不会触发 content script 注入）
     await page.goto(`${TEST_SERVER_URL}/test-page.html`);
@@ -55,8 +61,11 @@ test.describe('扩展安装', () => {
     expect(extensionState).toBe(true);
   });
 
-  test('扩展的样式应该正确注入到页面', async ({ extensionPage, waitForExtensionLoaded }) => {
+  test('扩展的样式应该正确注入到页面', async ({ extensionPage, waitForExtensionLoaded, configureExtensionApi }) => {
     const page = extensionPage;
+
+    // 先配置扩展 API，确保 content script 能正常初始化
+    await configureExtensionApi();
 
     // 使用测试服务器页面（setContent 不会触发 content script 注入）
     await page.goto(`${TEST_SERVER_URL}/test-page.html`);
