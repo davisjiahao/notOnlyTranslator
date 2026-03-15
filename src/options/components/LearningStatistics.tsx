@@ -491,7 +491,10 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
                           borderRadius: '8px',
                           fontSize: '12px',
                         }}
-                        formatter={(value: number) => [CEFR_LEVELS[value - 1]?.label || value, '等级']}
+                        formatter={(value: number | undefined) => {
+                        const levelValue = value ?? 1;
+                        return [CEFR_LEVELS[levelValue - 1]?.label || levelValue, '等级'];
+                      }}
                       />
                       <Line
                         type="stepAfter"
