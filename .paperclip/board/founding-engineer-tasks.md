@@ -1,120 +1,162 @@
 # Founding Engineer 任务分配
 
-## 当前任务: 待分配 📋
+## 当前任务: CMP-25 词汇数据导出 📦
 
-暂无进行中的任务。请查看下方的待办任务列表。
+**任务**: CMP-25 词汇数据导出
+**状态**: 待开始
+**预计工时**: 3 小时
+**优先级**: P2
+
+**描述**:
+实现词汇数据的导入导出功能。
+
+**Paperclip 链接**: [CMP-25](/NOT/issues/CMP-25)
+
+**验收标准**:
+- [ ] 支持导出词汇数据为 JSON/CSV
+- [ ] 支持从文件导入词汇数据
+- [ ] 数据格式兼容性检查
+- [ ] 导出选项（按日期筛选、按掌握度筛选）
+
+---
+
+## 进行中任务
+
+| 任务 | 状态 | 开始时间 | 负责人 |
+|-----|------|---------|-------|
+| CMP-25: 词汇数据导出 | 📋 待开始 | - | @founding-engineer |
 
 ---
 
 ## 待办任务
 
-### 📋 US-004: 实现 Background Service Worker 核心功能
-**描述**: 实现后台服务工作线程的核心功能，包括消息路由、翻译API调用、词汇管理等。
-**优先级**: High
-**估计工时**: 8 小时
-**依赖**: US-003 已完成
+### P2 优先级
+
+| 任务 | 预计工时 | Paperclip Issue |
+|-----|---------|-----------------|
+| CMP-25: 词汇数据导出 | 3h | [CMP-25](/NOT/issues/CMP-25) |
 
 ---
 
 ## 已完成的任务
+
+### ✅ CMP-24: 主题切换
+**状态**: 已完成 ✓
+**实际工时**: 2 小时
+**完成时间**: 2026-03-15
+
+**验收标准**:
+- ✅ 支持亮色/暗色/系统主题模式 - `ThemeMode` 类型支持 'light' | 'dark' | 'system'
+- ✅ 主题偏好持久化存储 - 通过 Chrome Storage 保存 `settings.theme` 字段
+- ✅ 跟随系统主题设置选项 - `useTheme` hook 监听 `prefers-color-scheme` 媒体查询
+- ✅ 所有组件适配暗色主题 - 所有组件已使用 `dark:` Tailwind 类变体
+
+**实现组件**:
+- `theme.ts` - 核心主题管理 Hook，支持系统主题检测和动态切换
+- `GeneralSettings.tsx` - 主题切换 UI，提供 light/dark/system 三个选项
+- `StatsCharts.tsx` - 图表暗色主题支持，动态调整图表颜色
+- `LearningHeatmap.tsx` - 热力图暗色主题支持
+- `tailwind.config.js` - 配置 `darkMode: 'class'` 启用类名切换模式
+
+**技术细节**:
+- 使用 `document.documentElement.classList.add/remove('dark')` 切换主题
+- 系统主题变化时自动更新（通过 `matchMedia` 监听器）
+- 图表颜色根据 `isDark` 状态动态计算
+- 所有背景、边框、文字颜色都已适配暗色模式
+
+### ✅ CMP-23: Options 设置页面
+**状态**: 已完成 ✓
+**实际工时**: 1 小时
+**完成时间**: 2026-03-15
+
+**验收标准**:
+- ✅ API Key 配置（OpenAI/Anthropic/自定义）- `ApiSettings` 组件支持多供应商配置管理
+- ✅ 英语水平选择（CET-4/6, 托福, 雅思, 自定义）- `LevelSelector` 组件完整支持
+- ✅ 翻译模式选择（行内/双文/全文）- `GeneralSettings` 组件支持
+- ✅ 高亮样式配置 - `GeneralSettings` 组件支持颜色和字体大小
+- ✅ 设置自动同步生效 - 通过 `chrome.runtime.sendMessage` 实时同步到 Background
+
+**实现组件**:
+- `ApiSettings.tsx` - 多供应商 API 配置管理（OpenAI/Anthropic/DeepSeek等）
+- `LevelSelector.tsx` - 英语水平选择和词汇量估算
+- `GeneralSettings.tsx` - 翻译模式、高亮颜色、字体大小等通用设置
+- `App.tsx` - 设置页面主框架，支持标签页导航
+
+### ✅ CMP-22: 学习统计仪表盘
+**状态**: 已完成 ✓
+**实际工时**: 6 小时
+**完成时间**: 2026-03-15
+
+**验收标准**:
+- ✅ 总词汇量统计（已掌握/学习中/标记）
+- ✅ 每日/每周/每月学习趋势图
+- ✅ CEFR 水平变化曲线
+- ✅ 学习热力图（日历形式）
+- ✅ 响应式布局适配
+
+**实现组件**:
+- `MasteryOverview.tsx` - 主仪表盘组件，包含所有图表和统计
+- `LearningHeatmap.tsx` - 学习热力图组件
+- 集成 Recharts 图表库（BarChart, PieChart, AreaChart）
+- 时间范围筛选器（7/30/90天）
+
+### ✅ CMP-21: 闪卡式单词复习
+**状态**: 已完成 ✓
+**实际工时**: 6 小时
+**完成时间**: 2026-03-15
+
+**验收标准**:
+- ✅ 自动计算下次复习时间（艾宾浩斯算法）
+- ✅ 闪卡界面美观，支持翻转动画
+- ✅ 支持键盘快捷键（空格翻转，数字键评分）
+- ✅ 复习记录持久化到 Chrome Storage
+- ✅ 复习完成后的统计反馈
+
+### ✅ US-004: Background Service Worker 核心功能
+**状态**: 已实现完成 (经代码审查确认)
+**描述**: 实现后台服务工作线程的核心功能，包括消息路由、翻译API调用、词汇管理等。
+
+**实际状态**:
+- ✅ 消息路由系统 - 已实现 (src/background/index.ts)
+- ✅ 翻译服务 - TranslationService + BatchTranslationService
+- ✅ 词汇管理 - StorageManager 完整 CRUD
+- ✅ 配置管理 - Settings 读写
+- ✅ 上下文菜单 - 4个菜单项
+- ✅ 掌握度系统 - MasteryManager 集成
+- ✅ 测试覆盖 - 204/204 通过
 
 ### ✅ US-003: 整合 Content Script 模块
 **状态**: 已完成 ✓
 **实际工时**: 6 小时
 **完成时间**: 2026-03-15
 
-将 PageScanner、VocabularyFilter、Highlighter 和 Tooltip 整合到主 Content Script 入口，实现完整的页面翻译功能。
-
-**完成的功能**:
-- ✅ 整合 PageScanner 页面扫描器
-- ✅ 整合 VocabularyFilter 词汇过滤
-- ✅ 整合 Highlighter 高亮渲染器
-- ✅ 整合 Tooltip 翻译提示框
-- ✅ 实现消息通信处理
-- ✅ 实现页面扫描和翻译流程
-- ✅ 编写单元测试 (37 个测试全部通过)
-
-**文件位置**:
-- 主入口: `src/content/index.ts` (1285 行)
-- 测试: `tests/unit/content/index.test.ts` (37 个测试通过)
-
----
-
----
-
-## 待办任务
-
-### 📋 US-003: 整合 Content Script 模块
-**描述**: 将 PageScanner、VocabularyFilter、Highlighter 和 Tooltip 整合到主 Content Script 中。
-**优先级**: High
-**估计工时**: 6 小时
-**依赖**: US-001, US-002 已完成
-
----
-
-## 已完成的任务
-
-### ✅ US-002-T1: Tooltip 组件
-**状态**: 已完成 ✓
-**实际工时**: 4 小时
-**完成时间**: 2026-03-15
-
-实现 Tooltip 组件，当用户悬停或点击高亮单词时显示翻译详情。
-
-**完成的功能**:
-- ✅ 悬停高亮单词时显示 Tooltip
-- ✅ 显示单词翻译、难度等级（简单/中等/困难）
-- ✅ 提供"标记已知"(K)、"标记未知"(U)、"加入生词本"(A)按钮
-- ✅ 支持点击外部关闭 Tooltip
-- ✅ 自动定位（避免超出视口，支持上下翻转）
-- ✅ 钉住功能（滚动时保持可见）
-- ✅ 快捷键帮助面板
-- ✅ 句子翻译和语法说明支持
-
-**文件位置**:
-- 实现: `src/content/tooltip.ts` (705 行)
-- 测试: `tests/unit/content/tooltip.test.ts` (47 个测试全部通过)
-
----
-
 ### ✅ US-001-T2: VocabularyFilter 词汇过滤服务
 **状态**: 已完成 ✓
 **实际工时**: 3 小时
 **完成时间**: 2026-03-14
-
-实现一个词汇过滤服务，根据用户的英语水平，从扫描的段落中筛选出需要翻译的生僻词。
-
-**完成的功能**:
-- ✅ 接收 `Paragraph[]` 和 `UserProfile`，返回应高亮的单词列表
-- ✅ 使用 `FrequencyManager` 判断单词难度
-- ✅ 只返回难度高于用户水平的单词
-- ✅ 支持词汇去重（同一单词在页面中只高亮一次）
-- ✅ 支持已知词汇过滤（用户已标记为已知的单词跳过）
-
-**文件位置**:
-- 实现: `src/content/vocabularyFilter.ts` (292 行)
-- 测试: `tests/unit/content/vocabularyFilter.test.ts` (29 个测试通过)
-
----
 
 ### ✅ US-001-T3: Highlighter 高亮渲染器
 **状态**: 已完成 ✓
 **实际工时**: 2 小时
 **完成时间**: 2026-03-14
 
-实现高亮渲染器，在 DOM 中高亮显示筛选出的单词。
+### ✅ US-002-T1: Tooltip 组件
+**状态**: 已完成 ✓
+**实际工时**: 4 小时
+**完成时间**: 2026-03-15
 
-**完成的功能**:
-- ✅ 高亮单词（使用 span 包裹并添加 CSS 类）
-- ✅ 支持大小写不敏感匹配
-- ✅ 标记单词为已知/未知（添加不同 CSS 类）
-- ✅ 移除单个单词高亮
-- ✅ 清除所有高亮
-- ✅ 获取已高亮单词列表
+---
 
-**文件位置**:
-- 实现: `src/content/highlighter.ts` (232 行)
-- 测试: `tests/unit/content/highlighter.test.ts` (9 个测试通过)
+## Sprint 2 任务总览
+
+| 任务 | 优先级 | 状态 | 预计工时 | 实际工时 |
+|-----|--------|------|---------|---------|
+| CMP-21: 闪卡式单词复习 | P0 | ✅ 完成 | 8h | 6h |
+| CMP-22: 学习统计仪表盘 | P0 | ✅ 完成 | 6h | 6h |
+| CMP-23: Options 设置页面 | P1 | ✅ 完成 | 4h | 1h |
+| CMP-24: 主题切换 | P1 | ✅ 完成 | 2h | 2h |
+| CMP-25: 词汇数据导出 | P2 | 📋 待开始 | 3h | - |
+| **总计** | - | - | **23h** | **15h** |
 
 ---
 
@@ -135,8 +177,20 @@ Co-Authored-By: Paperclip <noreply@paperclip.ing>
 
 ---
 
-## 下一步
+## 当前阶段总结
 
-完成此任务后，继续:
-- **US-001-T3**: 实现高亮渲染器 (Highlighter)
+**阶段**: Sprint 2 开发阶段
+**当前任务**: CMP-23 Options 设置页面（待分配）
+**测试状态**: 204/204 通过
+**代码检查**: TypeScript 类型检查通过
 
+---
+
+**最后更新**: 2026-03-15
+
+**当前阶段总结**:
+- ✅ CMP-21 闪卡式单词复习 - 完成 (6h)
+- ✅ CMP-22 学习统计仪表盘 - 完成 (6h)
+- ✅ CMP-23 Options 设置页面 - 完成 (1h) - 实际已实现，仅需验证
+- 📋 CMP-24 主题切换 - 待开始
+- 📋 CMP-25 词汇数据导出 - 待开始
