@@ -7,7 +7,6 @@ import type {
   UserSettings,
 } from '@/shared/types';
 import {
-  BATCH_TRANSLATION_PROMPT_TEMPLATE,
   EXAM_DISPLAY_NAMES,
   DEFAULT_BATCH_CONFIG,
   CHINESE_DETECTION_THRESHOLD,
@@ -207,8 +206,75 @@ export class BatchTranslationService {
       .map((p, index) => `[PARA_${index}]\n${normalizeText(p.text)}`)
       .join('\n\n');
 
+    // 根据设置动态构建任务列表
+    const { phraseTranslationEnabled, grammarTranslationEnabled } = settings;
+    let taskList = '1. 单词（超出{exam_level}词汇范围的）\n';
+    if (phraseTranslationEnabled) {
+      taskList += '2. 短语/习语\n';
+    }
+    if (grammarTranslationEnabled) {
+      taskList += `${phraseTranslationEnabled ? '3' : '2'}. 复杂语法结构（如倒装句、虚拟语气、复杂从句等）\n`;
+    }
+
+    // 动态构建 grammarPoints 字段说明
+    const grammarPointsField = grammarTranslationEnabled
+      ? `      "grammarPoints": [
+        {
+          "original": "语法结构原文片段",
+          "explanation": "语法解释",
+          "type": "语法类型（如：虚拟语气、倒装句、定语从句等）",
+          "position": [起始位置, 结束位置]
+        }
+      ]`
+      : '';
+
+    const grammarNote = grammarTranslationEnabled
+      ? '\n\n注意：grammarPoints 用于标注文本中的特殊语法结构，帮助学习者理解复杂语法。只有当段落中存在值得学习的语法点时才需要返回，普通简单句不需要标注。'
+      : '';
+
+    // 构建自定义提示词
+    const customPrompt = `你是一个英语学习助手。用户的英语水平约为 {vocabulary_size} 词汇量（相当于{exam_level}水平）。
+
+请分析以下多个英文段落（用 [PARA_n] 标记区分），找出每个段落中可能超出用户水平的：
+${taskList}
+对于每个识别出的内容，提供：
+- 中文翻译
+- 难度等级（1-10）
+
+同时提供每个段落的完整中文翻译。
+
+段落内容：
+{paragraphs}
+
+请以JSON格式返回结果，格式如下：
+{
+  "paragraphs": [
+    {
+      "id": "[PARA_n]中的n",
+      "fullText": "该段落的完整中文翻译",
+      "words": [
+        {
+          "original": "词汇原文",
+          "translation": "中文翻译",
+          "position": [起始位置, 结束位置],
+          "difficulty": 难度等级1-10,
+          "isPhrase": 是否为短语
+        }
+      ],
+      "sentences": [
+        {
+          "original": "复杂句子原文",
+          "translation": "中文翻译",
+          "grammarNote": "语法说明（可选）"
+        }
+      ]${grammarTranslationEnabled ? ',' : ''}
+${grammarPointsField}
+    }
+  ]
+}${grammarNote}`;
+
     // 构建提示词
-    const prompt = BATCH_TRANSLATION_PROMPT_TEMPLATE
+    const prompt = customPrompt
       .replace('{vocabulary_size}', userProfile.estimatedVocabulary.toString())
       .replace(/{exam_level}/g, EXAM_DISPLAY_NAMES[userProfile.examType])
       .replace('{paragraphs}', paragraphsText);
@@ -219,7 +285,7 @@ export class BatchTranslationService {
     const response = await TranslationApiService.call(prompt, apiKey, settings, BATCH_RETRY_OPTIONS);
 
     // 解析响应
-    return this.parseBatchResponse(response, paragraphs.length);
+    return this.parseBatchResponse(response, paragraphs.length, settings);
   }
 
   /**
@@ -227,7 +293,8 @@ export class BatchTranslationService {
    */
   private static parseBatchResponse(
     content: string,
-    expectedCount: number
+    expectedCount: number,
+    settings: UserSettings
   ): TranslationResult[] {
     try {
       // 1. 提取 JSON 内容 (使用共享工具)
@@ -270,10 +337,10 @@ export class BatchTranslationService {
       const resultsById = new Map<string, TranslationResult>();
       rawParagraphs.forEach((para: Record<string, unknown>, index: number) => {
         if (!para || typeof para !== 'object') return;
-        
+
         // 尝试获取 ID，如果没提供 ID 则根据顺序猜测
         const id = para.id !== undefined ? String(para.id) : String(index);
-        resultsById.set(id, this.parseParaResult(para));
+        resultsById.set(id, this.parseParaResult(para, settings));
       });
 
       // 5. 组装结果，确保数量与预期一致
@@ -289,7 +356,7 @@ export class BatchTranslationService {
           // 如果按 ID 找不到，且返回的总数和预期一致，尝试按索引找
           const fallbackPara = rawParagraphs[i];
           if (fallbackPara && !resultsById.has(String(i))) {
-             const fallbackResult = this.parseParaResult(fallbackPara);
+             const fallbackResult = this.parseParaResult(fallbackPara, settings);
              finalResults.push(fallbackResult);
              foundCount++;
           } else {
@@ -309,7 +376,12 @@ export class BatchTranslationService {
   /**
    * 解析单个段落结果
    */
-  private static parseParaResult(para: Record<string, unknown>): TranslationResult {
+  private static parseParaResult(
+    para: Record<string, unknown>,
+    settings?: UserSettings
+  ): TranslationResult {
+    const { phraseTranslationEnabled, grammarTranslationEnabled } = settings || {};
+
     const result: TranslationResult = {
       words: [],
       sentences: [],
@@ -318,13 +390,21 @@ export class BatchTranslationService {
     };
 
     if (Array.isArray(para.words)) {
-      result.words = para.words.map((w: Record<string, unknown>) => ({
-        original: String(w.original || ''),
-        translation: String(w.translation || ''),
-        position: Array.isArray(w.position) ? w.position as [number, number] : [0, 0],
-        difficulty: Number(w.difficulty) || 5,
-        isPhrase: Boolean(w.isPhrase),
-      }));
+      result.words = para.words
+        .map((w: Record<string, unknown>) => {
+          const pos = Array.isArray(w.position) && w.position.length >= 2
+            ? [Number(w.position[0]), Number(w.position[1])] as [number, number]
+            : [0, 0] as [number, number];
+          return {
+            original: String(w.original || ''),
+            translation: String(w.translation || ''),
+            position: pos,
+            difficulty: Number(w.difficulty) || 5,
+            isPhrase: Boolean(w.isPhrase),
+          };
+        })
+        // 如果禁用词组翻译，过滤掉短语
+        .filter((w: { isPhrase: boolean }) => phraseTranslationEnabled !== false || !w.isPhrase);
     }
 
     if (Array.isArray(para.sentences)) {
@@ -335,7 +415,8 @@ export class BatchTranslationService {
       }));
     }
 
-    if (Array.isArray(para.grammarPoints)) {
+    // 只有在启用语法翻译时才解析语法点
+    if (grammarTranslationEnabled !== false && Array.isArray(para.grammarPoints)) {
       result.grammarPoints = para.grammarPoints.map((g: Record<string, unknown>) => ({
         original: String(g.original || ''),
         explanation: String(g.explanation || ''),

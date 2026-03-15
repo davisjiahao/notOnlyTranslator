@@ -174,6 +174,52 @@ export default function GeneralSettings({
             </button>
           </div>
 
+          {/* 词组翻译 */}
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div>
+              <div className="font-medium text-gray-900 dark:text-white">词组翻译</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                识别并翻译常见短语和习语（如 take away, look forward to）
+              </div>
+            </div>
+            <button
+              onClick={() => onUpdate({ phraseTranslationEnabled: !settings.phraseTranslationEnabled })}
+              disabled={isSaving}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                settings.phraseTranslationEnabled ? 'bg-primary-600' : 'bg-gray-300'
+              } disabled:opacity-50`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  settings.phraseTranslationEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* 语法翻译 */}
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div>
+              <div className="font-medium text-gray-900 dark:text-white">语法翻译</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                识别并解释复杂语法结构（如虚拟语气、倒装句、从句等）
+              </div>
+            </div>
+            <button
+              onClick={() => onUpdate({ grammarTranslationEnabled: !settings.grammarTranslationEnabled })}
+              disabled={isSaving}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                settings.grammarTranslationEnabled ? 'bg-primary-600' : 'bg-gray-300'
+              } disabled:opacity-50`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  settings.grammarTranslationEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* 显示难度等级 */}
           <div className="px-6 py-4 flex items-center justify-between">
             <div>

@@ -69,6 +69,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   enabled: true,
   autoHighlight: true,
   vocabHighlightEnabled: true, // 默认启用 CEFR 词汇高亮
+  phraseTranslationEnabled: true, // 默认启用词组翻译
+  grammarTranslationEnabled: true, // 默认启用语法翻译
   translationMode: 'inline-only',
   showDifficulty: true,
   highlightColor: '#fef08a', // Light yellow
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   activeApiConfigId: undefined,
   hoverDelay: 500, // 默认悬停 500ms 后显示 Tooltip
   theme: 'system', // 默认跟随系统主题
+  promptVersion: 'v1.0.0', // 默认提示词版本
 };
 
 // Default user profile

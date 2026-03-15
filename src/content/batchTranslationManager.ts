@@ -6,6 +6,7 @@ import type {
   BatchParagraphResult,
   TranslationMode,
   TranslationResult,
+  UserSettings,
 } from '@/shared/types';
 import { DEFAULT_BATCH_CONFIG } from '@/shared/constants';
 import { logger } from '@/shared/utils';
@@ -41,6 +42,7 @@ export class BatchTranslationManager {
   private mode: TranslationMode = 'inline-only';
   private pageUrl: string;
   private onComplete: TranslationCompleteCallback | null = null;
+  private settings: UserSettings | undefined = undefined;
 
   /** 正在处理中的段落 ID 集合 */
   private processingParagraphIds: Set<string> = new Set();
@@ -52,8 +54,9 @@ export class BatchTranslationManager {
   /** 最大并发批次数 */
   private readonly MAX_CONCURRENT_BATCHES = 3;
 
-  constructor() {
+  constructor(settings?: UserSettings) {
     this.pageUrl = window.location.href;
+    this.settings = settings;
   }
 
   /**
@@ -181,15 +184,33 @@ export class BatchTranslationManager {
 
         TranslationDisplay.saveOriginalText(para.element);
 
-        if (result.result.words.length > 0 || result.result.fullText || (result.result.grammarPoints?.length || 0) > 0) {
-          TranslationDisplay.applyTranslation(para.element, result.result, this.mode);
-          if (this.onComplete) this.onComplete(para.element, result.result);
+        // 根据设置过滤结果
+        const filteredResult = this.filterResultBySettings(result.result);
+
+        if (filteredResult.words.length > 0 || filteredResult.fullText || (filteredResult.grammarPoints?.length || 0) > 0) {
+          TranslationDisplay.applyTranslation(para.element, filteredResult, this.mode, this.settings);
+          if (this.onComplete) this.onComplete(para.element, filteredResult);
         } else {
           // 无生词也标记为处理完成
           para.element.classList.add('not-translator-processed');
         }
       }
     }
+  }
+
+  /**
+   * 根据设置过滤翻译结果
+   */
+  private filterResultBySettings(result: TranslationResult): TranslationResult {
+    const { phraseTranslationEnabled, grammarTranslationEnabled } = this.settings || {};
+
+    return {
+      ...result,
+      // 如果禁用词组翻译，过滤掉短语
+      words: result.words.filter(w => phraseTranslationEnabled !== false || !w.isPhrase),
+      // 如果禁用语法翻译，清空语法点
+      grammarPoints: grammarTranslationEnabled !== false ? result.grammarPoints : [],
+    };
   }
 
   /**
@@ -245,6 +266,13 @@ export class BatchTranslationManager {
    */
   setMode(mode: TranslationMode): void {
     this.mode = mode;
+  }
+
+  /**
+   * 设置用户设置
+   */
+  setSettings(settings: UserSettings): void {
+    this.settings = settings;
   }
 
   /**

@@ -220,10 +220,27 @@ export class TranslationApiService {
   };
 
   /**
-   * 调用 LLM API 进行翻译
+   * 调用 LLM API 进行翻译（使用内置系统提示词）
+   * @deprecated 请使用 callWithSystem 以支持自定义系统提示词
    */
   static async call(
     prompt: string,
+    apiKey: string,
+    settings: UserSettings,
+    retryOptions: RetryOptions = DEFAULT_RETRY_OPTIONS
+  ): Promise<string> {
+    // 构建默认的系统提示词
+    const defaultSystemPrompt = 'You are an English learning assistant. Always respond with valid JSON.';
+    return this.callWithSystem(defaultSystemPrompt, prompt, apiKey, settings, retryOptions);
+  }
+
+  /**
+   * 调用 LLM API 进行翻译（使用自定义系统提示词）
+   * 这是新的主要调用方法，支持通过 TranslationPromptBuilder 构建的自定义提示词
+   */
+  static async callWithSystem(
+    systemPrompt: string,
+    userPrompt: string,
     apiKey: string,
     settings: UserSettings,
     retryOptions: RetryOptions = DEFAULT_RETRY_OPTIONS
@@ -244,7 +261,7 @@ export class TranslationApiService {
 
     // 百度格式特殊处理（需要 access token）
     if (apiFormat === 'baidu') {
-      return this.callBaiduFormat(prompt, apiKey, settings.secondaryApiKey || '', model, retryOptions);
+      return this.callBaiduFormatWithSystem(systemPrompt, userPrompt, apiKey, settings.secondaryApiKey || '', model, retryOptions);
     }
 
     // DashScope 直接使用 OpenAI 兼容格式
@@ -257,17 +274,8 @@ export class TranslationApiService {
       throw new Error(`不支持的 API 格式: ${apiFormat}`);
     }
 
-    // 准备消息
-    const systemMessage = apiFormat === 'gemini'
-      ? 'You are an English learning assistant. Always respond with valid JSON.\n\n' + prompt
-      : 'You are an English learning assistant. Always respond with valid JSON.';
-
-    const messages = apiFormat === 'anthropic'
-      ? [{ role: 'user', content: prompt + '\n\nPlease respond with valid JSON only.' }]
-      : [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: prompt },
-        ];
+    // 准备消息 - 根据不同 API 格式处理系统提示词
+    const messages = this.buildMessages(apiFormat, systemPrompt, userPrompt);
 
     return this.executeApiCall(
       providerConfig,
@@ -279,6 +287,40 @@ export class TranslationApiService {
       retryOptions,
       config.name
     );
+  }
+
+  /**
+   * 根据不同 API 格式构建消息数组
+   */
+  private static buildMessages(
+    apiFormat: string,
+    systemPrompt: string,
+    userPrompt: string
+  ): Array<{ role: string; content: string }> {
+    switch (apiFormat) {
+      case 'anthropic':
+        // Anthropic: 不支持 system 消息，将系统提示词与用户提示词合并
+        return [{
+          role: 'user',
+          content: `${systemPrompt}\n\n${userPrompt}\n\nPlease respond with valid JSON only.`
+        }];
+
+      case 'gemini':
+        // Gemini: 在系统提示词末尾添加 JSON 要求，然后与用户提示词合并
+        return [{
+          role: 'user',
+          content: `${systemPrompt}\n\nAlways respond with valid JSON.\n\n${userPrompt}`
+        }];
+
+      case 'ollama':
+      case 'openai':
+      default:
+        // OpenAI 兼容格式：使用标准的 system + user 消息结构
+        return [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ];
+    }
   }
 
   /**
@@ -329,11 +371,12 @@ export class TranslationApiService {
   }
 
   /**
-   * 调用百度文心 API
+   * 调用百度文心 API（使用自定义系统提示词）
    * 需要先获取 access token
    */
-  private static async callBaiduFormat(
-    prompt: string,
+  private static async callBaiduFormatWithSystem(
+    systemPrompt: string,
+    userPrompt: string,
     apiKey: string,
     secretKey: string,
     model: string,
@@ -346,6 +389,9 @@ export class TranslationApiService {
     const accessToken = await this.getBaiduAccessToken(apiKey, secretKey);
     const chatUrl = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
 
+    // 百度格式：将系统提示词与用户提示词合并
+    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
     return retryWithBackoff(async () => {
       const response = await fetch(chatUrl, {
         method: 'POST',
@@ -354,7 +400,7 @@ export class TranslationApiService {
           messages: [
             {
               role: 'user',
-              content: 'You are an English learning assistant. Always respond with valid JSON.\n\n' + prompt,
+              content: combinedPrompt,
             },
           ],
           temperature: 0.3,

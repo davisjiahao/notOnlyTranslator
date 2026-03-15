@@ -145,6 +145,10 @@ export interface UserSettings {
   autoHighlight: boolean;
   /** 是否启用 CEFR 词汇高亮功能 */
   vocabHighlightEnabled: boolean;
+  /** 是否启用词组/短语翻译 */
+  phraseTranslationEnabled: boolean;
+  /** 是否启用语法点识别和解释 */
+  grammarTranslationEnabled: boolean;
   translationMode: TranslationMode;
   showDifficulty: boolean;
   highlightColor: string;
@@ -164,6 +168,8 @@ export interface UserSettings {
   hoverDelay: number;
   /** 主题模式 */
   theme: ThemeMode;
+  /** 提示词版本 */
+  promptVersion?: string;
 }
 
 // Storage Types

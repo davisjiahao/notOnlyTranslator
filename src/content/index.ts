@@ -35,7 +35,7 @@ class NotOnlyTranslator {
   private highlighter: Highlighter;
   private tooltip: Tooltip;
   private marker: MarkerService;
-  private settings: UserSettings | null = null;
+  private settings: UserSettings | undefined = undefined;
   private isEnabled: boolean = true;
   private observer: MutationObserver | null = null;
 
@@ -322,8 +322,8 @@ class NotOnlyTranslator {
    * 包括可视区域观察器和批量翻译管理器
    */
   private initBatchTranslation(): void {
-    // 创建批量翻译管理器
-    this.batchManager = new BatchTranslationManager();
+    // 创建批量翻译管理器，传入当前设置
+    this.batchManager = new BatchTranslationManager(this.settings ?? undefined);
     this.batchManager.setMode(this.settings?.translationMode || 'inline-only');
 
     // 设置翻译完成回调
@@ -376,8 +376,11 @@ class NotOnlyTranslator {
     const newSettings = { ...this.settings, translationMode: mode };
     this.settings = newSettings;
 
-    // 更新批量翻译管理器模式
+    // 更新批量翻译管理器模式和设置
     this.batchManager?.setMode(mode);
+    if (this.settings) {
+      this.batchManager?.setSettings(this.settings);
+    }
 
     // 更新浮动按钮显示
     this.floatingButton?.updateMode(mode);
@@ -564,9 +567,10 @@ class NotOnlyTranslator {
           this.settings.highlightColor
         );
 
-        // 更新批量翻译管理器的翻译模式
+        // 更新批量翻译管理器的翻译模式和设置
         if (this.batchManager) {
           this.batchManager.setMode(this.settings.translationMode);
+          this.batchManager.setSettings(this.settings);
         }
 
         logger.info('NotOnlyTranslator: Settings loaded successfully');
@@ -967,7 +971,7 @@ class NotOnlyTranslator {
         // Apply translation based on mode
         if (result.words.length > 0 || result.fullText) {
           logger.info(`NotOnlyTranslator: Applying translation to paragraph with mode: ${mode}`);
-          TranslationDisplay.applyTranslation(paragraph, result, mode as import('@/shared/types').TranslationMode);
+          TranslationDisplay.applyTranslation(paragraph, result, mode as import('@/shared/types').TranslationMode, this.settings ?? undefined);
 
           // Setup click handlers for highlighted words in the paragraph
           this.setupParagraphClickHandlers(paragraph);

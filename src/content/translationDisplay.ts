@@ -1,4 +1,4 @@
-import type { TranslationResult, TranslationMode, TranslatedWord, TranslatedSentence } from '@/shared/types';
+import type { TranslationResult, TranslationMode, TranslatedWord, TranslatedSentence, UserSettings } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
 
 /**
@@ -16,7 +16,8 @@ export class TranslationDisplay {
   static applyTranslation(
     paragraph: HTMLElement,
     result: TranslationResult,
-    mode: TranslationMode
+    mode: TranslationMode,
+    settings?: UserSettings
   ): void {
     // 保存原始HTML（用于恢复）
     if (!paragraph.dataset.originalHtml) {
@@ -38,8 +39,8 @@ export class TranslationDisplay {
         break;
     }
 
-    // 无论什么模式，如果识别出了具体的语法点，都进行波浪线高亮（非侵入式）
-    if (result.grammarPoints && result.grammarPoints.length > 0) {
+    // 仅在启用语法翻译且识别出了具体的语法点时，才进行波浪线高亮
+    if (settings?.grammarTranslationEnabled && result.grammarPoints && result.grammarPoints.length > 0) {
       this.applyGrammarHighlights(paragraph, result.grammarPoints);
     }
   }

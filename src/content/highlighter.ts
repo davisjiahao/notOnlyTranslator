@@ -90,8 +90,25 @@ export class Highlighter {
     }> = [];
 
     for (const [, word] of wordMap) {
-      // Use word boundary matching
-      const regex = new RegExp(`\\b${this.escapeRegex(word.original)}\\b`, 'gi');
+      // Check if this is a multi-word phrase (contains spaces)
+      const isPhrase = word.original.includes(' ');
+
+      // For phrases, don't use word boundaries; for single words, use word boundaries
+      // Also handle hyphenated words as single units
+      const escapedOriginal = this.escapeRegex(word.original);
+      let regexPattern: string;
+
+      if (isPhrase) {
+        // For multi-word phrases, match exact phrase with word boundaries at ends only
+        // Allow flexible whitespace between words
+        const flexiblePhrase = escapedOriginal.replace(/\\ /g, '\\s+');
+        regexPattern = `\\b${flexiblePhrase}\\b`;
+      } else {
+        // For single words, use standard word boundary matching
+        regexPattern = `\\b${escapedOriginal}\\b`;
+      }
+
+      const regex = new RegExp(regexPattern, 'gi');
       let match;
       while ((match = regex.exec(text)) !== null) {
         matches.push({
