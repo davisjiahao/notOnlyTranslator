@@ -11,11 +11,12 @@ import path from 'path';
  */
 export async function waitForExtensionLoaded(page: Page, timeout = 10000): Promise<void> {
   // 等待扩展的 content script 注入完成
+  // 注意：Manifest V3 内容脚本在隔离上下文中运行，无法检测 window.__EXTENSION_LOADED__
+  // 改为检测 data-extension-loaded 属性
   await page.waitForFunction(
     () => {
-      // 检查是否有扩展注入的标记或元素
-      const extensionMarker = document.querySelector('[data-extension-loaded]');
-      return !!extensionMarker || !!(window as any).__EXTENSION_LOADED__;
+      // 检查是否有扩展注入的标记 - 使用 body 上的 data-extension-loaded 属性
+      return document.body?.getAttribute('data-extension-loaded') === 'true';
     },
     { timeout }
   );
@@ -87,10 +88,12 @@ export async function getHighlightedWords(page: Page): Promise<string[]> {
 
 /**
  * 检查扩展是否已注入 content script
+ * 注意：Manifest V3 内容脚本在隔离上下文中运行，无法通过 window.__NOT_ONLY_TRANSLATOR__ 检测
+ * 改为使用 data-extension-loaded 属性检测
  */
 export async function isContentScriptInjected(page: Page): Promise<boolean> {
   return page.evaluate(() => {
-    return typeof (window as any).__NOT_ONLY_TRANSLATOR__ !== 'undefined';
+    return document.body?.getAttribute('data-extension-loaded') === 'true';
   });
 }
 

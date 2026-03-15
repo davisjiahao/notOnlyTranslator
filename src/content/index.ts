@@ -259,6 +259,10 @@ class NotOnlyTranslator {
     document.body.setAttribute('data-extension-loaded', 'true');
     window.__EXTENSION_LOADED__ = true;
     window.__NOT_ONLY_TRANSLATOR__ = this;
+
+    // 调试：确认全局变量已设置
+    console.log('[NotOnlyTranslator] Global set: __NOT_ONLY_TRANSLATOR__ =', typeof window.__NOT_ONLY_TRANSLATOR__);
+    console.log('[NotOnlyTranslator] Global set: __EXTENSION_LOADED__ =', window.__EXTENSION_LOADED__);
   }
 
   /**
@@ -547,7 +551,9 @@ class NotOnlyTranslator {
    */
   private async loadSettings(): Promise<void> {
     try {
+      console.log('[NotOnlyTranslator] Loading settings...');
       const response = await this.sendMessage({ type: 'GET_SETTINGS' });
+      console.log('[NotOnlyTranslator] Settings response:', response);
       if (response.success && response.data) {
         this.settings = response.data as UserSettings;
         this.isEnabled = this.settings.enabled;
@@ -1234,18 +1240,24 @@ class NotOnlyTranslator {
             timeoutId = null;
           }
           if (chrome.runtime.lastError) {
+            console.log('[NotOnlyTranslator] sendMessage lastError:', chrome.runtime.lastError.message);
             resolve({
               success: false,
               error: chrome.runtime.lastError.message,
             });
-          } else {
+          } else if (!response) {
+            console.log('[NotOnlyTranslator] sendMessage no response received');
             resolve(response || { success: false, error: 'No response' });
+          } else {
+            console.log('[NotOnlyTranslator] sendMessage response:', response);
+            resolve(response);
           }
         });
       }),
       new Promise<MessageResponse>((resolve) => {
         timeoutId = setTimeout(() => {
           timeoutId = null;
+          console.log('[NotOnlyTranslator] sendMessage timeout');
           resolve({ success: false, error: '请求超时，请重试' });
         }, timeout);
       }),

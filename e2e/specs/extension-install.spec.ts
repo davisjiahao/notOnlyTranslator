@@ -10,6 +10,9 @@ test.describe('扩展安装', () => {
   test('扩展 content script 应该成功注入到页面', async ({ extensionPage, configureExtensionApi }) => {
     const page = extensionPage;
 
+    // 监听控制台消息
+    page.on('console', msg => console.log(`[Page Console] ${msg.type()}: ${msg.text()}`));
+
     // 先配置扩展 API，确保 content script 能正常初始化
     await configureExtensionApi();
 
@@ -22,7 +25,16 @@ test.describe('扩展安装', () => {
     // 等待 content script 注入 - 使用轮询而非单次检查
     // content script 在 document_idle 时注入，可能需要额外时间
     await expect.poll(async () => {
-      return await isContentScriptInjected(page);
+      // 调试：先打印 window 对象中有哪些属性
+      const result = await isContentScriptInjected(page);
+      if (!result) {
+        const debug = await page.evaluate(() => {
+          const keys = Object.keys(window).filter(k => k.includes('NOT') || k.includes('EXTENSION'));
+          return { keys, hasNOT: '__NOT_ONLY_TRANSLATOR__' in window, hasEXT: '__EXTENSION_LOADED__' in window };
+        });
+        console.log('[Debug] window keys:', debug);
+      }
+      return result;
     }, {
       message: '等待 content script 注入',
       timeout: 10000,
@@ -32,6 +44,9 @@ test.describe('扩展安装', () => {
 
   test('扩展应该在页面加载后初始化完成', async ({ extensionPage, waitForExtensionLoaded, configureExtensionApi }) => {
     const page = extensionPage;
+
+    // 监听控制台消息
+    page.on('console', msg => console.log(`[Page Console] ${msg.type()}: ${msg.text()}`));
 
     // 先配置扩展 API，确保 content script 能正常初始化
     await configureExtensionApi();
@@ -54,8 +69,10 @@ test.describe('扩展安装', () => {
     }).toBe(true);
 
     // 验证扩展的全局对象存在
+    // 注意：Manifest V3 内容脚本在隔离上下文中运行
+    // 改为检查 data-extension-loaded 属性
     const extensionState = await page.evaluate(() => {
-      return typeof (window as any).__NOT_ONLY_TRANSLATOR__ !== 'undefined';
+      return document.body?.getAttribute('data-extension-loaded') === 'true';
     });
 
     expect(extensionState).toBe(true);
