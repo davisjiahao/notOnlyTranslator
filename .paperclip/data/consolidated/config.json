@@ -1,0 +1,38 @@
+{
+  "dataSource": {
+    "path": ".paperclip/data/extracted",
+    "pattern": "sales-*.json",
+    "pollingInterval": 60
+  },
+  "output": {
+    "dashboardPath": ".paperclip/data/consolidated/sales-dashboard.json",
+    "reportsPath": ".paperclip/data/consolidated/reports"
+  },
+  "consolidation": {
+    "refreshInterval": 5,
+    "aggregationLevel": ["summary", "territory", "rep", "pipeline"]
+  },
+  "distribution": {
+    "enabled": true,
+    "rules": [
+      {
+        "type": "territory",
+        "format": "json",
+        "schedule": "realtime"
+      },
+      {
+        "type": "rep",
+        "format": "json",
+        "schedule": "realtime"
+      }
+    ]
+  },
+  "territories": [
+    "华东区",
+    "华北区",
+    "华南区",
+    "西南区",
+    "西北区"
+  ],
+  "representatives": []
+}

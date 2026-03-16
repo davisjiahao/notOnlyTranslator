@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "extractedBy": "sales-data-extraction-agent",
+    "extractedAt": "2026-03-16T00:00:00Z",
+    "sourceFile": "sales_report_2026.xlsx",
+    "period": {
+      "mtd": "2026-03-01 to 2026-03-16",
+      "ytd": "2026-01-01 to 2026-03-16",
+      "yearEnd": "2026-01-01 to 2026-12-31"
+    }
+  },
+  "summary": {
+    "mtd": {
+      "revenue": 2850000,
+      "target": 3000000,
+      "achievementRate": 95.0
+    },
+    "ytd": {
+      "revenue": 8500000,
+      "target": 9000000,
+      "achievementRate": 94.4
+    },
+    "yearEnd": {
+      "projectedRevenue": 12000000,
+      "target": 12000000,
+      "projectedAchievementRate": 100.0
+    }
+  },
+  "byTerritory": {
+    "华东区": {
+      "name": "华东区",
+      "mtd": { "revenue": 950000, "target": 1000000, "achievementRate": 95.0 },
+      "ytd": { "revenue": 2800000, "target": 3000000, "achievementRate": 93.3 },
+      "reps": ["REP001", "REP002", "REP003"]
+    },
+    "华北区": {
+      "name": "华北区",
+      "mtd": { "revenue": 570000, "target": 600000, "achievementRate": 95.0 },
+      "ytd": { "revenue": 1700000, "target": 1800000, "achievementRate": 94.4 },
+      "reps": ["REP004", "REP005"]
+    },
+    "华南区": {
+      "name": "华南区",
+      "mtd": { "revenue": 760000, "target": 800000, "achievementRate": 95.0 },
+      "ytd": { "revenue": 2300000, "target": 2400000, "achievementRate": 95.8 },
+      "reps": ["REP006", "REP007", "REP008"]
+    },
+    "西南区": {
+      "name": "西南区",
+      "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0 },
+      "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4 },
+      "reps": ["REP009"]
+    },
+    "西北区": {
+      "name": "西北区",
+      "mtd": { "revenue": 95000, "target": 100000, "achievementRate": 95.0 },
+      "ytd": { "revenue": 280000, "target": 300000, "achievementRate": 93.3 },
+      "reps": ["REP010"]
+    }
+  },
+  "byRep": {
+    "REP001": { "id": "REP001", "name": "张三", "territory": "华东区", "mtd": { "revenue": 380000, "target": 400000, "achievementRate": 95.0 }, "ytd": { "revenue": 1100000, "target": 1200000, "achievementRate": 91.7 }, "email": "zhangsan@company.com" },
+    "REP002": { "id": "REP002", "name": "李四", "territory": "华东区", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4 }, "email": "lisi@company.com" },
+    "REP003": { "id": "REP003", "name": "王五", "territory": "华东区", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4 }, "email": "wangwu@company.com" },
+    "REP004": { "id": "REP004", "name": "赵六", "territory": "华北区", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4 }, "email": "zhaoliu@company.com" },
+    "REP005": { "id": "REP005", "name": "钱七", "territory": "华北区", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4 }, "email": "qianqi@company.com" }
+  },
+  "byPipeline": {
+    "prospecting": { "stage": "潜在客户开发", "value": 1200000, "count": 45, "probability": 0.2, "weightedValue": 240000 },
+    "qualification": { "stage": "资格审查", "value": 800000, "count": 28, "probability": 0.4, "weightedValue": 320000 },
+    "proposal": { "stage": "方案提案", "value": 600000, "count": 18, "probability": 0.6, "weightedValue": 360000 },
+    "negotiation": { "stage": "商务谈判", "value": 400000, "count": 12, "probability": 0.8, "weightedValue": 320000 },
+    "closed_won": { "stage": "签约成交", "value": 2850000, "count": 95, "probability": 1.0, "weightedValue": 2850000 }
+  }
+}
