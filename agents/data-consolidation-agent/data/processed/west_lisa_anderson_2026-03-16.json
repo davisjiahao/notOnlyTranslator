@@ -1,0 +1,16 @@
+{
+  "territory": "West",
+  "representative": "Lisa Anderson",
+  "repId": "rep-006",
+  "metrics": {
+    "mtd": 35000,
+    "ytd": 265000,
+    "yearEnd": 490000,
+    "quota": 550000,
+    "pipeline": 85000,
+    "deals": 9
+  },
+  "period": "2026-03",
+  "extractedAt": "2026-03-16T10:00:00Z",
+  "source": "sales_data_extraction_agent"
+}

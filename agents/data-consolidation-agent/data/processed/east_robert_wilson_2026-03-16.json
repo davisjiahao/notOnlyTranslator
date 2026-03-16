@@ -1,0 +1,16 @@
+{
+  "territory": "East",
+  "representative": "Robert Wilson",
+  "repId": "rep-005",
+  "metrics": {
+    "mtd": 48000,
+    "ytd": 340000,
+    "yearEnd": 610000,
+    "quota": 580000,
+    "pipeline": 135000,
+    "deals": 14
+  },
+  "period": "2026-03",
+  "extractedAt": "2026-03-16T10:00:00Z",
+  "source": "sales_data_extraction_agent"
+}

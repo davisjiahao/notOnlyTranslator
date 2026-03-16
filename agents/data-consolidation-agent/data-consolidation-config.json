@@ -1,0 +1,27 @@
+{
+  "territories": ["North", "South", "East", "West"],
+  "metrics": ["mtd", "ytd", "yearEnd", "pipeline", "quota", "deals"],
+  "refreshIntervalMinutes": 60,
+  "outputFormat": "json",
+  "dashboards": ["territory", "rep", "pipeline", "executive"],
+  "aggregationRules": {
+    "mtd": "sum",
+    "ytd": "sum",
+    "yearEnd": "sum",
+    "pipeline": "sum",
+    "quota": "sum",
+    "deals": "sum"
+  },
+  "thresholds": {
+    "quotaAttainment": {
+      "excellent": 1.0,
+      "good": 0.8,
+      "warning": 0.6
+    },
+    "pipelineHealth": {
+      "strong": 3.0,
+      "adequate": 2.0,
+      "weak": 1.0
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "reportType": "executive-summary",
+  "generatedAt": "2026-03-15T22:38:12.608Z",
+  "period": "2026-03",
+  "kpis": {
+    "mtd": 260000,
+    "ytd": 1910000,
+    "yearEndProjection": 3410000,
+    "quota": 3430000,
+    "quotaAttainment": 0.5568513119533528,
+    "gapToQuota": 1520000,
+    "activeReps": 6,
+    "territories": 4
+  },
+  "health": {
+    "overall": "critical",
+    "pipeline": "weak"
+  },
+  "highlights": {
+    "topPerformer": "Sarah Johnson",
+    "topTerritory": "North",
+    "attentionNeeded": 5
+  }
+}

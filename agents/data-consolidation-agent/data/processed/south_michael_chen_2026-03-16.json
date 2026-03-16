@@ -1,0 +1,16 @@
+{
+  "territory": "South",
+  "representative": "Michael Chen",
+  "repId": "rep-003",
+  "metrics": {
+    "mtd": 38000,
+    "ytd": 290000,
+    "yearEnd": 520000,
+    "quota": 550000,
+    "pipeline": 95000,
+    "deals": 10
+  },
+  "period": "2026-03",
+  "extractedAt": "2026-03-16T10:00:00Z",
+  "source": "sales_data_extraction_agent"
+}

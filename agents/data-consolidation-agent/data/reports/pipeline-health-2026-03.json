@@ -1,0 +1,34 @@
+{
+  "reportType": "pipeline-health",
+  "generatedAt": "2026-03-15T22:38:12.610Z",
+  "period": "2026-03",
+  "totalPipeline": 695000,
+  "totalQuota": 3430000,
+  "totalYTD": 1910000,
+  "remainingQuota": 1520000,
+  "pipelineCoverage": 0.45723684210526316,
+  "avgDealSize": 26901.408450704224,
+  "avgPipelinePerRep": 115833.33333333333,
+  "byTerritory": [
+    {
+      "territory": "East",
+      "pipeline": 135000,
+      "coverage": 0.5625
+    },
+    {
+      "territory": "North",
+      "pipeline": 270000,
+      "coverage": 0.5454545454545454
+    },
+    {
+      "territory": "South",
+      "pipeline": 205000,
+      "coverage": 0.41
+    },
+    {
+      "territory": "West",
+      "pipeline": 85000,
+      "coverage": 0.2982456140350877
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "reportType": "territory-summary",
+  "generatedAt": "2026-03-15T22:38:12.610Z",
+  "period": "2026-03",
+  "territories": [
+    {
+      "id": "north",
+      "name": "North",
+      "mtdTotal": 97000,
+      "ytdTotal": 705000,
+      "yearEndTotal": 1230000,
+      "quotaTotal": 1200000,
+      "pipelineTotal": 270000,
+      "dealsTotal": 27,
+      "reps": 2,
+      "repData": [
+        {
+          "territory": "North",
+          "representative": "John Smith",
+          "repId": "rep-001",
+          "metrics": {
+            "mtd": 45000,
+            "ytd": 320000,
+            "yearEnd": 580000,
+            "quota": 600000,
+            "pipeline": 120000,
+            "deals": 12
+          },
+          "period": "2026-03",
+          "extractedAt": "2026-03-16T10:00:00Z",
+          "source": "sales_data_extraction_agent"
+        },
+        {
+          "territory": "North",
+          "representative": "Sarah Johnson",
+          "repId": "rep-002",
+          "metrics": {
+            "mtd": 52000,
+            "ytd": 385000,
+            "yearEnd": 650000,
+            "quota": 600000,
+            "pipeline": 150000,
+            "deals": 15
+          },
+          "period": "2026-03",
+          "extractedAt": "2026-03-16T10:00:00Z",
+          "source": "sales_data_extraction_agent"
+        }
+      ],
+      "quotaAttainment": 0.5875,
+      "pipelineCoverage": 0.5454545454545454,
+      "avgDealSize": 26111.11111111111
+    },
+    {
+      "id": "south",
+      "name": "South",
+      "mtdTotal": 80000,
+      "ytdTotal": 600000,
+      "yearEndTotal": 1080000,
+      "quotaTotal": 1100000,
+      "pipelineTotal": 205000,
+      "dealsTotal": 21,
+      "reps": 2,
+      "repData": [
+        {
+          "territory": "South",
+          "representative": "Emily Davis",
+          "repId": "rep-004",
+          "metrics": {
+            "mtd": 42000,
+            "ytd": 310000,
+            "yearEnd": 560000,
+            "quota": 550000,
+            "pipeline": 110000,
+            "deals": 11
+          },
+          "period": "2026-03",
+          "extractedAt": "2026-03-16T10:00:00Z",
+          "source": "sales_data_extraction_agent"
+        },
+        {
+          "territory": "South",
+          "representative": "Michael Chen",
+          "repId": "rep-003",
+          "metrics": {
+            "mtd": 38000,
+            "ytd": 290000,
+            "yearEnd": 520000,
+            "quota": 550000,
+            "pipeline": 95000,
+            "deals": 10
+          },
+          "period": "2026-03",
+          "extractedAt": "2026-03-16T10:00:00Z",
+          "source": "sales_data_extraction_agent"
+        }
+      ],
+      "quotaAttainment": 0.5454545454545454,
+      "pipelineCoverage": 0.41,
+      "avgDealSize": 28571.428571428572
+    },
+    {
+      "id": "east",
+      "name": "East",
+      "mtdTotal": 48000,
+      "ytdTotal": 340000,
+      "yearEndTotal": 610000,
+      "quotaTotal": 580000,
+      "pipelineTotal": 135000,
+      "dealsTotal": 14,
+      "reps": 1,
+      "repData": [
+        {
+          "territory": "East",
+          "representative": "Robert Wilson",
+          "repId": "rep-005",
+          "metrics": {
+            "mtd": 48000,
+            "ytd": 340000,
+            "yearEnd": 610000,
+            "quota": 580000,
+            "pipeline": 135000,
+            "deals": 14
+          },
+          "period": "2026-03",
+          "extractedAt": "2026-03-16T10:00:00Z",
+          "source": "sales_data_extraction_agent"
+        }
+      ],
+      "quotaAttainment": 0.5862068965517241,
+      "pipelineCoverage": 0.5625,
+      "avgDealSize": 24285.714285714286
+    },
+    {
+      "id": "west",
+      "name": "West",
+      "mtdTotal": 35000,
+      "ytdTotal": 265000,
+      "yearEndTotal": 490000,
+      "quotaTotal": 550000,
+      "pipelineTotal": 85000,
+      "dealsTotal": 9,
+      "reps": 1,
+      "repData": [
+        {
+          "territory": "West",
+          "representative": "Lisa Anderson",
+          "repId": "rep-006",
+          "metrics": {
+            "mtd": 35000,
+            "ytd": 265000,
+            "yearEnd": 490000,
+            "quota": 550000,
+            "pipeline": 85000,
+            "deals": 9
+          },
+          "period": "2026-03",
+          "extractedAt": "2026-03-16T10:00:00Z",
+          "source": "sales_data_extraction_agent"
+        }
+      ],
+      "quotaAttainment": 0.4818181818181818,
+      "pipelineCoverage": 0.2982456140350877,
+      "avgDealSize": 29444.444444444445
+    }
+  ]
+}

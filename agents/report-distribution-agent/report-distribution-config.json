@@ -1,0 +1,33 @@
+{
+  "territories": [
+    { "id": "north", "representatives": ["rep.north@notonlytranslator.com"] },
+    { "id": "south", "representatives": ["rep.south@notonlytranslator.com"] },
+    { "id": "east", "representatives": ["rep.east@notonlytranslator.com"] },
+    { "id": "west", "representatives": ["rep.west@notonlytranslator.com"] }
+  ],
+  "channels": {
+    "email": {
+      "enabled": true,
+      "smtp": "smtp.notonlytranslator.com",
+      "port": 587,
+      "from": "reports@notonlytranslator.com"
+    },
+    "slack": {
+      "enabled": false,
+      "webhook": null
+    }
+  },
+  "retryAttempts": 3,
+  "retryDelayMs": 5000,
+  "reportSources": [
+    "agents/data-consolidation-agent/data/reports/territory-summary-2026-03.json",
+    "agents/data-consolidation-agent/data/reports/rep-performance-2026-03.json",
+    "agents/data-consolidation-agent/data/reports/pipeline-health-2026-03.json",
+    "agents/data-consolidation-agent/data/reports/executive-summary-2026-03.json"
+  ],
+  "distributionSchedule": {
+    "enabled": true,
+    "cron": "0 9 * * 1",
+    "timezone": "Asia/Shanghai"
+  }
+}

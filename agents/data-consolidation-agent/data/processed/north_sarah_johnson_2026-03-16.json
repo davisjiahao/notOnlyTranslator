@@ -1,0 +1,16 @@
+{
+  "territory": "North",
+  "representative": "Sarah Johnson",
+  "repId": "rep-002",
+  "metrics": {
+    "mtd": 52000,
+    "ytd": 385000,
+    "yearEnd": 650000,
+    "quota": 600000,
+    "pipeline": 150000,
+    "deals": 15
+  },
+  "period": "2026-03",
+  "extractedAt": "2026-03-16T10:00:00Z",
+  "source": "sales_data_extraction_agent"
+}

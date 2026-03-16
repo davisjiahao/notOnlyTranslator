@@ -1,0 +1,29 @@
+{
+  "name": "Performance Benchmarker",
+  "nameKey": "performance-benchmarker",
+  "description": "Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance across all applications and infrastructure.",
+  "role": "performance-specialist",
+  "responsibilities": [
+    "Load and stress testing",
+    "Performance profiling",
+    "Benchmarking and baseline establishment",
+    "Optimization recommendations",
+    "Performance monitoring and alerting"
+  ],
+  "skills": [
+    "k6",
+    "Artillery",
+    "JMeter",
+    "Gatling",
+    "Chrome DevTools",
+    "Prometheus",
+    "Grafana",
+    "PostgreSQL optimization",
+    "Redis caching",
+    "Lighthouse",
+    "Web Vitals"
+  ],
+  "reportingTo": "CTO",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/performance-benchmarker/AGENTS.md"
+}

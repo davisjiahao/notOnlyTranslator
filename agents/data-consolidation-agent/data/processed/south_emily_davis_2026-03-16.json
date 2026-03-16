@@ -1,0 +1,16 @@
+{
+  "territory": "South",
+  "representative": "Emily Davis",
+  "repId": "rep-004",
+  "metrics": {
+    "mtd": 42000,
+    "ytd": 310000,
+    "yearEnd": 560000,
+    "quota": 550000,
+    "pipeline": 110000,
+    "deals": 11
+  },
+  "period": "2026-03",
+  "extractedAt": "2026-03-16T10:00:00Z",
+  "source": "sales_data_extraction_agent"
+}

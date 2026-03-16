@@ -1,0 +1,16 @@
+{
+  "territory": "North",
+  "representative": "John Smith",
+  "repId": "rep-001",
+  "metrics": {
+    "mtd": 45000,
+    "ytd": 320000,
+    "yearEnd": 580000,
+    "quota": 600000,
+    "pipeline": 120000,
+    "deals": 12
+  },
+  "period": "2026-03",
+  "extractedAt": "2026-03-16T10:00:00Z",
+  "source": "sales_data_extraction_agent"
+}
