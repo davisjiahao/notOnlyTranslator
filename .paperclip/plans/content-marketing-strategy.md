@@ -340,6 +340,7 @@
 
 - [增长策略总览](./growth-plan.md)
 - [跨渠道营销协调](./cross-channel-coordination.md)
+- [播客营销策略](./podcast-marketing-strategy.md)
 - [微博营销计划](./weibo-marketing-plan.md)
 - [小红书营销计划](./xiaohongshu-marketing-plan.md)
 - [LinkedIn 内容策略](./linkedin-content-strategy.md)

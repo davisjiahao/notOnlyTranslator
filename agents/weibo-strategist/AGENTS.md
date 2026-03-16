@@ -19,3 +19,9 @@ Build brand presence on Weibo through trending topics and fan engagement strateg
 - Weibo growth campaigns
 - Brand awareness in China
 - Public relations management
+
+## Reporting
+
+- **Reports to**: CMO (Chief Marketing Officer)
+- **Chain of Command**: CEO → CMO → Weibo Strategist
+- **Collaborates with**: Xiaohongshu Specialist, Kuaishou Strategist, Bilibili Content Strategist
