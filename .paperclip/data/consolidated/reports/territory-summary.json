@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "generatedBy": "data-consolidation-agent",
+    "generatedAt": "2026-03-16T12:00:00Z",
+    "reportType": "territory-summary",
+    "period": {
+      "mtd": "2026-03-01 to 2026-03-16",
+      "ytd": "2026-01-01 to 2026-03-16"
+    }
+  },
+  "summary": {
+    "totalTerritories": 5,
+    "totalReps": 10,
+    "mtd": {
+      "totalRevenue": 2850000,
+      "totalTarget": 3000000,
+      "achievementRate": 95.0
+    },
+    "ytd": {
+      "totalRevenue": 8500000,
+      "totalTarget": 9000000,
+      "achievementRate": 94.4
+    }
+  },
+  "territories": [
+    {
+      "rank": 1,
+      "name": "华东区",
+      "mtd": { "revenue": 950000, "target": 1000000, "achievementRate": 95.0, "variance": -50000, "contribution": 33.3 },
+      "ytd": { "revenue": 2800000, "target": 3000000, "achievementRate": 93.3, "variance": -200000, "contribution": 32.9 },
+      "reps": ["REP001", "REP002", "REP003"],
+      "repCount": 3,
+      "status": "healthy"
+    },
+    {
+      "rank": 2,
+      "name": "华南区",
+      "mtd": { "revenue": 760000, "target": 800000, "achievementRate": 95.0, "variance": -40000, "contribution": 26.7 },
+      "ytd": { "revenue": 2300000, "target": 2400000, "achievementRate": 95.8, "variance": -100000, "contribution": 27.1 },
+      "reps": ["REP006", "REP007", "REP008"],
+      "repCount": 3,
+      "status": "healthy"
+    },
+    {
+      "rank": 3,
+      "name": "华北区",
+      "mtd": { "revenue": 570000, "target": 600000, "achievementRate": 95.0, "variance": -30000, "contribution": 20.0 },
+      "ytd": { "revenue": 1700000, "target": 1800000, "achievementRate": 94.4, "variance": -100000, "contribution": 20.0 },
+      "reps": ["REP004", "REP005"],
+      "repCount": 2,
+      "status": "healthy"
+    },
+    {
+      "rank": 4,
+      "name": "西南区",
+      "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0, "variance": -15000, "contribution": 10.0 },
+      "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4, "variance": -50000, "contribution": 10.0 },
+      "reps": ["REP009"],
+      "repCount": 1,
+      "status": "healthy"
+    },
+    {
+      "rank": 5,
+      "name": "西北区",
+      "mtd": { "revenue": 95000, "target": 100000, "achievementRate": 95.0, "variance": -5000, "contribution": 3.3 },
+      "ytd": { "revenue": 280000, "target": 300000, "achievementRate": 93.3, "variance": -20000, "contribution": 3.3 },
+      "reps": ["REP010"],
+      "repCount": 1,
+      "status": "healthy"
+    }
+  ],
+  "insights": [
+    {
+      "type": "performance",
+      "message": "华东区贡献最大，占总体收入的33.3%",
+      "severity": "info",
+      "recommendation": "继续加大对华东区的资源投入"
+    },
+    {
+      "type": "performance",
+      "message": "华南区YTD达成率最高(95.8%)",
+      "severity": "info",
+      "recommendation": "华南区表现优秀，可作为其他区域学习的标杆"
+    },
+    {
+      "type": "attention",
+      "message": "华东区YTD达成率最低(93.3%)",
+      "severity": "warning",
+      "recommendation": "需要重点关注华东区REP001的业绩表现(91.7%)"
+    }
+  ]
+}

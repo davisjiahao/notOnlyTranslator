@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "generatedBy": "data-consolidation-agent",
+    "generatedAt": "2026-03-16T12:00:00Z",
+    "reportType": "pipeline-summary",
+    "period": {
+      "mtd": "2026-03-01 to 2026-03-16",
+      "ytd": "2026-01-01 to 2026-03-16"
+    }
+  },
+  "summary": {
+    "totalPipelineValue": 3000000,
+    "totalWeightedValue": 1240000,
+    "totalOpportunities": 103,
+    "avgWinProbability": 0.41,
+    "avgDealSize": 29126,
+    "conversionRate": 0.62
+  },
+  "stages": [
+    {
+      "key": "prospecting",
+      "stage": "潜在客户开发",
+      "value": 1200000,
+      "count": 45,
+      "probability": 0.2,
+      "weightedValue": 240000,
+      "avgDealSize": 26667,
+      "daysInStage": 15,
+      "conversionRate": 0.65,
+      "status": "healthy",
+      "insights": "Pipeline入口健康，新机会充足"
+    },
+    {
+      "key": "qualification",
+      "stage": "资格审查",
+      "value": 800000,
+      "count": 28,
+      "probability": 0.4,
+      "weightedValue": 320000,
+      "avgDealSize": 28571,
+      "daysInStage": 12,
+      "conversionRate": 0.70,
+      "status": "healthy",
+      "insights": "资格审查通过率良好"
+    },
+    {
+      "key": "proposal",
+      "stage": "方案提案",
+      "value": 600000,
+      "count": 18,
+      "probability": 0.6,
+      "weightedValue": 360000,
+      "avgDealSize": 33333,
+      "daysInStage": 10,
+      "conversionRate": 0.75,
+      "status": "attention",
+      "insights": "方案阶段平均停留时间较长，需加快决策流程"
+    },
+    {
+      "key": "negotiation",
+      "stage": "商务谈判",
+      "value": 400000,
+      "count": 12,
+      "probability": 0.8,
+      "weightedValue": 320000,
+      "avgDealSize": 33333,
+      "daysInStage": 8,
+      "conversionRate": 0.85,
+      "status": "healthy",
+      "insights": "谈判阶段转化率高，预计近期可签约"
+    },
+    {
+      "key": "closed_won",
+      "stage": "签约成交",
+      "value": 2850000,
+      "count": 95,
+      "probability": 1.0,
+      "weightedValue": 2850000,
+      "avgDealSize": 30000,
+      "daysInStage": 0,
+      "conversionRate": 1.0,
+      "status": "healthy",
+      "insights": "YTD已完成95单，平均客单价3万"
+    }
+  ],
+  "funnelMetrics": {
+    "winRate": 0.48,
+    "avgSalesCycle": 55,
+    "pipelineVelocity": 54545,
+    "expectedRevenue": 1240000
+  },
+  "insights": [
+    {
+      "type": "pipeline",
+      "message": "Pipeline总价值300万，加权价值124万，覆盖YTD目标13.8%",
+      "severity": "info",
+      "recommendation": "Pipeline充足，建议重点推进商务谈判阶段的机会"
+    },
+    {
+      "type": "conversion",
+      "message": "商务谈判阶段转化率85%，预计近期可签约",
+      "severity": "info",
+      "recommendation": "谈判阶段机会质量高，应加快签约节奏"
+    },
+    {
+      "type": "attention",
+      "message": "方案提案阶段平均停留时间较长(10天)",
+      "severity": "warning",
+      "recommendation": "需要优化方案审批流程，加快决策速度"
+    }
+  ],
+  "forecast": {
+    "bestCase": 3500000,
+    "mostLikely": 2800000,
+    "worstCase": 2200000,
+    "confidence": 0.75
+  }
+}

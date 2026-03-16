@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "generatedBy": "data-consolidation-agent",
+    "generatedAt": "2026-03-16T12:00:00Z",
+    "reportType": "rep-summary",
+    "period": {
+      "mtd": "2026-03-01 to 2026-03-16",
+      "ytd": "2026-01-01 to 2026-03-16"
+    }
+  },
+  "summary": {
+    "totalReps": 10,
+    "mtd": {
+      "totalRevenue": 2850000,
+      "averageRevenue": 285000,
+      "achievementRate": 95.0
+    },
+    "ytd": {
+      "totalRevenue": 8500000,
+      "averageRevenue": 850000,
+      "achievementRate": 94.4
+    }
+  },
+  "topPerformers": {
+    "mtd": [
+      { "rank": 1, "id": "REP001", "name": "张三", "territory": "华东区", "revenue": 380000, "achievementRate": 95.0 },
+      { "rank": 2, "id": "REP002", "name": "李四", "territory": "华东区", "revenue": 285000, "achievementRate": 95.0 },
+      { "rank": 3, "id": "REP003", "name": "王五", "territory": "华东区", "revenue": 285000, "achievementRate": 95.0 }
+    ],
+    "ytd": [
+      { "rank": 1, "id": "REP001", "name": "张三", "territory": "华东区", "revenue": 1100000, "achievementRate": 91.7 },
+      { "rank": 2, "id": "REP006", "name": "孙八", "territory": "华南区", "revenue": 850000, "achievementRate": 94.4 },
+      { "rank": 3, "id": "REP007", "name": "周九", "territory": "华南区", "revenue": 850000, "achievementRate": 94.4 }
+    ]
+  },
+  "allReps": [
+    { "id": "REP001", "name": "张三", "territory": "华东区", "email": "zhangsan@company.com", "mtd": { "revenue": 380000, "target": 400000, "achievementRate": 95.0, "variance": -20000 }, "ytd": { "revenue": 1100000, "target": 1200000, "achievementRate": 91.7, "variance": -100000 }, "status": "healthy" },
+    { "id": "REP002", "name": "李四", "territory": "华东区", "email": "lisi@company.com", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0, "variance": -15000 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4, "variance": -50000 }, "status": "healthy" },
+    { "id": "REP003", "name": "王五", "territory": "华东区", "email": "wangwu@company.com", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0, "variance": -15000 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4, "variance": -50000 }, "status": "healthy" },
+    { "id": "REP004", "name": "赵六", "territory": "华北区", "email": "zhaoliu@company.com", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0, "variance": -15000 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4, "variance": -50000 }, "status": "healthy" },
+    { "id": "REP005", "name": "钱七", "territory": "华北区", "email": "qianqi@company.com", "mtd": { "revenue": 285000, "target": 300000, "achievementRate": 95.0, "variance": -15000 }, "ytd": { "revenue": 850000, "target": 900000, "achievementRate": 94.4, "variance": -50000 }, "status": "healthy" }
+  ],
+  "insights": [
+    {
+      "type": "performance",
+      "message": "REP001(张三) MTD业绩第一，但YTD达成率最低(91.7%)",
+      "severity": "warning",
+      "recommendation": "需要关注REP001的长期表现，可能需要业绩辅导"
+    },
+    {
+      "type": "consistency",
+      "message": "所有销售代表MTD达成率均为95.0%，表现非常一致",
+      "severity": "info",
+      "recommendation": "团队整体表现均衡，可推广最佳实践"
+    }
+  ]
+}
