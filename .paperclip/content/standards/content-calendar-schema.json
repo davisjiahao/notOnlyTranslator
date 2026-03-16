@@ -1,0 +1,293 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NotOnlyTranslator Content Calendar Schema",
+  "description": "Standardized content calendar data structure for NotOnlyTranslator marketing content",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["metadata", "contentItems"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["brand", "lastUpdated", "version"],
+      "properties": {
+        "brand": {
+          "type": "object",
+          "required": ["name", "tagline", "voice", "targetAudience"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "NotOnlyTranslator"
+            },
+            "tagline": {
+              "type": "string",
+              "const": "智能分级翻译，让英语学习更自然"
+            },
+            "voice": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["专业", "友好", "简洁", "实用"]
+              },
+              "default": ["专业", "友好", "简洁"]
+            },
+            "targetAudience": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "英语学习者",
+                  "留学生",
+                  "程序员",
+                  "科技爱好者",
+                  "专业译者"
+                ]
+              },
+              "default": ["英语学习者", "程序员", "科技爱好者"]
+            }
+          }
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "maintainer": {
+          "type": "string",
+          "description": "负责维护内容日历的人员"
+        }
+      }
+    },
+    "contentItems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ContentItem"
+      }
+    }
+  },
+  "definitions": {
+    "ContentItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "contentType",
+        "status",
+        "author",
+        "channels",
+        "targetAudience",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CONTENT-[0-9]{4}-[0-9]{4}$",
+          "description": "唯一标识符，格式: CONTENT-YYYY-NNNN"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "内容标题"
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "URL友好的标识符"
+        },
+        "contentType": {
+          "type": "string",
+          "enum": [
+            "blog",
+            "tutorial",
+            "video",
+            "social",
+            "newsletter",
+            "documentation",
+            "comparison",
+            "case-study"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "in-review",
+            "approved",
+            "scheduled",
+            "published",
+            "archived"
+          ]
+        },
+        "author": {
+          "type": "object",
+          "required": ["name", "role"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "作者姓名"
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "cmo",
+                "content-writer",
+                "technical-writer",
+                "seo-specialist",
+                "guest-contributor"
+              ]
+            },
+            "avatar": {
+              "type": "string",
+              "format": "uri",
+              "description": "作者头像URL"
+            }
+          }
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "blog",
+              "zhihu",
+              "xiaohongshu",
+              "bilibili",
+              "wechat-oa",
+              "weibo",
+              "github",
+              "twitter",
+              "linkedin",
+              "youtube"
+            ]
+          },
+          "minItems": 1
+        },
+        "targetAudience": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "英语学习者",
+              "留学生",
+              "程序员",
+              "科技爱好者",
+              "专业译者",
+              "内容创作者",
+              "教育者"
+            ]
+          },
+          "minItems": 1
+        },
+        "publishSchedule": {
+          "type": "object",
+          "properties": {
+            "plannedDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "actualDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "time": {
+              "type": "string",
+              "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+            }
+          }
+        },
+        "seo": {
+          "type": "object",
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "canonicalUrl": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "assets": {
+          "type": "object",
+          "properties": {
+            "coverImage": {
+              "type": "string",
+              "format": "uri"
+            },
+            "thumbnail": {
+              "type": "string",
+              "format": "uri"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "analytics": {
+          "type": "object",
+          "properties": {
+            "views": {
+              "type": "number",
+              "default": 0
+            },
+            "shares": {
+              "type": "number",
+              "default": 0
+            },
+            "engagementRate": {
+              "type": "number"
+            },
+            "avgReadTime": {
+              "type": "number"
+            }
+          }
+        },
+        "relatedContent": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CONTENT-[0-9]{4}-[0-9]{4}$"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "内部备注"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

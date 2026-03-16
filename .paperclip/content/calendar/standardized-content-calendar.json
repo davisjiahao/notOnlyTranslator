@@ -1,0 +1,137 @@
+{
+  "metadata": {
+    "brand": {
+      "name": "NotOnlyTranslator",
+      "tagline": "智能分级翻译，让英语学习更自然",
+      "voice": ["专业", "友好", "简洁"],
+      "targetAudience": ["英语学习者", "程序员", "科技爱好者"]
+    },
+    "lastUpdated": "2026-03-18T09:30:00Z",
+    "version": "1.0.0",
+    "maintainer": "CTO"
+  },
+  "contentItems": [
+    {
+      "id": "CONTENT-2026-0001",
+      "title": "NotOnlyTranslator vs Immersive Translate: 智能分级翻译的优势对比",
+      "slug": "notonlytranslator-vs-immersive-translate",
+      "contentType": "comparison",
+      "status": "published",
+      "author": {
+        "name": "NotOnlyTranslator团队",
+        "role": "cmo"
+      },
+      "channels": ["blog", "zhihu", "wechat-oa"],
+      "targetAudience": ["英语学习者", "程序员", "科技爱好者"],
+      "publishSchedule": {
+        "plannedDate": "2026-03-17",
+        "actualDate": "2026-03-17",
+        "time": "09:00"
+      },
+      "seo": {
+        "keywords": ["NotOnlyTranslator", "Immersive Translate", "智能翻译", "分级翻译", "英语学习"],
+        "description": "深入对比NotOnlyTranslator和Immersive Translate，了解智能分级翻译如何帮助英语学习者更自然地阅读。",
+        "canonicalUrl": "https://notonlytranslator.com/blog/notonlytranslator-vs-immersive-translate"
+      },
+      "relatedContent": ["CONTENT-2026-0002", "CONTENT-2026-0003"],
+      "createdAt": "2026-03-15T10:00:00Z",
+      "updatedAt": "2026-03-17T09:00:00Z"
+    },
+    {
+      "id": "CONTENT-2026-0002",
+      "title": "如何只翻译不认识的单词？告别全文翻译的时代",
+      "slug": "only-translate-unknown-words",
+      "contentType": "tutorial",
+      "status": "draft",
+      "author": {
+        "name": "NotOnlyTranslator团队",
+        "role": "cmo"
+      },
+      "channels": ["blog", "xiaohongshu", "bilibili"],
+      "targetAudience": ["英语学习者", "内容创作者"],
+      "publishSchedule": {
+        "plannedDate": "2026-03-20",
+        "time": "10:00"
+      },
+      "seo": {
+        "keywords": ["只翻译生词", "智能翻译", "英语学习技巧", "NotOnlyTranslator"],
+        "description": "学习如何使用NotOnlyTranslator只翻译你不认识的单词，保持英语阅读的流畅性。"
+      },
+      "relatedContent": ["CONTENT-2026-0001"],
+      "createdAt": "2026-03-16T14:00:00Z",
+      "updatedAt": "2026-03-16T14:00:00Z"
+    },
+    {
+      "id": "CONTENT-2026-0003",
+      "title": "程序员必备：如何用NotOnlyTranslator高效阅读英文技术文档",
+      "slug": "programmer-guide-notonlytranslator",
+      "contentType": "tutorial",
+      "status": "scheduled",
+      "author": {
+        "name": "NotOnlyTranslator团队",
+        "role": "cmo"
+      },
+      "channels": ["blog", "zhihu", "github"],
+      "targetAudience": ["程序员", "科技爱好者"],
+      "publishSchedule": {
+        "plannedDate": "2026-03-22",
+        "time": "14:00"
+      },
+      "seo": {
+        "keywords": ["程序员", "技术文档", "英文阅读", "NotOnlyTranslator", "开发者工具"],
+        "description": "专为程序员打造的NotOnlyTranslator使用指南，提高英文技术文档阅读效率。"
+      },
+      "relatedContent": ["CONTENT-2026-0001", "CONTENT-2026-0002"],
+      "createdAt": "2026-03-14T09:00:00Z",
+      "updatedAt": "2026-03-17T16:00:00Z"
+    },
+    {
+      "id": "CONTENT-2026-0004",
+      "title": "NotOnlyTranslator v1.2.0 发布：全新闪卡复习功能",
+      "slug": "v1-2-0-flashcard-release",
+      "contentType": "newsletter",
+      "status": "scheduled",
+      "author": {
+        "name": "NotOnlyTranslator团队",
+        "role": "cmo"
+      },
+      "channels": ["blog", "wechat-oa", "twitter"],
+      "targetAudience": ["英语学习者", "现有用户"],
+      "publishSchedule": {
+        "plannedDate": "2026-03-25",
+        "time": "10:00"
+      },
+      "seo": {
+        "keywords": ["NotOnlyTranslator", "v1.2.0", "闪卡", "单词复习", "新功能"],
+        "description": "NotOnlyTranslator v1.2.0 正式发布，带来全新的闪卡式单词复习功能！"
+      },
+      "relatedContent": [],
+      "createdAt": "2026-03-18T08:00:00Z",
+      "updatedAt": "2026-03-18T08:00:00Z"
+    },
+    {
+      "id": "CONTENT-2026-0005",
+      "title": "为什么分级翻译比全文翻译更适合英语学习？",
+      "slug": "graded-vs-full-translation",
+      "contentType": "blog",
+      "status": "draft",
+      "author": {
+        "name": "NotOnlyTranslator团队",
+        "role": "cmo"
+      },
+      "channels": ["blog", "zhihu", "xiaohongshu"],
+      "targetAudience": ["英语学习者", "教育者"],
+      "publishSchedule": {
+        "plannedDate": "2026-03-28",
+        "time": "09:00"
+      },
+      "seo": {
+        "keywords": ["分级翻译", "全文翻译", "英语学习", "语言习得", "NotOnlyTranslator"],
+        "description": "深入分析分级翻译和全文翻译对英语学习效果的影响，科学解析最佳学习策略。"
+      },
+      "relatedContent": ["CONTENT-2026-0001", "CONTENT-2026-0002"],
+      "createdAt": "2026-03-17T11:00:00Z",
+      "updatedAt": "2026-03-17T11:00:00Z"
+    }
+  ]
+}
