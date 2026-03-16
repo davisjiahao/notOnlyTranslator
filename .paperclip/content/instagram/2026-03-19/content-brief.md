@@ -68,7 +68,7 @@ Want to read like Sarah? Link in bio for early access 🚀
 
 ### 视觉设计
 - 背景: 清新的天蓝色渐变 (清晨感觉)
-- 元素: 单词卡片 + 装饰图标
+- 元素: 单词卡片设计
 - 今日单词: **Epiphany** /ɪˈpɪf.ə.ni/
 
 ### 文案
@@ -81,9 +81,9 @@ EPIPHANY
 (n.) A moment of sudden
 revelation or insight
 
-"Learning English became
-easier when I had my
-epiphany about context ✨"
+"Learning a language requires
+resilience — every mistake
+is a step forward 💪"
 
 Save this word 📌
 ```
@@ -135,7 +135,7 @@ of our code structure)
 
 ### 视觉设计
 - 背景: 温暖的紫色渐变 (晚间氛围)
-- 元素: 选择题卡片设计
+- 元素: Quiz 卡片设计
 - 动画: 轻微脉动效果吸引点击
 
 ### 文案
@@ -184,6 +184,6 @@ Tap your answer 👇
 
 ---
 
-**创建日期**: 2026-03-16
+**创建日期**: 2026-03-17
 **负责人**: Instagram Curator
 **状态**: 🟠 创作中
