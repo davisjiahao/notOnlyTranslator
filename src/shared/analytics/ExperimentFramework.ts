@@ -6,7 +6,6 @@
 import type {
   Experiment,
   ExperimentGroup,
-  UserExperimentAssignment,
   ExperimentStatus,
 } from './types'
 import { analytics } from './Analytics'

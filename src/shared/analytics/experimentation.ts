@@ -10,7 +10,6 @@ import type {
   ExperimentConfig,
   ExperimentGroup,
   ExperimentAssignment,
-  UserAnalyticsProfile,
 } from '../types/analytics';
 
 /** 存储键名 */

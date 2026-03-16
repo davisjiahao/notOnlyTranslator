@@ -4,11 +4,6 @@ import type {
   Experiment,
   ExperimentGroup,
   UserExperimentAssignment,
-  FunnelAnalysisRequest,
-  FunnelAnalysisResult,
-  RetentionAnalysisRequest,
-  DashboardConfig,
-  MetricCard,
 } from './types'
 import { AnalyticsEvents } from './types'
 

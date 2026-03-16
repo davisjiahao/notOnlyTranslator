@@ -8,14 +8,10 @@
 
 import type {
   UserAnalyticsProfile,
-  UserProfile,
-  ApiProvider,
-  ExperimentAssignment,
   TrackEvent,
 } from '../types/analytics';
 import { ANALYTICS_CONFIG } from '../types/analytics';
 import { getUserExperimentGroups } from './experimentation';
-import { enqueueEvent } from './eventQueue';
 import { generateId, getOrCreateSessionId } from './utils';
 
 /** 用户画像存储键名 */
