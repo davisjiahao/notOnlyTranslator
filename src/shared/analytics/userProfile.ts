@@ -12,7 +12,6 @@ import type {
 } from '../types/analytics';
 import { ANALYTICS_CONFIG } from '../types/analytics';
 import { getUserExperimentGroups } from './experimentation';
-import { generateId, getOrCreateSessionId } from './utils';
 
 /** 用户画像存储键名 */
 const USER_PROFILE_KEY = 'analytics_user_profile';
