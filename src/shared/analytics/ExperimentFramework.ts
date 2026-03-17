@@ -7,6 +7,8 @@ import type {
   Experiment,
   ExperimentGroup,
   ExperimentStatus,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  UserExperimentAssignment,
 } from './types'
 import { analytics } from './Analytics'
 import { AnalyticsEvents } from './types'
@@ -187,7 +189,7 @@ export class ExperimentFramework {
    * @param experimentId 实验ID
    * @returns 变体配置
    */
-  getVariantConfig(experimentId: string): Record<string, any> | null {
+  getVariantConfig(experimentId: string): Record<string, unknown> | null {
     const assignment = analytics.getExperimentGroup(experimentId)
     if (!assignment) {
       return null

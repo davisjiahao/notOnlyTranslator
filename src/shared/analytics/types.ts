@@ -8,7 +8,7 @@
 /** 事件追踪数据 */
 export interface TrackEvent {
   event: string
-  properties?: Record<string, any>
+  properties?: Record<string, unknown>
   timestamp: number
   userId?: string
   sessionId?: string
@@ -23,7 +23,7 @@ export interface UserTraits {
   apiProvider?: string
   experimentGroups?: Record<string, string>
   referrerId?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 // ========== A/B 测试类型 ==========
@@ -48,7 +48,7 @@ export interface ExperimentGroup {
   name: string
   weight: number
   variant: string
-  config?: Record<string, any>
+  config?: Record<string, unknown>
 }
 
 /** 用户实验分配 */
@@ -65,7 +65,7 @@ export interface UserExperimentAssignment {
 export interface FunnelStep {
   name: string
   event: string
-  filter?: Record<string, any>
+  filter?: Record<string, unknown>
 }
 
 /** 漏斗分析请求 */
