@@ -65,7 +65,16 @@
 - **预计工时**: 2 天
 - **优先级**: 🔴 高
 - **负责人**: CEO
-- **进度**: 100% - 已完成
+- **进度**: 100% - 已完成 ✅
+- **完成日期**: 2026-03-18
+- **交付物**:
+  - [x] 商店描述文案 (`docs/CHROME_STORE_LISTING.md`)
+  - [x] 隐私政策文档 (`docs/PRIVACY_POLICY.md`)
+  - [x] 图标资源（16/48/128px）(`public/icon-*.png`)
+  - [x] 截图准备指南 (`docs/SCREENSHOTS_CHECKLIST.md`)
+  - [x] 推广图片（440x280 SVG）(`docs/store-screenshots/promo-440x280.svg`)
+  - [x] 截图生成脚本（Playwright）(`scripts/capture-screenshots.mjs`)
+  - [x] 商店截图（5张 1280x800 PNG）(`docs/store-screenshots/*.png`)
 - **验收标准**:
   - [x] 商店描述文案
   - [x] 隐私政策文档
@@ -80,7 +89,12 @@
 - **预计工时**: 1 天
 - **优先级**: 🟢 低
 - **负责人**: CEO
-- **进度**: 100% - 已完成
+- **进度**: 100% - 已完成 ✅
+- **完成日期**: 2026-03-18
+- **交付物**:
+  - [x] 快速入门指南 (`docs/help/QUICK_START.md`)
+  - [x] 常见问题 FAQ (`docs/help/FAQ.md`, 20+ Q&A)
+  - [x] API Key 设置教程 (`docs/help/API_KEY_SETUP.md`)
 - **验收标准**:
   - [x] 快速入门指南
   - [x] 常见问题 FAQ
