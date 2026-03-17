@@ -193,6 +193,16 @@ export async function testConnection(
       return await testBaiduConnection(apiKey, secondaryKey!, model || config.recommendedModel);
     }
 
+    // DeepL 使用翻译 API 直接测试
+    if (provider === 'deepl') {
+      return await testDeepLConnection(apiKey);
+    }
+
+    // Google Translate 使用翻译 API 直接测试
+    if (provider === 'google_translate') {
+      return await testGoogleTranslateConnection(apiKey);
+    }
+
     // 其他供应商直接调用 chat API 测试
     return await testChatAPI(provider, apiKey, model || config.recommendedModel, customEndpoint);
   } catch (error) {
@@ -338,6 +348,72 @@ async function testBaiduConnection(
       success: false,
       error: (errorData as { error_msg?: string }).error_msg || `百度 API 请求失败 (${chatResponse.status})`,
     };
+  }
+
+  return { success: true };
+}
+
+/**
+ * 测试 DeepL 连接
+ * 使用简单的翻译请求测试 API Key 是否有效
+ */
+async function testDeepLConnection(apiKey: string): Promise<{ success: boolean; error?: string }> {
+  const config = getProviderConfig('deepl');
+  const endpoint = config.chatEndpoint;
+
+  const params = new URLSearchParams();
+  params.append('text', 'hello');
+  params.append('target_lang', 'ZH');
+  params.append('source_lang', 'EN');
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `DeepL-Auth-Key ${apiKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = (errorData as { message?: string }).message ||
+                        `DeepL API 请求失败 (${response.status})`;
+    return { success: false, error: errorMessage };
+  }
+
+  return { success: true };
+}
+
+/**
+ * 测试 Google Translate 连接
+ * 使用简单的翻译请求测试 API Key 是否有效
+ */
+async function testGoogleTranslateConnection(apiKey: string): Promise<{ success: boolean; error?: string }> {
+  const config = getProviderConfig('google_translate');
+  const endpoint = config.chatEndpoint;
+
+  const url = new URL(endpoint);
+  url.searchParams.append('key', apiKey);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      q: 'hello',
+      source: 'en',
+      target: 'zh',
+      format: 'text',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = (errorData as { error?: { message?: string } }).error?.message ||
+                        `Google Translate API 请求失败 (${response.status})`;
+    return { success: false, error: errorMessage };
   }
 
   return { success: true };
