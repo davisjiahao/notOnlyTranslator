@@ -10,6 +10,23 @@
 export { Analytics, analytics } from './Analytics';
 export { ExperimentFramework, experimentFramework } from './ExperimentFramework';
 
+// 页面访问追踪
+export {
+  startPageViewTracking,
+  stopPageViewTracking,
+  getCurrentPageView,
+  collectPagePerformanceData,
+  trackPagePerformance,
+  startSession,
+  endSession,
+  getCurrentSessionId,
+  getCurrentUrlInfo,
+  parseReferrer,
+  type PageViewData,
+  type PageViewSession,
+  type PagePerformanceData,
+} from './pageView';
+
 // 功能模块
 export {
   enqueueEvent,
@@ -46,16 +63,19 @@ export {
   createExperimentConfig,
 } from './experimentation';
 
-// 工具函数
+// 漏斗分析
 export {
-  generateId,
-  getOrCreateSessionId,
-  getOrCreateDeviceId,
-  deepClone,
-  getNestedValue,
-  debounce,
-  throttle,
-} from './utils';
+  trackConversion,
+  analyzeFunnel,
+  trackAcquisition,
+  trackActivation,
+  trackRetention,
+  trackReferral,
+  PredefinedFunnels,
+  type FunnelStage,
+  type ConversionEvent,
+  type FunnelConversionData,
+} from './funnel';
 
 // 类型定义
 export type {

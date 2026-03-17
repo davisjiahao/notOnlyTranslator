@@ -130,6 +130,12 @@ export interface DashboardConfig {
 
 /** 预定义事件名称 */
 export const AnalyticsEvents = {
+  // 页面访问
+  PAGE_VIEW: 'page_view',
+  PAGE_LEAVE: 'page_leave',
+  SESSION_START: 'session_start',
+  SESSION_END: 'session_end',
+
   // 获客阶段
   STORE_VIEW: 'store_view',
   STORE_CLICK: 'store_click',

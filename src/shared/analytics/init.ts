@@ -7,7 +7,8 @@
  * @module analytics/init
  */
 
-import { Analytics, analytics, AnalyticsEvents } from './Analytics';
+import { Analytics, analytics } from './Analytics';
+import { AnalyticsEvents } from './types';
 import { ExperimentFramework, experimentFramework } from './ExperimentFramework';
 import { initializeUserProfile, trackUserEvent } from './userProfile';
 import { initPeriodicFlush } from './eventQueue';
