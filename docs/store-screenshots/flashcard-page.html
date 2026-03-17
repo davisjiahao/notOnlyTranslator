@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NotOnlyTranslator - 闪卡复习</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f3f4f6;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+    }
+    .header {
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 24px;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .progress-bar {
+      background: #e5e7eb;
+      height: 8px;
+      border-radius: 4px;
+      margin-bottom: 30px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      height: 100%;
+      width: 65%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .flashcard {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 24px;
+      padding: 60px 40px;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+      margin-bottom: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+    .flashcard::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .word {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .phonetic {
+      font-size: 20px;
+      opacity: 0.9;
+      margin-bottom: 30px;
+      font-family: 'Times New Roman', serif;
+    }
+    .divider {
+      height: 2px;
+      background: rgba(255,255,255,0.3);
+      margin: 30px 0;
+    }
+    .translation {
+      font-size: 28px;
+      margin-bottom: 16px;
+    }
+    .definition {
+      font-size: 16px;
+      opacity: 0.9;
+      font-style: italic;
+    }
+    .hint {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .rating {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .rating-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px solid;
+      background: white;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .rating-btn:hover {
+      transform: scale(1.1);
+    }
+    .rating-btn:nth-child(1) { color: #ef4444; border-color: #ef4444; }
+    .rating-btn:nth-child(2) { color: #f97316; border-color: #f97316; }
+    .rating-btn:nth-child(3) { color: #eab308; border-color: #eab308; }
+    .rating-btn:nth-child(4) { color: #22c55e; border-color: #22c55e; }
+    .rating-btn:nth-child(5) { color: #10b981; border-color: #10b981; }
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-top: 30px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .stats span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 闪卡复习</h1>
+      <p>基于艾宾浩斯遗忘曲线的智能复习</p>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+
+    <div class="flashcard">
+      <div class="word">Serendipity</div>
+      <div class="phonetic">/ˌserənˈdɪpɪti/</div>
+      <div class="divider"></div>
+      <div class="translation">意外发现珍奇事物的能力</div>
+      <div class="definition">The occurrence of events by chance in a happy way</div>
+    </div>
+
+    <div class="hint">💡 点击卡片翻转 | 使用键盘 1-5 评分</div>
+
+    <div class="rating">
+      <button class="rating-btn">1</button>
+      <button class="rating-btn">2</button>
+      <button class="rating-btn">3</button>
+      <button class="rating-btn">4</button>
+      <button class="rating-btn">5</button>
+    </div>
+
+    <div class="stats">
+      <span>📚 剩余 12 张</span>
+      <span>✅ 已复习 23 张</span>
+      <span>🔥 连续 15 天</span>
+    </div>
+  </div>
+</body>
+</html>

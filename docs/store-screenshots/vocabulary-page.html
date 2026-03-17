@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NotOnlyTranslator - 词汇管理</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f3f4f6;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px 30px;
+    }
+    .header h1 {
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+    .tab {
+      padding: 16px 24px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .tab:hover {
+      color: #374151;
+    }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+      background: white;
+    }
+    .tab-count {
+      background: #e5e7eb;
+      color: #374151;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 6px;
+    }
+    .tab.active .tab-count {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .content {
+      padding: 24px 30px;
+    }
+    .search-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .search-input {
+      flex: 1;
+      padding: 10px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .filter-btn {
+      padding: 10px 16px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      color: #374151;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .word-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .word-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: #f9fafb;
+      border-radius: 10px;
+      border-left: 4px solid #10b981;
+      transition: all 0.2s;
+    }
+    .word-item:hover {
+      background: #f3f4f6;
+    }
+    .word-info {
+      flex: 1;
+    }
+    .word-en {
+      font-weight: 600;
+      font-size: 16px;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+    .word-cn {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .word-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-badge {
+      background: #d1fae5;
+      color: #065f46;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-badge.learning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .word-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn.review {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .action-btn.delete {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .export-btn {
+      padding: 10px 20px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      color: #374151;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .page-info {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .page-nav {
+      display: flex;
+      gap: 8px;
+    }
+    .page-btn {
+      padding: 8px 12px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      color: #374151;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .page-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📚 词汇管理</h1>
+      <p>管理您的个人词汇库</p>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">
+        已掌握
+        <span class="tab-count">247</span>
+      </div>
+      <div class="tab">
+        学习中
+        <span class="tab-count">89</span>
+      </div>
+      <div class="tab">
+        全部
+        <span class="tab-count">336</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="search-bar">
+        <input type="text" class="search-input" placeholder="🔍 搜索单词...">
+        <button class="filter-btn">⚙️ 筛选</button>
+      </div>
+
+      <div class="word-list">
+        <div class="word-item">
+          <div class="word-info">
+            <div class="word-en">Algorithm</div>
+            <div class="word-cn">算法；计算程序</div>
+          </div>
+          <div class="word-meta">
+            <span class="status-badge">已掌握</span>
+            <div class="word-actions">
+              <button class="action-btn review">复习</button>
+              <button class="action-btn delete">删除</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="word-item">
+          <div class="word-info">
+            <div class="word-en">Neural Network</div>
+            <div class="word-cn">神经网络</div>
+          </div>
+          <div class="word-meta">
+            <span class="status-badge">已掌握</span>
+            <div class="word-actions">
+              <button class="action-btn review">复习</button>
+              <button class="action-btn delete">删除</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="word-item">
+          <div class="word-info">
+            <div class="word-en">Machine Learning</div>
+            <div class="word-cn">机器学习</div>
+          </div>
+          <div class="word-meta">
+            <span class="status-badge">已掌握</span>
+            <div class="word-actions">
+              <button class="action-btn review">复习</button>
+              <button class="action-btn delete">删除</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="word-item">
+          <div class="word-info">
+            <div class="word-en">Deep Learning</div>
+            <div class="word-cn">深度学习</div>
+          </div>
+          <div class="word-meta">
+            <span class="status-badge">已掌握</span>
+            <div class="word-actions">
+              <button class="action-btn review">复习</button>
+              <button class="action-btn delete">删除</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="word-item">
+          <div class="word-info">
+            <div class="word-en">Natural Language Processing</div>
+            <div class="word-cn">自然语言处理</div>
+          </div>
+          <div class="word-meta">
+            <span class="status-badge">已掌握</span>
+            <div class="word-actions">
+              <button class="action-btn review">复习</button>
+              <button class="action-btn delete">删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pagination">
+        <button class="export-btn">📥 导出数据</button>
+        <div class="page-info">显示 1-5 共 247 个单词</div>
+        <div class="page-nav">
+          <button class="page-btn">←</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
