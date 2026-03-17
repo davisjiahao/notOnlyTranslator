@@ -239,7 +239,7 @@ export class Analytics {
    * @param experimentId 实验ID
    * @returns 分组信息
    */
-  getExperimentGroup(experimentId: string): UserExperimentAssignment | null {
+  getExperimentGroup(experimentId: string): { experimentId: string; groupId: string; variant: string; assignedAt: number } | null {
     return this.experimentAssignments.get(experimentId) || null
   }
 
