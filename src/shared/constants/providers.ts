@@ -188,6 +188,41 @@ export const PROVIDER_CONFIGS: Record<ApiProvider, ProviderConfig> = {
     apiKeyPlaceholder: '留空或任意值',
   },
 
+  // ========== 专业翻译服务 ==========
+  deepl: {
+    id: 'deepl',
+    name: 'DeepL',
+    description: '业界领先的机器翻译服务，质量出色',
+    region: 'international',
+    apiFormat: 'deepl',
+    defaultEndpoint: 'https://api-free.deepl.com',
+    chatEndpoint: 'https://api-free.deepl.com/v2/translate',
+    modelsSupported: false,
+    defaultModels: [
+      { id: 'deepl-free', name: 'DeepL Free', description: '免费版，每月50万字符', isRecommended: true },
+    ],
+    recommendedModel: 'deepl-free',
+    docUrl: 'https://www.deepl.com/pro-api',
+    apiKeyPlaceholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx',
+  },
+
+  google_translate: {
+    id: 'google_translate',
+    name: 'Google Translate',
+    description: 'Google Cloud Translation API，支持100+语言',
+    region: 'international',
+    apiFormat: 'google_translate',
+    defaultEndpoint: 'https://translation.googleapis.com',
+    chatEndpoint: 'https://translation.googleapis.com/language/translate/v2',
+    modelsSupported: false,
+    defaultModels: [
+      { id: 'google-translate', name: 'Google Translate', description: '标准翻译API', isRecommended: true },
+    ],
+    recommendedModel: 'google-translate',
+    docUrl: 'https://console.cloud.google.com/apis/library/translate.googleapis.com',
+    apiKeyPlaceholder: 'AIza...',
+  },
+
   // ========== 自定义供应商 ==========
   custom: {
     id: 'custom',
