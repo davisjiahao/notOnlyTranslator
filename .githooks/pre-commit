@@ -1,0 +1,33 @@
+#!/bin/bash
+# pre-commit hook - 在提交前自动更新状态文件
+
+set -e
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+STATUS_SCRIPT="${PROJECT_ROOT}/scripts/update-status.sh"
+
+# 检查脚本是否存在
+if [ ! -f "$STATUS_SCRIPT" ]; then
+    echo "[pre-commit] 警告: 状态更新脚本不存在"
+    exit 0
+fi
+
+# 执行状态更新
+echo "[pre-commit] 正在更新状态文件..."
+bash "$STATUS_SCRIPT"
+
+# 检查是否有新的状态文件需要提交
+STATUS_DAILY="${PROJECT_ROOT}/.paperclip/status/daily"
+TODAY=$(date +%Y-%m-%d)
+TODAY_FILE="${STATUS_DAILY}/${TODAY}.md"
+
+if [ -f "$TODAY_FILE" ]; then
+    # 检查文件是否已暂存
+    if ! git diff --cached --quiet -- "$TODAY_FILE" 2>/dev/null; then
+        echo "[pre-commit] 添加今日状态文件到提交..."
+        git add "$TODAY_FILE"
+    fi
+fi
+
+echo "[pre-commit] 状态更新完成！"
+exit 0
