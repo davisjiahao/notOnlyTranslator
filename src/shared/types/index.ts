@@ -212,7 +212,12 @@ export type MessageType =
   | 'SYNC_USER_VOCABULARY'
   | 'EXPORT_MASTERY_DATA'
   | 'IMPORT_MASTERY_DATA'
-  | 'GET_WORD_MASTERY_INFO';
+  | 'GET_WORD_MASTERY_INFO'
+  // 缓存统计消息类型
+  | 'GET_CACHE_STATS'
+  | 'GET_CACHE_METRICS'
+  | 'CLEAR_TRANSLATION_CACHE'
+  | 'RESET_CACHE_METRICS';
 
 export interface Message<T = unknown> {
   type: MessageType;

@@ -14,6 +14,7 @@ import { BatchTranslationService } from './batchTranslation';
 import { MasteryManager } from './mastery';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
+import { CacheMetrics } from './cacheMetrics';
 
 logger.info('NotOnlyTranslator: Background service worker started');
 
@@ -425,6 +426,47 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         return { success: true, data: stats };
       } catch (error) {
         logger.error('NotOnlyTranslator: 获取学习统计数据失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    // 缓存统计相关消息
+    case 'GET_CACHE_STATS': {
+      try {
+        const stats = await enhancedCache.getStats();
+        return { success: true, data: stats };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取缓存统计失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_CACHE_METRICS': {
+      try {
+        const report = CacheMetrics.getReport();
+        return { success: true, data: report };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取缓存指标失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'CLEAR_TRANSLATION_CACHE': {
+      try {
+        await enhancedCache.clearAll();
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 清空缓存失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'RESET_CACHE_METRICS': {
+      try {
+        await CacheMetrics.reset();
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 重置缓存指标失败', error);
         return { success: false, error: (error as Error).message };
       }
     }

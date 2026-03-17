@@ -7,6 +7,8 @@ import { logger, generateCacheKey } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { TranslationApiService } from './translationApi';
 import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts';
+import { enhancedCache } from './enhancedCache';
+import { CacheMetrics } from './cacheMetrics';
 
 /**
  * Translation Service - handles LLM API calls for translation
@@ -18,15 +20,27 @@ export class TranslationService {
    */
   static async translate(request: TranslationRequest): Promise<TranslationResult> {
     const { text, mode } = request;
+    const startTime = performance.now();
+
     logger.info('TranslationService.translate called:', { textLength: text?.length, mode });
 
-    // Check cache first
+    // 初始化缓存管理器
+    await enhancedCache.initialize();
+
+    // 生成缓存键
     const cacheKey = generateCacheKey(text, mode);
-    const cached = await StorageManager.getCachedTranslation(cacheKey);
+
+    // 检查增强缓存
+    const cached = await enhancedCache.get(cacheKey);
     if (cached) {
-      logger.info('TranslationService: Returning cached result');
+      const duration = performance.now() - startTime;
+      CacheMetrics.recordCacheHit(duration);
+      logger.info('TranslationService: Cache hit', { duration: `${duration.toFixed(2)}ms` });
       return cached;
     }
+
+    // 记录缓存未命中
+    CacheMetrics.recordCacheMiss();
 
     // Get settings for API config
     const settings = await StorageManager.getSettings();
@@ -49,16 +63,25 @@ export class TranslationService {
 
     // 使用统一 API 服务调用 LLM
     logger.info('TranslationService: Calling API provider:', settings.apiProvider);
+    const apiStartTime = performance.now();
     const content = await TranslationApiService.callWithSystem(systemPrompt, userPrompt, apiKey, settings);
+    const apiDuration = performance.now() - apiStartTime;
     const result = this.parseResponse(content, settings);
 
-    logger.info('TranslationService: API call completed, result:', {
+    logger.info('TranslationService: API call completed', {
       wordsCount: result.words?.length,
-      hasFullText: !!result.fullText
+      hasFullText: !!result.fullText,
+      apiDuration: `${apiDuration.toFixed(2)}ms`
     });
 
-    // Cache result
-    await StorageManager.cacheTranslation(cacheKey, result);
+    // Cache result in enhanced cache
+    const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
+    await enhancedCache.set(cacheKey, result, mode, pageUrl);
+
+    // 记录 API 调用性能
+    const totalDuration = performance.now() - startTime;
+    CacheMetrics.recordApiCall(apiDuration);
+    CacheMetrics.recordTotalDuration(totalDuration);
 
     return result;
   }
