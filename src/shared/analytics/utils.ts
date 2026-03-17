@@ -159,14 +159,12 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   return function (this: unknown, ...args: Parameters<T>): void {
-    const context = this;
-
     if (timeout) {
       clearTimeout(timeout);
     }
 
     timeout = setTimeout(() => {
-      func.apply(context, args as unknown[]);
+      func.apply(this, args as unknown[]);
     }, wait);
   };
 }
@@ -185,10 +183,8 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   let inThrottle = false;
 
   return function (this: unknown, ...args: Parameters<T>): void {
-    const context = this;
-
     if (!inThrottle) {
-      func.apply(context, args as unknown[]);
+      func.apply(this, args as unknown[]);
       inThrottle = true;
       setTimeout(() => {
         inThrottle = false;
