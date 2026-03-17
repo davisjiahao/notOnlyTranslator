@@ -257,6 +257,10 @@ export const PROVIDER_GROUPS: ProviderGroup[] = [
     providers: ['openai', 'anthropic', 'gemini', 'groq'],
   },
   {
+    label: '专业翻译服务',
+    providers: ['deepl', 'google_translate'],
+  },
+  {
     label: '国内供应商',
     providers: ['deepseek', 'zhipu', 'alibaba', 'baidu'],
   },

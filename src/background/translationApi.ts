@@ -122,6 +122,80 @@ const geminiExtractor: ProviderResponseExtractor = {
 };
 
 /**
+ * DeepL 翻译响应类型
+ */
+interface DeepLTranslation {
+  text?: string;
+  detected_source_language?: string;
+}
+
+interface DeepLResponse {
+  translations?: DeepLTranslation[];
+  message?: string;
+}
+
+/**
+ * DeepL 格式响应提取器
+ */
+const deeplExtractor: ProviderResponseExtractor = {
+  isValid: (data): data is DeepLResponse => {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'translations' in data &&
+      Array.isArray((data as DeepLResponse).translations)
+    );
+  },
+  extractContent: (data) => {
+    const d = data as DeepLResponse;
+    return d.translations?.[0]?.text;
+  },
+  extractError: (data) => {
+    if (typeof data !== 'object' || data === null) return undefined;
+    return (data as DeepLResponse).message;
+  },
+};
+
+/**
+ * Google Translate 响应类型
+ */
+interface GoogleTranslation {
+  translatedText?: string;
+  detectedSourceLanguage?: string;
+}
+
+interface GoogleTranslateResponse {
+  data?: {
+    translations?: GoogleTranslation[];
+  };
+  error?: {
+    message?: string;
+  };
+}
+
+/**
+ * Google Translate 格式响应提取器
+ */
+const googleTranslateExtractor: ProviderResponseExtractor = {
+  isValid: (data): data is GoogleTranslateResponse => {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'data' in data &&
+      typeof (data as GoogleTranslateResponse).data === 'object'
+    );
+  },
+  extractContent: (data) => {
+    const d = data as GoogleTranslateResponse;
+    return d.data?.translations?.[0]?.translatedText;
+  },
+  extractError: (data) => {
+    if (typeof data !== 'object' || data === null) return undefined;
+    return (data as GoogleTranslateResponse).error?.message;
+  },
+};
+
+/**
  * 百度 Token 响应类型
  */
 interface BaiduTokenResponse {
@@ -264,6 +338,16 @@ export class TranslationApiService {
       return this.callBaiduFormatWithSystem(systemPrompt, userPrompt, apiKey, settings.secondaryApiKey || '', model, retryOptions);
     }
 
+    // DeepL 格式特殊处理
+    if (apiFormat === 'deepl') {
+      return this.callDeepLFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+    }
+
+    // Google Translate 格式特殊处理
+    if (apiFormat === 'google_translate') {
+      return this.callGoogleTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+    }
+
     // DashScope 直接使用 OpenAI 兼容格式
     if (apiFormat === 'dashscope') {
       apiFormat = 'openai';
@@ -362,6 +446,108 @@ export class TranslationApiService {
       }
 
       const content = providerConfig.responseExtractor.extractContent(data);
+      if (!content) {
+        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
+      }
+
+      return content;
+    }, retryOptions);
+  }
+
+  /**
+   * 调用 DeepL API 进行翻译
+   * DeepL 是一个直接的翻译服务，不需要 messages 格式
+   */
+  private static async callDeepLFormat(
+    _systemPrompt: string,
+    userPrompt: string,
+    apiKey: string,
+    endpoint: string,
+    retryOptions: RetryOptions,
+    providerName: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      // DeepL 使用 POST 请求，格式为 x-www-form-urlencoded
+      const params = new URLSearchParams();
+      params.append('text', userPrompt);
+      params.append('target_lang', 'ZH');
+      params.append('source_lang', 'EN');
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `DeepL-Auth-Key ${apiKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = deeplExtractor.extractError?.(errorData) ||
+          `${providerName} API 请求失败 (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json();
+
+      if (!deeplExtractor.isValid(data)) {
+        throw new ApiError(`${providerName} API 返回格式无效`, undefined, true);
+      }
+
+      const content = deeplExtractor.extractContent(data);
+      if (!content) {
+        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
+      }
+
+      return content;
+    }, retryOptions);
+  }
+
+  /**
+   * 调用 Google Translate API 进行翻译
+   * Google Translate 使用 JSON 格式请求
+   */
+  private static async callGoogleTranslateFormat(
+    _systemPrompt: string,
+    userPrompt: string,
+    apiKey: string,
+    endpoint: string,
+    retryOptions: RetryOptions,
+    providerName: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      // Google Translate API 需要在 URL 中传递 key
+      const url = new URL(endpoint);
+      url.searchParams.append('key', apiKey);
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          q: userPrompt,
+          source: 'en',
+          target: 'zh',
+          format: 'text',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = googleTranslateExtractor.extractError?.(errorData) ||
+          `${providerName} API 请求失败 (${response.status})`;
+        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json();
+
+      if (!googleTranslateExtractor.isValid(data)) {
+        throw new ApiError(`${providerName} API 返回格式无效`, undefined, true);
+      }
+
+      const content = googleTranslateExtractor.extractContent(data);
       if (!content) {
         throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
       }
@@ -484,6 +670,16 @@ export class TranslationApiService {
     const model = settings.customModelName || config.recommendedModel;
     const endpoint = getChatEndpoint(provider, model, settings.customApiUrl);
 
+    // DeepL 快速翻译
+    if (apiFormat === 'deepl') {
+      return this.quickTranslateDeepL(text, apiKey, endpoint, config.name);
+    }
+
+    // Google Translate 快速翻译
+    if (apiFormat === 'google_translate') {
+      return this.quickTranslateGoogle(text, apiKey, endpoint, config.name);
+    }
+
     const prompt = `Translate the following English word or phrase to Chinese. Only respond with the translation, nothing else.\n\n${text}`;
 
     // 百度格式特殊处理
@@ -512,6 +708,74 @@ export class TranslationApiService {
       QUICK_RETRY_OPTIONS,
       config.name
     ).catch(() => ''); // 快速翻译失败时返回空字符串
+  }
+
+  /**
+   * 快速翻译 - DeepL 格式
+   */
+  private static async quickTranslateDeepL(
+    text: string,
+    apiKey: string,
+    endpoint: string,
+    providerName: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      const params = new URLSearchParams();
+      params.append('text', text);
+      params.append('target_lang', 'ZH');
+      params.append('source_lang', 'EN');
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `DeepL-Auth-Key ${apiKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json() as DeepLResponse;
+      return data.translations?.[0]?.text || '';
+    }, QUICK_RETRY_OPTIONS).catch(() => '');
+  }
+
+  /**
+   * 快速翻译 - Google Translate 格式
+   */
+  private static async quickTranslateGoogle(
+    text: string,
+    apiKey: string,
+    endpoint: string,
+    providerName: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      const url = new URL(endpoint);
+      url.searchParams.append('key', apiKey);
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          q: text,
+          source: 'en',
+          target: 'zh',
+          format: 'text',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json() as GoogleTranslateResponse;
+      return data.data?.translations?.[0]?.translatedText || '';
+    }, QUICK_RETRY_OPTIONS).catch(() => '');
   }
 
   /**
