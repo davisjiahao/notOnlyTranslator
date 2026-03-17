@@ -10,6 +10,7 @@
 import { analytics } from './Analytics';
 import { initializeUserProfile, trackUserEvent } from './userProfile';
 import { initPeriodicFlush } from './eventQueue';
+import { experimentFramework } from './ExperimentFramework';
 
 /** 初始化状态 */
 let isInitialized = false;

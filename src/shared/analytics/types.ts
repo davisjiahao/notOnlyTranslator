@@ -90,6 +90,13 @@ export interface FunnelAnalysisResult {
 
 // ========== 留存分析类型 ==========
 
+/** 本地事件队列 */
+export interface LocalEventQueue {
+  events: AnalyticsEvent[]
+  lastSync: number
+  isSyncing: boolean
+}
+
 /** 留存分析类型 */
 export type RetentionType = 'n-day' | 'unbounded' | 'rolling'
 
