@@ -173,3 +173,74 @@ export type ExperimentStatus = 'draft' | 'running' | 'paused' | 'completed' | 'c
 
 /** 用户漏斗阶段 */
 export type UserFunnelStage = 'acquisition' | 'activation' | 'retention' | 'referral' | 'revenue'
+
+// ========== 缺失的类型别名（用于兼容性） ==========
+
+/** @deprecated 使用 UserExperimentAssignment 代替 */
+export type ExperimentAssignment = UserExperimentAssignment
+
+/** @deprecated 使用 Experiment 代替 */
+export type ExperimentConfig = Experiment
+
+/** 用户分析画像（简化版） */
+export interface UserAnalyticsProfile {
+  userId: string
+  traits: UserTraits
+  createdAt: number
+  updatedAt: number
+  experimentGroups?: Record<string, string>
+  vocabularyStats?: {
+    totalMarked: number
+    knownWords: number
+    unknownWords: number
+  }
+}
+
+/** 漏斗配置 */
+export interface FunnelConfig {
+  id: string
+  name: string
+  steps: FunnelStep[]
+}
+
+/** 漏斗分析结果（别名） */
+export type FunnelAnalysis = FunnelAnalysisResult
+
+/** 获客事件 */
+export interface AcquisitionEvent {
+  type: 'store_view' | 'store_click' | 'install_complete'
+  source?: string
+  timestamp: number
+  properties?: Record<string, unknown>
+}
+
+/** 激活事件 */
+export interface ActivationEvent {
+  type: 'onboarding_complete' | 'first_translation' | 'api_configured'
+  timestamp: number
+  properties?: Record<string, unknown>
+}
+
+/** 留存事件 */
+export interface RetentionEvent {
+  type: 'translation_request' | 'vocabulary_review' | 'flashcard_practice'
+  timestamp: number
+  properties?: Record<string, unknown>
+}
+
+/** 推荐事件 */
+export interface ReferralEvent {
+  type: 'share_completed' | 'invite_sent' | 'referral_install'
+  timestamp: number
+  properties?: Record<string, unknown>
+}
+
+/** 通用分析事件 */
+export interface AnalyticsEvent {
+  id: string
+  event: string
+  properties: Record<string, unknown>
+  timestamp: number
+  userId?: string
+  sessionId?: string
+}
