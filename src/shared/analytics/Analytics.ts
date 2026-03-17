@@ -4,16 +4,6 @@ import type {
   Experiment,
   ExperimentGroup,
   UserExperimentAssignment,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  FunnelAnalysisRequest,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  FunnelAnalysisResult,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  RetentionAnalysisRequest,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  DashboardConfig,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  MetricCard,
 } from './types'
 import { AnalyticsEvents } from './types'
 

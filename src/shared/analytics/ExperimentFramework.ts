@@ -7,8 +7,6 @@ import type {
   Experiment,
   ExperimentGroup,
   ExperimentStatus,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  UserExperimentAssignment,
 } from './types'
 import { analytics } from './Analytics'
 import { AnalyticsEvents } from './types'
