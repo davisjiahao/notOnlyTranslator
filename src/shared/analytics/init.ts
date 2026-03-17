@@ -7,9 +7,7 @@
  * @module analytics/init
  */
 
-import { Analytics, analytics } from './Analytics';
-import { AnalyticsEvents } from './types';
-import { ExperimentFramework, experimentFramework } from './ExperimentFramework';
+import { analytics } from './Analytics';
 import { initializeUserProfile, trackUserEvent } from './userProfile';
 import { initPeriodicFlush } from './eventQueue';
 
@@ -171,7 +169,7 @@ export function destroyAnalytics(): void {
 }
 
 // 重新导出常用事件名称
-export { AnalyticsEvents } from './Analytics';
+export { AnalyticsEvents } from './types';
 
 // 重新导出类型
 export type {

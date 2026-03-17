@@ -8,7 +8,10 @@
 
 import { analytics } from './Analytics';
 import { AnalyticsEvents } from './types';
-import type { FunnelStep, FunnelAnalysisResult, FunnelConfig } from './types';
+import type { FunnelConfig } from './types';
+
+// 重新导出类型
+export type { FunnelStep, FunnelAnalysisResult } from './types';
 
 /** 漏斗阶段（AARRR 模型） */
 export type FunnelStage = 'acquisition' | 'activation' | 'retention' | 'referral' | 'revenue';

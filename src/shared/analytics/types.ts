@@ -32,7 +32,7 @@ export interface UserTraits {
 export interface Experiment {
   id: string
   name: string
-  description: string
+  description?: string
   startDate: string
   endDate: string
   trafficAllocation: number
