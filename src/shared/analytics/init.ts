@@ -11,6 +11,7 @@ import { analytics } from './Analytics';
 import { initializeUserProfile, trackUserEvent } from './userProfile';
 import { initPeriodicFlush } from './eventQueue';
 import { experimentFramework } from './ExperimentFramework';
+import { AnalyticsEvents } from './types';
 
 /** 初始化状态 */
 let isInitialized = false;
@@ -170,7 +171,7 @@ export function destroyAnalytics(): void {
 }
 
 // 重新导出常用事件名称
-export { AnalyticsEvents } from './types';
+export { AnalyticsEvents };
 
 // 重新导出类型
 export type {
