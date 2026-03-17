@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "NotOnlyTranslator",
+  "name": "NotOnlyTranslator - 智能分级翻译助手",
+  "short_name": "NotOnlyTranslator",
   "version": "0.1.0",
-  "description": "A smart English translation extension that adapts to your proficiency level",
+  "description": "智能识别超出你词汇量的单词，只翻译该翻译的内容，让英语学习更自然高效",
+  "author": "NotOnlyTranslator Team",
+  "homepage_url": "https://github.com/yourusername/notOnlyTranslator",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -50,5 +53,14 @@
   "optional_host_permissions": [
     "http://*/*",
     "https://*/*"
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }
