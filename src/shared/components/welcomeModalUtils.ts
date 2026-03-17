@@ -3,6 +3,8 @@
  * 分离辅助函数以避免 React Fast Refresh 警告
  */
 
+import { trackEvent } from '@/shared/analytics/init';
+
 // 实验分组类型
 export type ExperimentGroup = 'A' | 'B' | 'C';
 export type ExperimentStep = 'welcome' | 'level' | 'api' | 'demo' | 'complete';
@@ -33,9 +35,13 @@ export function trackExperimentProgress(
   action: 'start' | 'complete' | 'skip',
   metadata?: Record<string, unknown>
 ) {
-  // 这里可以添加实际的追踪逻辑
-  // eslint-disable-next-line no-console
-  console.log('[Experiment]', { experiment: 'EXP-001', group, step, action, ...metadata });
+  trackEvent('Onboarding_Progress', {
+    experiment: 'EXP-001',
+    group,
+    step,
+    action,
+    ...metadata,
+  });
 }
 
 /**

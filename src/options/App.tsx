@@ -10,7 +10,8 @@ import VocabularySettings from './components/VocabularySettings';
 import MasteryOverview from './components/MasteryOverview';
 import FlashcardReview from './components/FlashcardReview';
 import LearningStatistics from './components/LearningStatistics';
-import WelcomeModalExperiment, { shouldShowWelcomeModal } from '@/shared/components/WelcomeModalExperiment';
+import WelcomeModalExperiment from '@/shared/components/WelcomeModalExperiment';
+import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
 
 type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics';
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { trackEvent } from '@/shared/analytics/init';
 import {
   getExperimentGroup,
   trackExperimentProgress,
@@ -11,44 +10,6 @@ interface WelcomeModalExperimentProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;
-}
-
-// 获取或分配实验组
-function getExperimentGroup(): ExperimentGroup {
-  const stored = localStorage.getItem('not_onboarding_experiment_group');
-  if (stored === 'A' || stored === 'B' || stored === 'C') {
-    return stored;
-  }
-
-  // 随机分配
-  const groups: ExperimentGroup[] = ['A', 'B', 'C'];
-  const group = groups[Math.floor(Math.random() * groups.length)];
-  localStorage.setItem('not_onboarding_experiment_group', group);
-
-  // 记录分组事件
-  trackEvent('Experiment_Assigned', {
-    experiment: 'EXP-001',
-    group,
-    timestamp: Date.now(),
-  });
-
-  return group;
-}
-
-// 记录实验进度
-function trackExperimentProgress(
-  group: ExperimentGroup,
-  step: ExperimentStep,
-  action: 'start' | 'complete' | 'skip',
-  metadata?: Record<string, unknown>
-) {
-  trackEvent('Onboarding_Progress', {
-    experiment: 'EXP-001',
-    group,
-    step,
-    action,
-    ...metadata,
-  });
 }
 
 export default function WelcomeModalExperiment({
@@ -728,13 +689,3 @@ function DemoStep({
     </div>
   );
 }
-
-// 检查是否首次使用（需要在设置页面导入使用）
-export function shouldShowWelcomeModal(): boolean {
-  const completed = localStorage.getItem('not_onboarding_completed');
-  const skipped = localStorage.getItem('not_onboarding_skipped');
-  return !completed && !skipped;
-}
-
-// 导出实验相关函数供其他组件使用
-export { getExperimentGroup, trackExperimentProgress };
