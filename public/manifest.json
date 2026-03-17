@@ -47,6 +47,9 @@
     "https://api.anthropic.com/*",
     "https://*.volces.com/*",
     "https://ark.cn-beijing.volces.com/*",
+    "https://api-free.deepl.com/*",
+    "https://api.deepl.com/*",
+    "https://translation.googleapis.com/*",
     "http://localhost:*/*",
     "http://127.0.0.1:*/*"
   ],
