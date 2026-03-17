@@ -20,7 +20,9 @@
     "prepare": "npm run create-icons",
     "benchmark": "vitest run --config vitest.benchmark.config.ts",
     "benchmark:ui": "vitest --ui --config vitest.benchmark.config.ts",
-    "perf:report": "npm run benchmark && cat benchmark/results/performance-report.json"
+    "perf:report": "npm run benchmark && cat benchmark/results/performance-report.json",
+    "screenshots": "npx tsx scripts/generate-screenshots.ts",
+    "screenshots:prepare": "npm run build && npm run screenshots"
   },
   "dependencies": {
     "react": "^18.2.0",
