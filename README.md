@@ -75,6 +75,8 @@
    - Click highlighted words to see translations
    - Mark words as "known" or "add to vocabulary"
 
+📚 **Need Help?** Check out our [Quick Start Guide](docs/help/QUICK_START.md) or [FAQ](docs/help/FAQ.md)
+
 ### 📖 Usage
 
 #### Translation Modes
