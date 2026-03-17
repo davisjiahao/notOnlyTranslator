@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { UserSettings, TranslationMode, ThemeMode } from '@/shared/types';
+import CacheStats from './CacheStats';
 
 interface GeneralSettingsProps {
   settings: UserSettings;
@@ -512,6 +513,9 @@ export default function GeneralSettings({
           </div>
         )}
       </div>
+
+      {/* 缓存统计面板 */}
+      <CacheStats />
 
       {/* 第 4 组：数据管理 */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">

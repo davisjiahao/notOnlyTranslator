@@ -8,7 +8,7 @@ import type {
 import type { CEFRLevel } from '@/shared/types/mastery';
 import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, TIMING } from '@/shared/constants';
 import { debounce, logger, getChineseRatio } from '@/shared/utils';
-import { Highlighter } from './highlighter';
+import { OptimizedHighlighter } from './optimizedHighlighter';
 import { Tooltip } from './tooltip';
 import { MarkerService } from './marker';
 import { TranslationDisplay } from './translationDisplay';
@@ -32,7 +32,7 @@ declare global {
  * Content Script - main entry point for page interaction
  */
 class NotOnlyTranslator {
-  private highlighter: Highlighter;
+  private highlighter: OptimizedHighlighter;
   private tooltip: Tooltip;
   private marker: MarkerService;
   private settings: UserSettings | undefined = undefined;
@@ -145,7 +145,12 @@ class NotOnlyTranslator {
   constructor() {
     logger.info('NotOnlyTranslator: Content script loaded, starting initialization...');
 
-    this.highlighter = new Highlighter();
+    this.highlighter = new OptimizedHighlighter({
+      maxNodesPerFrame: 10,
+      maxTimePerFrame: 16,
+      enableVirtualScroll: true,
+      preloadDistance: 200,
+    });
     this.marker = new MarkerService();
     this.tooltip = new Tooltip({
       onMarkKnown: (word) => this.handleMarkKnown(word),
