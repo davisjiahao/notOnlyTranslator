@@ -10,6 +10,7 @@ import VocabularySettings from './components/VocabularySettings';
 import MasteryOverview from './components/MasteryOverview';
 import FlashcardReview from './components/FlashcardReview';
 import LearningStatistics from './components/LearningStatistics';
+import WelcomeModalExperiment, { shouldShowWelcomeModal } from '@/shared/components/WelcomeModalExperiment';
 
 type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics';
 
@@ -90,12 +91,17 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // 初始化主题
   useTheme(settings.theme);
 
   useEffect(() => {
     loadData();
+    // 检查是否需要显示欢迎弹窗
+    if (shouldShowWelcomeModal()) {
+      setShowWelcomeModal(true);
+    }
     // 从 URL 参数读取要打开的标签页
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
@@ -361,6 +367,17 @@ export default function App() {
           </main>
         </div>
       </div>
+
+      {/* 欢迎弹窗实验 */}
+      <WelcomeModalExperiment
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        onComplete={() => {
+          setShowWelcomeModal(false);
+          // 引导完成后跳转到 API 设置页
+          setActiveTab('api');
+        }}
+      />
     </div>
   );
 }

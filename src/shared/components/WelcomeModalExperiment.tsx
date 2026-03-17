@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { trackEvent } from '@/shared/analytics/init';
-
-// 实验分组类型
-type ExperimentGroup = 'A' | 'B' | 'C';
-
-// 实验步骤
-type ExperimentStep = 'welcome' | 'level' | 'api' | 'demo' | 'complete';
+import {
+  getExperimentGroup,
+  trackExperimentProgress,
+  type ExperimentGroup,
+  type ExperimentStep,
+} from './welcomeModalUtils';
 
 interface WelcomeModalExperimentProps {
   isOpen: boolean;
