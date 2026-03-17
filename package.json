@@ -21,8 +21,9 @@
     "benchmark": "vitest run --config vitest.benchmark.config.ts",
     "benchmark:ui": "vitest --ui --config vitest.benchmark.config.ts",
     "perf:report": "npm run benchmark && cat benchmark/results/performance-report.json",
-    "screenshots": "npx tsx scripts/generate-screenshots.ts",
-    "screenshots:prepare": "npm run build && npm run screenshots"
+    "screenshots": "node scripts/capture-screenshots.mjs",
+    "screenshots:prepare": "npm run build && npm run screenshots",
+    "screenshots:legacy": "npx tsx scripts/generate-screenshots.ts"
   },
   "dependencies": {
     "react": "^18.2.0",
