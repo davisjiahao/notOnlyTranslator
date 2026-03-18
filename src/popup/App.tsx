@@ -107,7 +107,7 @@ export default function App() {
   const toggleGlobalEnabled = async () => {
     if (!settings) return;
     const newEnabled = !settings.enabled;
-    await updateSettings({ enabled: newEnabled });
+    await updateSettings({ enabled: newEnabled, autoHighlight: newEnabled });
     showToast(newEnabled ? '翻译已启用' : '翻译已暂停');
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
