@@ -97,8 +97,16 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                   </button>
                 ))
               ) : (
-                <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
-                  暂无配置，请点击管理添加
+                <div className="p-3 text-center">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    还未配置翻译服务
+                  </div>
+                  <button
+                    onClick={onOpenOptions}
+                    className="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    立即配置
+                  </button>
                 </div>
               )}
             </div>

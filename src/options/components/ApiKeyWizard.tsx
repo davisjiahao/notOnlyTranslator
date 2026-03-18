@@ -200,6 +200,30 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
           </div>
         </div>
 
+        {/* 快速入门指南 */}
+        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 mb-6">
+          <h3 className="text-sm font-medium text-green-800 dark:text-green-300 mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            3 步快速开始
+          </h3>
+          <div className="space-y-2 text-sm text-green-700 dark:text-green-300">
+            <div className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-green-200 dark:bg-green-800 flex items-center justify-center text-xs font-medium flex-shrink-0">1</span>
+              <span>选择下方的 AI 服务提供商（推荐 DeepSeek 或 OpenAI）</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-green-200 dark:bg-green-800 flex items-center justify-center text-xs font-medium flex-shrink-0">2</span>
+              <span>点击「获取密钥」按钮，完成注册并复制 API Key</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-green-200 dark:bg-green-800 flex items-center justify-center text-xs font-medium flex-shrink-0">3</span>
+              <span>粘贴密钥并点击「测试连接」，即可开始使用</span>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-3">
           {onSkip && (
             <button
@@ -229,9 +253,19 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           选择翻译服务商
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-center mb-8">
-          选择您想要使用的 AI 翻译服务提供商
+        <p className="text-gray-500 dark:text-gray-400 text-center mb-6">
+          推荐：国内用户选 DeepSeek，海外用户选 OpenAI
         </p>
+
+        {/* 推荐标签 */}
+        <div className="flex justify-center gap-2 mb-6">
+          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            新用户推荐 DeepSeek（注册简单、价格便宜）
+          </span>
+        </div>
 
         <div className="space-y-4 mb-8">
           {PROVIDER_GROUPS.map((group) => (
@@ -317,9 +351,31 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           输入 API 密钥
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-center mb-8">
+        <p className="text-gray-500 dark:text-gray-400 text-center mb-6">
           输入您的 {currentProviderConfig.name} API 密钥
         </p>
+
+        {/* 获取密钥指引 */}
+        {currentProviderConfig.docUrl && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-6">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-blue-700 dark:text-blue-300">
+                还没有密钥？
+              </span>
+              <a
+                href={currentProviderConfig.docUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                一键获取密钥
+              </a>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6 mb-8">
           {/* API Key 输入 */}
@@ -355,19 +411,6 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                 )}
               </button>
             </div>
-            {currentProviderConfig.docUrl && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                获取密钥:{' '}
-                <a
-                  href={currentProviderConfig.docUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-600 hover:underline"
-                >
-                  {currentProviderConfig.docUrl}
-                </a>
-              </p>
-            )}
           </div>
 
           {/* Secondary Key (百度需要) */}
