@@ -5,6 +5,7 @@ import { logger, useTheme } from '@/shared/utils';
 import ApiSwitcher from './components/ApiSwitcher';
 import RecruitmentBanner from './components/RecruitmentBanner';
 import { FeedbackButton } from './components/Feedback';
+import MasteryCard from './components/MasteryCard';
 
 interface Stats {
   estimatedVocabulary: number;
@@ -272,6 +273,9 @@ export default function App() {
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">{confidencePercent}%</span>
           </div>
         </div>
+
+        {/* 词汇掌握度卡片 */}
+        <MasteryCard />
 
         {/* 翻译模式 + API 切换 */}
         {settings && (
