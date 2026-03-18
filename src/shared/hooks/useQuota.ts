@@ -12,7 +12,7 @@ import {
   hasEnoughQuota,
   initializeNewUserQuota,
 } from '@/shared/analytics/quota';
-import type { QuotaAlert } from '@/shared/types/quota';
+import type { QuotaAlert as QuotaAlertType } from '@/shared/types/quota';
 
 interface UseQuotaReturn {
   /** 总配额 */
@@ -26,7 +26,7 @@ interface UseQuotaReturn {
   /** 是否有足够配额 */
   hasQuota: boolean;
   /** 配额警告 */
-  alert?: QuotaAlert;
+  alert?: QuotaAlertType;
   /** 消耗配额 */
   consume: (context?: string) => Promise<boolean>;
   /** 刷新配额状态 */
@@ -62,7 +62,7 @@ export function useQuota(): UseQuotaReturn {
   const [used, setUsed] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [alert, setAlert] = useState<QuotaAlert | undefined>(undefined);
+  const [alert, setAlert] = useState<QuotaAlertType | undefined>(undefined);
   const initializedRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -141,8 +141,8 @@ export function useQuotaCheck(): () => Promise<boolean> {
  * 配额警告 Hook
  * 订阅配额警告，用于全局显示
  */
-export function useQuotaAlert(): QuotaAlert | undefined {
-  const [alert, setAlert] = useState<QuotaAlert | undefined>(undefined);
+export function useQuotaAlert(): QuotaAlertType | undefined {
+  const [alert, setAlert] = useState<QuotaAlertType | undefined>(undefined);
 
   useEffect(() => {
     const checkAlert = async () => {
