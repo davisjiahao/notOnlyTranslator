@@ -5,22 +5,42 @@ interface RecruitmentBannerProps {
 }
 
 /**
- * 用户研究招募 Banner
- * 用于在 Popup 中显示用户访谈招募信息
+ * 检查用户是否为近7天内安装的新用户
  */
+async function checkIsNewUser(): Promise<boolean> {
+  try {
+    const result = await chrome.storage.sync.get('installDate');
+    if (!result.installDate) {
+      // 如果没有安装日期，记录当前日期并视为新用户
+      await chrome.storage.sync.set({ installDate: Date.now() });
+      return true;
+    }
+    const installDate = new Date(result.installDate);
+    const now = new Date();
+    const diffDays = (now.getTime() - installDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays < 7;
+  } catch (_error) {
+    return false;
+  }
+}
 export default function RecruitmentBanner({ onDismiss }: RecruitmentBannerProps) {
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
-  // 检查是否应该显示（已关闭过的不再显示）
+  // 检查是否应该显示（新用户且未关闭过）
   useEffect(() => {
-    const checkDismissed = async () => {
-      const result = await chrome.storage.sync.get('recruitmentBannerDismissed');
-      if (result.recruitmentBannerDismissed) {
-        setIsVisible(false);
+    const checkVisibility = async () => {
+      const [dismissedResult, isNewUser] = await Promise.all([
+        chrome.storage.sync.get('recruitmentBannerDismissed'),
+        checkIsNewUser()
+      ]);
+
+      // 只有新用户且未关闭过才显示
+      if (!dismissedResult.recruitmentBannerDismissed && isNewUser) {
+        setIsVisible(true);
       }
     };
-    checkDismissed();
+    checkVisibility();
   }, []);
 
   const handleClose = async () => {
@@ -35,11 +55,11 @@ export default function RecruitmentBanner({ onDismiss }: RecruitmentBannerProps)
   };
 
   const handleParticipate = () => {
-    // 打开招募表单（使用占位符链接，实际使用时替换为真实链接）
-    const formUrl = 'https://forms.gle/YOUR_FORM_ID';
+    // 打开招募表单
+    const formUrl = 'https://forms.gle/notonlytranslator-onboarding-recruitment';
     chrome.tabs.create({ url: formUrl });
 
-    // 可选：标记为已参与，不再显示
+    // 标记为已参与，不再显示
     chrome.storage.sync.set({ recruitmentBannerDismissed: true });
   };
 
