@@ -126,57 +126,6 @@ export const TIMING = {
   TEXT_SELECTION_MAX_LENGTH: 100, // 文本选择最大长度
 };
 
-// LLM Prompt templates
-export const TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手。用户的英语水平约为 {vocabulary_size} 词汇量（相当于{exam_level}水平）。
-
-请分析以下英文文本，找出可能超出用户水平的：
-1. 单词（超出{exam_level}词汇范围的）
-2. 短语/习语
-3. 复杂语法结构（如倒装句、虚拟语气、复杂从句等）
-
-对于每个识别出的内容，提供：
-- 中文翻译
-- 难度等级（1-10）
-
-同时提供整段文本的完整中文翻译。
-
-文本：
-{text}
-
-上下文：
-{context}
-
-请以JSON格式返回结果，格式如下：
-{
-  "fullText": "整段文本的完整中文翻译",
-  "words": [
-    {
-      "original": "词汇原文",
-      "translation": "中文翻译",
-      "position": [起始位置, 结束位置],
-      "difficulty": 难度等级1-10,
-      "isPhrase": 是否为短语
-    }
-  ],
-  "sentences": [
-    {
-      "original": "复杂句子原文",
-      "translation": "中文翻译",
-      "grammarNote": "语法说明（可选）"
-    }
-  ],
-  "grammarPoints": [
-    {
-      "original": "语法结构原文片段（如 had I known, were it not for 等）",
-      "explanation": "语法解释（如：这是虚拟语气的倒装结构，表示与过去事实相反的假设）",
-      "type": "语法类型（如：虚拟语气、倒装句、定语从句、强调句等）",
-      "position": [起始位置, 结束位置]
-    }
-  ]
-}
-
-注意：grammarPoints 用于标注文本中的特殊语法结构，帮助学习者理解复杂语法。只有当文本中存在值得学习的语法点时才需要返回，普通简单句不需要标注。`;
-
 // Storage keys
 export const STORAGE_KEYS = {
   LOCAL: {
@@ -237,62 +186,6 @@ export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
   /** 缓存过期时间（7天，毫秒） */
   cacheExpireTime: 7 * 24 * 60 * 60 * 1000,
 };
-
-/**
- * 批量翻译提示词模板
- * 使用 [PARA_n] 标记区分不同段落
- */
-export const BATCH_TRANSLATION_PROMPT_TEMPLATE = `你是一个英语学习助手。用户的英语水平约为 {vocabulary_size} 词汇量（相当于{exam_level}水平）。
-
-请分析以下多个英文段落（用 [PARA_n] 标记区分），找出每个段落中可能超出用户水平的：
-1. 单词（超出{exam_level}词汇范围的）
-2. 短语/习语
-3. 复杂语法结构（如倒装句、虚拟语气、复杂从句等）
-
-对于每个识别出的内容，提供：
-- 中文翻译
-- 难度等级（1-10）
-
-同时提供每个段落的完整中文翻译。
-
-段落内容：
-{paragraphs}
-
-请以JSON格式返回结果，格式如下：
-{
-  "paragraphs": [
-    {
-      "id": "[PARA_n]中的n",
-      "fullText": "该段落的完整中文翻译",
-      "words": [
-        {
-          "original": "词汇原文",
-          "translation": "中文翻译",
-          "position": [起始位置, 结束位置],
-          "difficulty": 难度等级1-10,
-          "isPhrase": 是否为短语
-        }
-      ],
-      "sentences": [
-        {
-          "original": "复杂句子原文",
-          "translation": "中文翻译",
-          "grammarNote": "语法说明（可选）"
-        }
-      ],
-      "grammarPoints": [
-        {
-          "original": "语法结构原文片段",
-          "explanation": "语法解释",
-          "type": "语法类型（如：虚拟语气、倒装句、定语从句等）",
-          "position": [起始位置, 结束位置]
-        }
-      ]
-    }
-  ]
-}
-
-注意：grammarPoints 用于标注文本中的特殊语法结构，帮助学习者理解复杂语法。只有当段落中存在值得学习的语法点时才需要返回，普通简单句不需要标注。`;
 
 /**
  * 段落缓存存储键
