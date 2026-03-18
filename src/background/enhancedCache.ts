@@ -13,6 +13,15 @@ import { logger } from '@/shared/utils';
 import { generateCacheKey } from '@/shared/utils';
 
 /**
+ * 双向链表节点 - 用于O(1) LRU淘汰
+ */
+interface CacheListNode {
+  key: string;
+  prev: CacheListNode | null;
+  next: CacheListNode | null;
+}
+
+/**
  * 增强缓存管理器
  *
  * 特性：
@@ -24,6 +33,15 @@ import { generateCacheKey } from '@/shared/utils';
 export class EnhancedCacheManager {
   /** 内存缓存，加速访问 */
   private memoryCache: Map<string, ParagraphCacheEntry> = new Map();
+
+  /** 双向链表节点映射 - 用于O(1) LRU操作 */
+  private nodeMap: Map<string, CacheListNode> = new Map();
+
+  /** 链表头节点（最旧的） */
+  private head: CacheListNode | null = null;
+
+  /** 链表尾节点（最新的） */
+  private tail: CacheListNode | null = null;
 
   /** 是否已从存储加载 */
   private initialized: boolean = false;
@@ -57,6 +75,8 @@ export class EnhancedCacheManager {
           continue;
         }
         this.memoryCache.set(hash, entry);
+        // 重建链表 - 按加载顺序添加到尾部
+        this.addToTail(hash);
       }
 
       logger.info(`EnhancedCacheManager: 已加载 ${this.memoryCache.size} 条缓存`);
@@ -98,6 +118,9 @@ export class EnhancedCacheManager {
     entry.lastAccessedAt = now;
     this.memoryCache.set(textHash, entry);
 
+    // 更新链表位置（O(1) LRU）
+    this.moveToTail(textHash);
+
     logger.info(`EnhancedCacheManager: 缓存命中 ${textHash}`);
     return { ...entry.result, cached: true };
   }
@@ -123,10 +146,14 @@ export class EnhancedCacheManager {
         // 更新访问时间
         entry.lastAccessedAt = now;
         hits.set(hash, { ...entry.result, cached: true });
+        // 更新链表位置（O(1) LRU）
+        this.moveToTail(hash);
       } else {
         if (entry) {
           // 过期，删除
           this.memoryCache.delete(hash);
+          this.removeNode(this.nodeMap.get(hash)!);
+          this.nodeMap.delete(hash);
         }
         misses.push(hash);
       }
@@ -158,6 +185,9 @@ export class EnhancedCacheManager {
     };
 
     this.memoryCache.set(textHash, entry);
+
+    // 添加到链表尾部（最新）-O(1) LRU
+    this.addToTail(textHash);
 
     // 提前检查是否需要淘汰（95% 容量时触发）
     if (this.shouldEvict()) {
@@ -193,6 +223,9 @@ export class EnhancedCacheManager {
         lastAccessedAt: now,
       };
       this.memoryCache.set(textHash, entry);
+
+      // 添加到链表尾部（最新）-O(1) LRU
+      this.addToTail(textHash);
     }
 
     // 批量添加后检查一次是否需要淘汰
@@ -210,6 +243,7 @@ export class EnhancedCacheManager {
    * LRU批量淘汰：一次删除最旧的 10% 条目
    *
    * 优化说明：
+   * - 使用双向链表实现 O(1) 淘汰，从头节点（最旧）开始删除
    * - 批量淘汰比单条淘汰更高效（减少频繁触发淘汰的开销）
    * - 预留一定空间，避免每次添加都触发淘汰
    * - 淘汰后缓存使用率约为 90%
@@ -224,21 +258,37 @@ export class EnhancedCacheManager {
       currentSize - maxEntries + 1   // 确保淘汰后不超限
     );
 
-    if (evictCount <= 0) return;
+    if (evictCount <= 0 || !this.head) return;
 
-    // 将所有条目按 lastAccessedAt 排序
-    const entries = Array.from(this.memoryCache.entries())
-      .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+    // 从头节点（最旧）开始删除 - O(1) 操作
+    let node: CacheListNode | null = this.head;
+    let deletedCount = 0;
 
-    // 删除最旧的条目
-    const keysToDelete = entries.slice(0, evictCount).map(([key]) => key);
+    while (node && deletedCount < evictCount) {
+      const key = node.key;
+      const nextNode: CacheListNode | null = node.next;
 
-    for (const key of keysToDelete) {
+      // 从 memoryCache 和 nodeMap 中删除
       this.memoryCache.delete(key);
+      this.nodeMap.delete(key);
+
+      // 移动头指针
+      this.head = nextNode;
+      if (this.head) {
+        this.head.prev = null;
+      }
+
+      deletedCount++;
+      node = nextNode;
+    }
+
+    // 如果删空了，重置尾指针
+    if (deletedCount === currentSize) {
+      this.tail = null;
     }
 
     logger.info(
-      `EnhancedCacheManager: LRU批量淘汰 ${keysToDelete.length} 条`,
+      `EnhancedCacheManager: LRU批量淘汰 ${deletedCount} 条`,
       `缓存从 ${currentSize} 减少到 ${this.memoryCache.size}`
     );
   }
@@ -285,10 +335,82 @@ export class EnhancedCacheManager {
   }
 
   /**
+   * 从链表中移除节点
+   */
+  private removeNode(node: CacheListNode): void {
+    if (node.prev) {
+      node.prev.next = node.next;
+    } else {
+      // 是头节点
+      this.head = node.next;
+    }
+
+    if (node.next) {
+      node.next.prev = node.prev;
+    } else {
+      // 是尾节点
+      this.tail = node.prev;
+    }
+
+    node.prev = null;
+    node.next = null;
+  }
+
+  /**
+   * 将节点移到链表尾部（最新）
+   */
+  private moveToTail(key: string): void {
+    const node = this.nodeMap.get(key);
+    if (!node) return;
+
+    // 如果已经在尾部，无需移动
+    if (node === this.tail) return;
+
+    // 从当前位置移除
+    this.removeNode(node);
+
+    // 添加到尾部
+    this.addToTailNode(node);
+  }
+
+  /**
+   * 添加新节点到链表尾部
+   */
+  private addToTail(key: string): void {
+    const node: CacheListNode = {
+      key,
+      prev: null,
+      next: null,
+    };
+    this.nodeMap.set(key, node);
+    this.addToTailNode(node);
+  }
+
+  /**
+   * 将已有节点添加到链表尾部
+   */
+  private addToTailNode(node: CacheListNode): void {
+    if (!this.tail) {
+      // 空链表
+      this.head = node;
+      this.tail = node;
+    } else {
+      // 添加到尾部
+      node.prev = this.tail;
+      node.next = null;
+      this.tail.next = node;
+      this.tail = node;
+    }
+  }
+
+  /**
    * 清空所有缓存
    */
   async clearAll(): Promise<void> {
     this.memoryCache.clear();
+    this.nodeMap.clear();
+    this.head = null;
+    this.tail = null;
     await chrome.storage.local.remove(PARAGRAPH_CACHE_KEY);
     logger.info('EnhancedCacheManager: 已清空所有缓存');
   }
@@ -304,7 +426,16 @@ export class EnhancedCacheManager {
 
     for (const [key, entry] of this.memoryCache) {
       if (now - entry.createdAt > DEFAULT_BATCH_CONFIG.cacheExpireTime) {
+        // 从 memoryCache 删除
         this.memoryCache.delete(key);
+
+        // 从链表中移除并清理 nodeMap（保持链表完整性）
+        const node = this.nodeMap.get(key);
+        if (node) {
+          this.removeNode(node);
+          this.nodeMap.delete(key);
+        }
+
         cleanedCount++;
       }
     }
