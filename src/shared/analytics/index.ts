@@ -96,6 +96,19 @@ export {
   recordActivityDay,
 } from './achievements';
 
+// 配额系统
+export {
+  loadQuotaState,
+  saveQuotaState,
+  grantFreeTrialQuota,
+  grantReferralBonusQuota,
+  consumeQuota,
+  hasEnoughQuota,
+  getQuotaStatus,
+  getQuotaStats,
+  initializeNewUserQuota,
+} from './quota';
+
 // 类型定义
 export type {
   TrackEvent,
@@ -134,6 +147,22 @@ export type {
   SharePlatform,
   ShareResult,
 } from '@/shared/types/achievements';
+
+// 配额系统类型
+export type {
+  QuotaState,
+  QuotaSource,
+  QuotaType,
+  QuotaUsageRecord,
+  QuotaConsumeResult,
+  QuotaGrantResult,
+  QuotaAlert,
+  QuotaAlertLevel,
+  DeviceQuotaInfo,
+  IpQuotaInfo,
+  QuotaCheckConfig,
+} from '@/shared/types/quota';
+export { DEFAULT_QUOTA_CONFIG } from '@/shared/types/quota';
 
 // 配置常量
 export { AnalyticsEvents } from './types';

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   generateShareCardData,
   shareToPlatform,
@@ -22,11 +22,7 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
   const [shareResult, setShareResult] = useState<ShareResult | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    loadShareData();
-  }, [achievementId]);
-
-  const loadShareData = async () => {
+  const loadShareData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await generateShareCardData(achievementId);
@@ -36,7 +32,11 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [achievementId]);
+
+  useEffect(() => {
+    loadShareData();
+  }, [loadShareData]);
 
   const handleShare = async (platform: SharePlatform) => {
     if (!shareData) return;

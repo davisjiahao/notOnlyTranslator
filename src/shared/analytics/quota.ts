@@ -97,7 +97,7 @@ export async function loadQuotaState(): Promise<QuotaState> {
 /**
  * 保存配额状态
  */
-async function saveQuotaState(state: QuotaState): Promise<void> {
+export async function saveQuotaState(state: QuotaState): Promise<void> {
   const userId = await getOrCreateUserId();
   const key = `${QUOTA_STATE_KEY}:${userId}`;
 
