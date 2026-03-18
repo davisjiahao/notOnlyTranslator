@@ -4,6 +4,7 @@ import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 import { logger, useTheme } from '@/shared/utils';
 import ApiSwitcher from './components/ApiSwitcher';
 import RecruitmentBanner from './components/RecruitmentBanner';
+import { FeedbackButton } from './components/Feedback';
 
 interface Stats {
   estimatedVocabulary: number;
@@ -396,6 +397,11 @@ export default function App() {
             </svg>
             生词本 ({stats?.unknownWordsCount || 0})
           </button>
+        </div>
+
+        {/* 反馈按钮 */}
+        <div className="flex justify-center">
+          <FeedbackButton variant="minimal" size="sm" />
         </div>
       </main>
     </div>
