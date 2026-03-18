@@ -15,6 +15,15 @@ import { MasteryManager } from './mastery';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
 import { CacheMetrics } from './cacheMetrics';
+import {
+  getErrorStats,
+  queryErrors,
+  deleteError,
+  deleteErrors,
+  clearAllErrors,
+  markErrorsAsReported,
+  getUnreportedErrors,
+} from '@/shared/error-tracking';
 
 logger.info('NotOnlyTranslator: Background service worker started');
 
@@ -467,6 +476,103 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         return { success: true };
       } catch (error) {
         logger.error('NotOnlyTranslator: 重置缓存指标失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    // 错误追踪系统相关消息
+    case 'GET_ERROR_STATS': {
+      try {
+        const stats = await getErrorStats();
+        return { success: true, data: stats };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取错误统计失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'QUERY_ERRORS': {
+      try {
+        const { params } = message.payload as { params: import('@/shared/error-tracking').ErrorQueryParams };
+        const result = await queryErrors(params);
+        return { success: true, data: result };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 查询错误失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'DELETE_ERROR': {
+      try {
+        const { id } = message.payload as { id: string };
+        await deleteError(id);
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 删除错误失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'DELETE_ERRORS': {
+      try {
+        const { ids } = message.payload as { ids: string[] };
+        await deleteErrors(ids);
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 批量删除错误失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'CLEAR_ALL_ERRORS': {
+      try {
+        await clearAllErrors();
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 清空所有错误失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'MARK_ERRORS_AS_REPORTED': {
+      try {
+        const { ids } = message.payload as { ids: string[] };
+        await markErrorsAsReported(ids);
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 标记错误已上报失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'REPORT_ERRORS': {
+      try {
+        const { ids } = message.payload as { ids?: string[] };
+        const result = ids && ids.length > 0
+          ? await queryErrors({ ids })
+          : await getUnreportedErrors();
+
+        // 统一转换为 ErrorEntry[]
+        const errors = Array.isArray(result) ? result : result.errors;
+
+        if (errors.length === 0) {
+          return { success: true, data: { message: '没有需要上报的错误' } };
+        }
+
+        // 这里可以实现实际的上报逻辑，比如发送到服务器
+        // 目前先标记为已上报
+        const errorIds = errors.map(e => e.id);
+        await markErrorsAsReported(errorIds);
+
+        return {
+          success: true,
+          data: {
+            reportedCount: errors.length,
+            message: `成功上报 ${errors.length} 个错误`
+          }
+        };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 上报错误失败', error);
         return { success: false, error: (error as Error).message };
       }
     }

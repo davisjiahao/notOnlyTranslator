@@ -219,7 +219,15 @@ export type MessageType =
   | 'GET_CACHE_STATS'
   | 'GET_CACHE_METRICS'
   | 'CLEAR_TRANSLATION_CACHE'
-  | 'RESET_CACHE_METRICS';
+  | 'RESET_CACHE_METRICS'
+  // 错误追踪消息类型
+  | 'GET_ERROR_STATS'
+  | 'QUERY_ERRORS'
+  | 'DELETE_ERROR'
+  | 'DELETE_ERRORS'
+  | 'CLEAR_ALL_ERRORS'
+  | 'MARK_ERRORS_AS_REPORTED'
+  | 'REPORT_ERRORS';
 
 export interface Message<T = unknown> {
   type: MessageType;
