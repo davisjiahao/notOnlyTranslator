@@ -3,6 +3,7 @@ import type { UserProfile, UserSettings } from '@/shared/types';
 import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 import { logger, useTheme } from '@/shared/utils';
 import ApiSwitcher from './components/ApiSwitcher';
+import RecruitmentBanner from './components/RecruitmentBanner';
 
 interface Stats {
   estimatedVocabulary: number;
@@ -20,6 +21,7 @@ export default function App() {
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showBanner, setShowBanner] = useState(false);
 
   // 初始化主题
   useTheme(settings?.theme ?? 'system');
@@ -32,7 +34,26 @@ export default function App() {
   useEffect(() => {
     loadData();
     getCurrentTab();
+    checkBannerVisibility();
   }, []);
+
+  // 检查是否应该显示招募 Banner
+  const checkBannerVisibility = async () => {
+    try {
+      const result = await chrome.storage.sync.get('recruitmentBannerDismissed');
+      // 如果用户未关闭过 Banner，则显示
+      if (!result.recruitmentBannerDismissed) {
+        setShowBanner(true);
+      }
+    } catch (error) {
+      logger.error('Failed to check banner visibility:', error);
+    }
+  };
+
+  // 处理 Banner 关闭
+  const handleBannerDismiss = () => {
+    setShowBanner(false);
+  };
 
   const getCurrentTab = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -195,6 +216,9 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 p-3 flex flex-col gap-2">
+
+        {/* 用户研究招募 Banner */}
+        {showBanner && <RecruitmentBanner onDismiss={handleBannerDismiss} />}
 
         {/* 词汇量卡片（含统计） */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">

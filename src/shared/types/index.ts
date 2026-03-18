@@ -170,6 +170,8 @@ export interface UserSettings {
   theme: ThemeMode;
   /** 提示词版本 */
   promptVersion?: string;
+  /** 是否已关闭招募Banner */
+  recruitmentBannerDismissed?: boolean;
 }
 
 // Storage Types

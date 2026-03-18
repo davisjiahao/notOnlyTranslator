@@ -496,4 +496,99 @@ export class StorageManager {
   static async clearMasteryData(): Promise<void> {
     await chrome.storage.local.remove(this.MASTERY_STORAGE_KEY);
   }
+
+  /**
+   * 获取新用户列表（用于用户研究招募）
+   * 返回最近 N 天内安装的用户数据
+   */
+  static async getNewUsers(days: number = 7): Promise<{
+    totalUsers: number;
+    recentUsers: Array<{
+      createdAt: number;
+      estimatedVocabulary: number;
+      examType: string;
+      knownWordsCount: number;
+      unknownWordsCount: number;
+    }>;
+  }> {
+    const profile = await this.getUserProfile();
+    const now = Date.now();
+    const cutoffTime = now - days * 24 * 60 * 60 * 1000;
+
+    // 检查是否为近期用户（基于 profile.createdAt）
+    const isRecentUser = profile.createdAt >= cutoffTime;
+
+    const userData = {
+      createdAt: profile.createdAt,
+      estimatedVocabulary: profile.estimatedVocabulary,
+      examType: profile.examType,
+      knownWordsCount: profile.knownWords.length,
+      unknownWordsCount: profile.unknownWords.length,
+    };
+
+    return {
+      totalUsers: 1, // 单用户扩展
+      recentUsers: isRecentUser ? [userData] : [],
+    };
+  }
+
+  /**
+   * 导出用户数据为 CSV 格式（用于邮件列表）
+   */
+  static async exportUserDataForResearch(): Promise<{
+    csv: string;
+    json: string;
+    stats: {
+      totalUsers: number;
+      avgVocabulary: number;
+      avgKnownWords: number;
+      avgUnknownWords: number;
+    };
+  }> {
+    const profile = await this.getUserProfile();
+    const settings = await this.getSettings();
+
+    // CSV 格式数据
+    const headers = ['安装时间', '词汇量估算', '考试类型', '已掌握词汇', '待学习词汇', '主题设置'];
+    const row = [
+      new Date(profile.createdAt).toISOString(),
+      profile.estimatedVocabulary,
+      profile.examType,
+      profile.knownWords.length,
+      profile.unknownWords.length,
+      settings.theme,
+    ];
+
+    const csv = [headers.join(','), row.join(',')].join('\n');
+
+    // JSON 格式数据
+    const jsonData = {
+      profile: {
+        createdAt: profile.createdAt,
+        estimatedVocabulary: profile.estimatedVocabulary,
+        examType: profile.examType,
+        knownWordsCount: profile.knownWords.length,
+        unknownWordsCount: profile.unknownWords.length,
+        levelConfidence: profile.levelConfidence,
+      },
+      settings: {
+        theme: settings.theme,
+        translationMode: settings.translationMode,
+        enabled: settings.enabled,
+      },
+      exportedAt: Date.now(),
+    };
+
+    const json = JSON.stringify(jsonData, null, 2);
+
+    // 统计信息
+    const stats = {
+      totalUsers: 1,
+      avgVocabulary: profile.estimatedVocabulary,
+      avgKnownWords: profile.knownWords.length,
+      avgUnknownWords: profile.unknownWords.length,
+    };
+
+    return { csv, json, stats };
+  }
 }
