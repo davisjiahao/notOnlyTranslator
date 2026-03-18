@@ -77,6 +77,25 @@ export {
   type FunnelConversionData,
 } from './funnel';
 
+// 成就系统
+export {
+  loadAchievementState,
+  saveAchievementState,
+  checkAndUnlockAchievements,
+  getAchievementProgress,
+  getUnlockedAchievements,
+  getNewAchievements,
+  markAchievementAsViewed,
+  generateShareCardData,
+  shareToPlatform,
+  getOrCreateInviteCode,
+  trackReferralClick,
+  trackReferralInstall,
+  recordTranslationCompleted,
+  recordWordMarked,
+  recordActivityDay,
+} from './achievements';
+
 // 类型定义
 export type {
   TrackEvent,
@@ -100,6 +119,21 @@ export type {
   ReferralEvent,
   AnalyticsEvent,
 } from './types';
+
+// 成就系统类型
+export type {
+  Achievement,
+  AchievementTier,
+  AchievementCategory,
+  UnlockConditionType,
+  UnlockCondition,
+  AchievementProgress,
+  AchievementState,
+  ShareCardData,
+  ReferralData,
+  SharePlatform,
+  ShareResult,
+} from '@/shared/types/achievements';
 
 // 配置常量
 export { AnalyticsEvents } from './types';

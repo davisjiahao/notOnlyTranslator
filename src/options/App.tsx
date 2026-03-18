@@ -12,8 +12,9 @@ import FlashcardReview from './components/FlashcardReview';
 import LearningStatistics from './components/LearningStatistics';
 import WelcomeModalExperiment from '@/shared/components/WelcomeModalExperiment';
 import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
+import { AchievementGallery } from '@/shared/components/AchievementGallery';
 
-type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics' | 'achievements';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -70,6 +71,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       );
+    case 'achievements':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+      );
   }
 };
 
@@ -81,6 +88,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'mastery', label: '掌握度' },
   { id: 'review', label: '闪卡复习' },
   { id: 'statistics', label: '学习统计' },
+  { id: 'achievements', label: '成就' },
   { id: 'general', label: '通用设置' },
 ];
 
@@ -357,6 +365,8 @@ export default function App() {
             {activeTab === 'review' && <FlashcardReview isSaving={isSaving} />}
 
             {activeTab === 'statistics' && <LearningStatistics isSaving={isSaving} />}
+
+            {activeTab === 'achievements' && <AchievementGallery onClose={() => setActiveTab('level')} />}
 
             {activeTab === 'general' && (
               <GeneralSettings
