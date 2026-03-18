@@ -6,8 +6,8 @@ import {
   recordTranslationCompleted,
   recordWordMarked,
   checkAndUnlockAchievements,
-  type Achievement,
 } from '@/shared/analytics/achievements';
+import type { Achievement } from '@/shared/types/achievements';
 
 interface UseAchievementsReturn {
   /** 新解锁的成就列表 */

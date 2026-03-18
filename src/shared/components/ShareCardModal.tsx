@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   generateShareCardData,
   shareToPlatform,
-  type ShareCardData,
-  type SharePlatform,
-  type ShareResult,
 } from '@/shared/analytics/achievements';
+import type { ShareCardData, SharePlatform, ShareResult } from '@/shared/types/achievements';
 import { TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
 
 interface ShareCardModalProps {
@@ -98,8 +96,8 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
     );
   }
 
-  const { achievement, userStats, shareUrl, inviteCode } = shareData;
-  const colors = TIER_COLORS[achievement.tier];
+  const { achievement, userStats, inviteCode } = shareData;
+  const colors = TIER_COLORS[achievement.tier as keyof typeof TIER_COLORS];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -138,7 +136,7 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
 
             {/* 等级标签 */}
             <span className={`inline-block ${colors.bg} ${colors.text} px-3 py-1 rounded-full text-sm font-medium mb-4`}>
-              {TIER_NAMES[achievement.tier]} · {achievement.points} 积分
+              {TIER_NAMES[achievement.tier as keyof typeof TIER_NAMES]} · {achievement.points} 积分
             </span>
 
             {/* 用户统计 */}

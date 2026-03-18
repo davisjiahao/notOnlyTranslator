@@ -1,4 +1,5 @@
-import { Achievement, AchievementProgress, TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
+import type { Achievement, AchievementProgress } from '@/shared/types/achievements';
+import { TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
 
 interface AchievementCardProps {
   achievement: Achievement;
