@@ -115,10 +115,10 @@ describe('Prompt Management System', () => {
           mockSettings
         );
 
-        const systemPrompt = builder.buildSystemPrompt();
+        const userPrompt = builder.buildUserPrompt();
 
-        expect(systemPrompt).toContain('JSON');
-        expect(systemPrompt).toContain('schema');
+        expect(userPrompt).toContain('JSON');
+        expect(userPrompt).toContain('schema');
       });
 
       it('should include phrase translation instructions when enabled', () => {
@@ -132,7 +132,7 @@ describe('Prompt Management System', () => {
 
         const systemPrompt = builder.buildSystemPrompt();
 
-        expect(systemPrompt).toContain('词组');
+        expect(systemPrompt).toContain('短语/习语');
       });
 
       it('should include grammar instructions when enabled', () => {
@@ -217,7 +217,7 @@ describe('Prompt Management System', () => {
         expect(result.userPrompt).toBeTruthy();
       });
 
-      it('should include output schema in system prompt when built', () => {
+      it('should include output schema in user prompt when built', () => {
         const builder = new TranslationPromptBuilder(
           mockUserProfile,
           'Test',
@@ -225,11 +225,11 @@ describe('Prompt Management System', () => {
           mockSettings
         );
 
-        const { systemPrompt } = builder.build();
+        const { userPrompt } = builder.build();
 
-        expect(systemPrompt).toContain('words');
-        expect(systemPrompt).toContain('original');
-        expect(systemPrompt).toContain('translation');
+        expect(userPrompt).toContain('words');
+        expect(userPrompt).toContain('original');
+        expect(userPrompt).toContain('translation');
       });
     });
 
@@ -341,11 +341,8 @@ describe('Prompt Management System', () => {
         expect(template.version).toBe('v2.0.0-beta');
       });
 
-      it('should return v1.0.0 as fallback for unknown version', () => {
-        const template = manager.getTemplate('v999.0.0');
-
-        expect(template).toBeDefined();
-        expect(template.version).toBe('v1.0.0');
+      it('should throw error for unknown version', () => {
+        expect(() => manager.getTemplate('v999.0.0')).toThrow();
       });
 
       it('should include outputSchema in template', () => {
@@ -447,8 +444,8 @@ describe('Prompt Management System', () => {
       Object.values(PROMPT_VERSIONS).forEach((template) => {
         expect(template.systemPrompt).toBeTruthy();
         expect(template.userPromptTemplate).toBeTruthy();
-        expect(template.name).toBeTruthy();
-        expect(template.description).toBeTruthy();
+        expect(template.version).toBeTruthy();
+        expect(template.outputSchema).toBeDefined();
       });
     });
   });
