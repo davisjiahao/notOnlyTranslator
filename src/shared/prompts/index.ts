@@ -495,3 +495,47 @@ export class PromptVersionManager {
 // ============ 导出单例 ============
 
 export const promptVersionManager = new PromptVersionManager();
+
+// ============ 导出评估模块 ============
+
+export {
+  // 测试用例管理
+  testCaseManager,
+  STANDARD_TEST_CASES,
+  PREDEFINED_TEST_SUITES,
+  TestCaseManager,
+} from './testCases';
+
+export type {
+  PromptTestCase,
+  ExpectedWord,
+  TestCaseDifficulty,
+  TestCaseDomain,
+  TestSuite,
+} from './testCases';
+
+// 评估框架
+export {
+  promptEvaluator,
+  abTestFramework,
+  evaluationReportGenerator,
+  PromptEvaluator,
+  ABTestFramework,
+  EvaluationReportGenerator,
+  DEFAULT_EVALUATION_CONFIG,
+} from './evaluation';
+
+export type {
+  EvaluationMetrics,
+  WordEvaluationResult,
+  TestCaseResult,
+  PromptVersionEvaluation,
+  ABTestResult,
+  MetricComparison,
+  EvaluationConfig,
+  EvaluationReport,
+  ReportSummary,
+  RiskAssessment,
+  HistoricalDataPoint,
+} from './evaluation';
+
