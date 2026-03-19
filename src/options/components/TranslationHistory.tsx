@@ -6,7 +6,7 @@ interface TranslationHistoryProps {
   // 组件不需要外部props
 }
 
-export default function TranslationHistory({}: TranslationHistoryProps) {
+export default function TranslationHistory(_props: TranslationHistoryProps) {
   const [entries, setEntries] = useState<TranslationHistoryEntry[]>([]);
   const [stats, setStats] = useState<HistoryStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,7 +73,7 @@ export default function TranslationHistory({}: TranslationHistoryProps) {
   useEffect(() => {
     loadStats();
     loadHistory(true);
-  }, []);
+  }, [loadStats, loadHistory]);
 
   const handleSearch = () => {
     loadHistory(true);
