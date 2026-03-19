@@ -15,8 +15,9 @@ import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
 import { AchievementGallery } from '@/shared/components/AchievementGallery';
 import ErrorDashboard from './components/ErrorDashboard';
 import TranslationHistory from './components/TranslationHistory';
+import PromptSettings from './components/PromptSettings';
 
-type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics' | 'achievements' | 'errors' | 'history';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -91,6 +92,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       );
+    case 'prompt':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      );
   }
 };
 
@@ -104,6 +111,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'statistics', label: '学习统计' },
   { id: 'achievements', label: '成就' },
   { id: 'history', label: '翻译历史' },
+  { id: 'prompt', label: '提示词设置' },
   { id: 'general', label: '通用设置' },
   { id: 'errors', label: '错误追踪' },
 ];
@@ -130,7 +138,7 @@ export default function App() {
     // 从 URL 参数读取要打开的标签页
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general', 'statistics'].includes(tabParam)) {
+    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general', 'statistics', 'prompt'].includes(tabParam)) {
       setActiveTab(tabParam as Tab);
     }
   }, []);
@@ -387,6 +395,14 @@ export default function App() {
             {activeTab === 'errors' && <ErrorDashboard />}
 
             {activeTab === 'history' && <TranslationHistory />}
+
+            {activeTab === 'prompt' && (
+              <PromptSettings
+                settings={settings}
+                onUpdate={handleSettingsUpdate}
+                isSaving={isSaving}
+              />
+            )}
 
             {activeTab === 'general' && (
               <GeneralSettings
