@@ -172,6 +172,23 @@ export interface UserSettings {
   promptVersion?: string;
   /** 是否已关闭招募Banner */
   recruitmentBannerDismissed?: boolean;
+  /** 混合翻译配置 */
+  hybridTranslation?: {
+    /** 是否启用混合翻译 */
+    enabled: boolean;
+    /** 默认翻译引擎 */
+    defaultEngine: 'llm' | 'traditional' | 'hybrid';
+    /** 传统API提供商 */
+    traditionalProvider: 'deepl' | 'google_translate';
+    /** 简单文本阈值（词数） */
+    simpleTextThreshold: number;
+    /** 是否启用智能路由 */
+    enableSmartRouting: boolean;
+    /** 质量/速度优先级 */
+    priority: 'quality' | 'speed' | 'balanced';
+    /** 传统API API Key */
+    traditionalApiKey?: string;
+  };
 }
 
 // Storage Types

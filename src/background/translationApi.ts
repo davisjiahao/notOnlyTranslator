@@ -711,6 +711,57 @@ export class TranslationApiService {
   }
 
   /**
+   * 快速翻译 - 支持自定义系统提示词
+   * 用于混合翻译中的LLM分析场景
+   */
+  static async quickTranslateWithSystem(
+    systemPrompt: string,
+    userPrompt: string,
+    apiKey: string,
+    settings: UserSettings
+  ): Promise<string> {
+    const provider = settings.apiProvider;
+    const config = getProviderConfig(provider);
+    let apiFormat = config.apiFormat;
+    const model = settings.customModelName || config.recommendedModel;
+    const endpoint = getChatEndpoint(provider, model, settings.customApiUrl);
+
+    // 百度格式特殊处理
+    if (apiFormat === 'baidu') {
+      return this.quickTranslateBaidu(
+        `${systemPrompt}\n\n${userPrompt}`,
+        apiKey,
+        settings.secondaryApiKey || '',
+        model
+      );
+    }
+
+    // DashScope 使用 OpenAI 兼容格式
+    if (apiFormat === 'dashscope') {
+      apiFormat = 'openai';
+    }
+
+    const providerConfig = this.PROVIDER_CONFIGS[apiFormat];
+    if (!providerConfig) {
+      throw new Error(`不支持的 API 格式: ${apiFormat}`);
+    }
+
+    // 根据API格式构建消息
+    const messages = this.buildMessages(apiFormat, systemPrompt, userPrompt);
+
+    return this.executeApiCall(
+      providerConfig,
+      apiKey,
+      endpoint,
+      model,
+      messages,
+      false, // 快速翻译不使用 JSON 格式
+      QUICK_RETRY_OPTIONS,
+      config.name
+    ).catch(() => ''); // 快速翻译失败时返回空字符串
+  }
+
+  /**
    * 快速翻译 - DeepL 格式
    */
   private static async quickTranslateDeepL(

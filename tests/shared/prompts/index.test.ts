@@ -3,9 +3,9 @@ import {
   PromptVersionManager,
   promptVersionManager,
   PROMPT_VERSIONS,
-} from './index';
-import type { UserProfile, UserSettings } from '../types';
-import { EXAM_DISPLAY_NAMES } from '../constants';
+} from '@/shared/prompts';
+import type { UserProfile, UserSettings } from '@/shared/types';
+import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 
 describe('Prompt Management System', () => {
   const mockUserProfile: UserProfile = {
@@ -234,7 +234,7 @@ describe('Prompt Management System', () => {
 
         // 不应该有额外的上下文部分
         const contextMatches = userPrompt.match(/上下文/g);
-        expect(contextMatches?.length).toBeLessThanOrEqual(1);
+        expect(contextMatches?.length ?? 0).toBeLessThanOrEqual(1);
       });
 
       it('should include grammar analysis instructions when enabled', () => {
@@ -479,9 +479,15 @@ describe('Prompt Management System', () => {
 
         expect(manager.hasVersion('v3.0.0')).toBe(true);
         expect(manager.listVersions()).toContain('v3.0.0');
+
+        // 清理：删除测试注册的版本
+        delete PROMPT_VERSIONS['v3.0.0'];
       });
 
       it('should allow updating existing version', () => {
+        // 保存原始值以便恢复
+        const originalTemplate = { ...PROMPT_VERSIONS['v1.0.0'] };
+
         const updatedTemplate = {
           version: 'v1.0.0',
           systemPrompt: 'Updated system prompt',
@@ -494,6 +500,9 @@ describe('Prompt Management System', () => {
         const template = manager.getTemplate('v1.0.0');
 
         expect(template.systemPrompt).toBe('Updated system prompt');
+
+        // 恢复原始值
+        PROMPT_VERSIONS['v1.0.0'] = originalTemplate;
       });
     });
   });

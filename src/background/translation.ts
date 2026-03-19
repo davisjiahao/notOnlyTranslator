@@ -9,20 +9,33 @@ import { TranslationApiService } from './translationApi';
 import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts';
 import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
+import { HybridTranslationService } from './hybridTranslation';
 
 /**
  * Translation Service - handles LLM API calls for translation
  * 使用 TranslationApiService 统一处理多供应商 API 调用
+ * 支持混合翻译模式：传统API + LLM增强
  */
 export class TranslationService {
   /**
    * Translate text based on user level
+   * 支持混合翻译模式，根据设置自动选择最优翻译策略
    */
   static async translate(request: TranslationRequest): Promise<TranslationResult> {
     const { text, mode } = request;
     const startTime = performance.now();
 
     logger.info('TranslationService.translate called:', { textLength: text?.length, mode });
+
+    // 获取设置检查是否启用混合翻译
+    const settings = await StorageManager.getSettings();
+    const hybridSettings = settings as UserSettings & { hybridTranslation?: { enabled?: boolean } };
+
+    // 如果启用混合翻译，使用 HybridTranslationService
+    if (hybridSettings.hybridTranslation?.enabled) {
+      logger.info('TranslationService: Using HybridTranslationService');
+      return HybridTranslationService.translate(request);
+    }
 
     // 初始化缓存管理器
     await enhancedCache.initialize();
@@ -43,7 +56,6 @@ export class TranslationService {
     recordMetric(MetricType.CACHE_OPERATION, 'cache_get', 0, true, { cacheHit: false, cacheKey });
 
     // Get settings for API config
-    const settings = await StorageManager.getSettings();
     const apiKey = await StorageManager.getApiKey();
     logger.info('TranslationService: Settings loaded:', {
       apiProvider: settings.apiProvider,

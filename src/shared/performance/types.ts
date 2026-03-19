@@ -42,7 +42,10 @@ export type OperationType =
   | 'dom_render'
   | 'message_send'
   | 'message_receive'
-  | 'memory_check';
+  | 'memory_check'
+  | 'hybrid_translate'
+  | 'traditional_translate'
+  | 'llm_translate';
 
 /**
  * 性能指标条目
@@ -90,6 +93,8 @@ export interface MetricMetadata {
   userLevel?: string;
   /** 缓存键 */
   cacheKey?: string;
+  /** 翻译引擎类型（混合翻译） */
+  engine?: string;
 }
 
 /**

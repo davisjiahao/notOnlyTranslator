@@ -84,6 +84,14 @@ export const DEFAULT_SETTINGS: UserSettings = {
   hoverDelay: 500, // 默认悬停 500ms 后显示 Tooltip
   theme: 'system', // 默认跟随系统主题
   promptVersion: 'v1.0.0', // 默认提示词版本
+  hybridTranslation: {
+    enabled: false, // 默认不启用，需要用户手动开启
+    defaultEngine: 'hybrid',
+    traditionalProvider: 'deepl',
+    simpleTextThreshold: 20,
+    enableSmartRouting: true,
+    priority: 'balanced',
+  },
 };
 
 // Default user profile
