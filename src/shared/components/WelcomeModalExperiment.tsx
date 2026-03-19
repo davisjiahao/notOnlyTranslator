@@ -5,11 +5,20 @@ import {
   type ExperimentGroup,
   type ExperimentStep,
 } from './welcomeModalUtils';
+import type { ApiProvider } from '@/shared/types';
+
+/** 从欢迎模态框返回的API配置 */
+export interface WelcomeModalConfig {
+  provider: ApiProvider;
+  apiKey: string;
+  customUrl?: string;
+  modelName?: string;
+}
 
 interface WelcomeModalExperimentProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: () => void;
+  onComplete: (config?: WelcomeModalConfig) => void;
 }
 
 export default function WelcomeModalExperiment({
@@ -489,7 +498,7 @@ function ApiStep({
       </div>
 
       {/* 自定义 API URL (仅自定义提供商显示) */}
-      {group !== 'C' && selectedProvider === 'custom' && (
+      {selectedProvider === 'custom' && (
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API 地址
