@@ -8,6 +8,7 @@ import type {
 import type { CEFRLevel } from '@/shared/types/mastery';
 import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, TIMING } from '@/shared/constants';
 import { debounce, logger, getChineseRatio } from '@/shared/utils';
+import { MetricType, recordMetric } from '@/shared/performance';
 import { OptimizedHighlighter } from './optimizedHighlighter';
 import { Tooltip } from './tooltip';
 import { MarkerService } from './marker';
@@ -1239,9 +1240,10 @@ class NotOnlyTranslator {
    * Send message to background script
    */
   private async sendMessage(message: Message, timeout: number = TIMING.DEFAULT_MESSAGE_TIMEOUT): Promise<MessageResponse> {
+    const startTime = performance.now();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    return Promise.race([
+    const result = await Promise.race([
       new Promise<MessageResponse>((resolve) => {
         chrome.runtime.sendMessage(message, (response: MessageResponse) => {
           if (timeoutId) {
@@ -1271,6 +1273,13 @@ class NotOnlyTranslator {
         }, timeout);
       }),
     ]);
+
+    const duration = performance.now() - startTime;
+    recordMetric(MetricType.MESSAGE_LATENCY, 'message_send', duration, result.success ?? false, {
+      errorMessage: result.error,
+    });
+
+    return result;
   }
 
   /**

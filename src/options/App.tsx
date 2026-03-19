@@ -14,8 +14,9 @@ import WelcomeModalExperiment from '@/shared/components/WelcomeModalExperiment';
 import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
 import { AchievementGallery } from '@/shared/components/AchievementGallery';
 import ErrorDashboard from './components/ErrorDashboard';
+import TranslationHistory from './components/TranslationHistory';
 
-type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics' | 'achievements' | 'errors';
+type Tab = 'level' | 'test' | 'api' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'statistics' | 'achievements' | 'errors' | 'history';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -84,6 +85,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
         </svg>
       );
+    case 'history':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
   }
 };
 
@@ -96,6 +103,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'review', label: '闪卡复习' },
   { id: 'statistics', label: '学习统计' },
   { id: 'achievements', label: '成就' },
+  { id: 'history', label: '翻译历史' },
   { id: 'general', label: '通用设置' },
   { id: 'errors', label: '错误追踪' },
 ];
@@ -377,6 +385,8 @@ export default function App() {
             {activeTab === 'achievements' && <AchievementGallery onClose={() => setActiveTab('level')} />}
 
             {activeTab === 'errors' && <ErrorDashboard />}
+
+            {activeTab === 'history' && <TranslationHistory />}
 
             {activeTab === 'general' && (
               <GeneralSettings

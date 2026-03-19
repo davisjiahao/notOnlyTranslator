@@ -8,7 +8,7 @@ import { StorageManager } from './storage';
 import { TranslationApiService } from './translationApi';
 import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts';
 import { enhancedCache } from './enhancedCache';
-import { CacheMetrics } from './cacheMetrics';
+import { MetricType, recordMetric } from '@/shared/performance';
 
 /**
  * Translation Service - handles LLM API calls for translation
@@ -34,13 +34,13 @@ export class TranslationService {
     const cached = await enhancedCache.get(cacheKey);
     if (cached) {
       const duration = performance.now() - startTime;
-      CacheMetrics.recordCacheHit(duration);
+      recordMetric(MetricType.CACHE_OPERATION, 'cache_get', duration, true, { cacheHit: true, cacheKey });
       logger.info('TranslationService: Cache hit', { duration: `${duration.toFixed(2)}ms` });
       return cached;
     }
 
     // 记录缓存未命中
-    CacheMetrics.recordCacheMiss();
+    recordMetric(MetricType.CACHE_OPERATION, 'cache_get', 0, true, { cacheHit: false, cacheKey });
 
     // Get settings for API config
     const settings = await StorageManager.getSettings();
@@ -80,8 +80,14 @@ export class TranslationService {
 
     // 记录 API 调用性能
     const totalDuration = performance.now() - startTime;
-    CacheMetrics.recordApiCall(apiDuration);
-    CacheMetrics.recordTotalDuration(totalDuration);
+    recordMetric(MetricType.API_RESPONSE_TIME, 'translate', apiDuration, true, {
+      provider: settings.apiProvider,
+      textLength: text?.length,
+    });
+    recordMetric(MetricType.TRANSLATION_TOTAL_TIME, 'translate_total', totalDuration, true, {
+      provider: settings.apiProvider,
+      textLength: text?.length,
+    });
 
     return result;
   }

@@ -227,7 +227,17 @@ export type MessageType =
   | 'DELETE_ERRORS'
   | 'CLEAR_ALL_ERRORS'
   | 'MARK_ERRORS_AS_REPORTED'
-  | 'REPORT_ERRORS';
+  | 'REPORT_ERRORS'
+  // 翻译历史记录消息类型 (CMP-87)
+  | 'SAVE_TRANSLATION_HISTORY'
+  | 'QUERY_TRANSLATION_HISTORY'
+  | 'GET_HISTORY_BY_ID'
+  | 'DELETE_HISTORY_ENTRY'
+  | 'DELETE_HISTORY_ENTRIES'
+  | 'CLEAR_ALL_HISTORY'
+  | 'GET_HISTORY_STATS'
+  | 'EXPORT_HISTORY_DATA'
+  | 'IMPORT_HISTORY_DATA';
 
 export interface Message<T = unknown> {
   type: MessageType;

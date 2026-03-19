@@ -427,6 +427,7 @@ function ApiStep({
 
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [customUrl, setCustomUrl] = useState('');
 
   return (
     <div>
@@ -486,6 +487,26 @@ function ApiStep({
           </button>
         ))}
       </div>
+
+      {/* 自定义 API URL (仅自定义提供商显示) */}
+      {group !== 'C' && selectedProvider === 'custom' && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            API 地址
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <input
+            type="text"
+            value={customUrl}
+            onChange={(e) => setCustomUrl(e.target.value)}
+            placeholder="https://api.example.com/v1/chat/completions"
+            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            输入兼容 OpenAI API 格式的自定义服务端点地址
+          </p>
+        </div>
+      )}
 
       {/* API Key 输入 (仅A、B组显示) */}
       {group !== 'C' && (
@@ -548,7 +569,7 @@ function ApiStep({
         </button>
         <button
           onClick={onNext}
-          disabled={group !== 'C' && !apiKey}
+          disabled={group !== 'C' && (!apiKey || (selectedProvider === 'custom' && !customUrl))}
           className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {group === 'C' ? '进入演示' : '下一步'}

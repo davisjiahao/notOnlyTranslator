@@ -4,6 +4,9 @@ import type {
   TranslationRequest,
   UnknownWordEntry,
   BatchTranslationRequest,
+  TranslationResult,
+  TranslationMode,
+  UserProfile,
 } from '@/shared/types';
 import { CONTEXT_MENU_IDS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
@@ -24,6 +27,17 @@ import {
   markErrorsAsReported,
   getUnreportedErrors,
 } from '@/shared/error-tracking';
+import {
+  saveTranslationHistory,
+  queryTranslationHistory,
+  getHistoryById,
+  deleteHistoryEntry,
+  deleteHistoryEntries,
+  clearAllHistory,
+  getHistoryStats,
+  exportHistoryData,
+  importHistoryData,
+} from './translationHistory';
 
 logger.info('NotOnlyTranslator: Background service worker started');
 
@@ -573,6 +587,110 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         };
       } catch (error) {
         logger.error('NotOnlyTranslator: 上报错误失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    // 翻译历史记录消息处理 (CMP-87)
+    case 'SAVE_TRANSLATION_HISTORY': {
+      try {
+        const { originalText, translation, pageUrl, mode, userProfile, pageTitle } = message.payload as {
+          originalText: string;
+          translation: TranslationResult;
+          pageUrl: string;
+          mode: TranslationMode;
+          userProfile?: UserProfile;
+          pageTitle?: string;
+        };
+        const entry = await saveTranslationHistory(originalText, translation, pageUrl, mode, userProfile, pageTitle);
+        return { success: true, data: entry };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 保存翻译历史失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'QUERY_TRANSLATION_HISTORY': {
+      try {
+        const { params } = message.payload as { params?: import('./translationHistory').HistoryQueryParams };
+        const result = await queryTranslationHistory(params);
+        return { success: true, data: result };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 查询翻译历史失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_HISTORY_BY_ID': {
+      try {
+        const { id } = message.payload as { id: string };
+        const entry = await getHistoryById(id);
+        return { success: true, data: entry };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取历史记录失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'DELETE_HISTORY_ENTRY': {
+      try {
+        const { id } = message.payload as { id: string };
+        await deleteHistoryEntry(id);
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 删除历史记录失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'DELETE_HISTORY_ENTRIES': {
+      try {
+        const { ids } = message.payload as { ids: string[] };
+        await deleteHistoryEntries(ids);
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 批量删除历史记录失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'CLEAR_ALL_HISTORY': {
+      try {
+        await clearAllHistory();
+        return { success: true };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 清空历史记录失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_HISTORY_STATS': {
+      try {
+        const stats = await getHistoryStats();
+        return { success: true, data: stats };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取历史统计失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'EXPORT_HISTORY_DATA': {
+      try {
+        const data = await exportHistoryData();
+        return { success: true, data };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 导出历史数据失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'IMPORT_HISTORY_DATA': {
+      try {
+        const { entries } = message.payload as { entries: import('./translationHistory').TranslationHistoryEntry[] };
+        const result = await importHistoryData(entries);
+        return { success: true, data: result };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 导入历史数据失败', error);
         return { success: false, error: (error as Error).message };
       }
     }
