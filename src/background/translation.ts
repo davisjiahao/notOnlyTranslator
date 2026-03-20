@@ -10,6 +10,7 @@ import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts
 import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { HybridTranslationService } from './hybridTranslation';
+import { DeepLTranslationService } from './deeplTranslation';
 
 /**
  * Translation Service - handles LLM API calls for translation
@@ -19,7 +20,7 @@ import { HybridTranslationService } from './hybridTranslation';
 export class TranslationService {
   /**
    * Translate text based on user level
-   * 支持混合翻译模式，根据设置自动选择最优翻译策略
+   * 支持多种翻译策略，根据设置自动选择最优翻译方式
    */
   static async translate(request: TranslationRequest): Promise<TranslationResult> {
     const { text, mode } = request;
@@ -27,18 +28,54 @@ export class TranslationService {
 
     logger.info('TranslationService.translate called:', { textLength: text?.length, mode });
 
-    // 获取设置检查是否启用混合翻译
+    // 获取设置
     const settings = await StorageManager.getSettings();
-    const hybridSettings = settings as UserSettings & { hybridTranslation?: { enabled?: boolean } };
 
-    // 如果启用混合翻译，使用 HybridTranslationService
+    // 策略1: 如果启用混合翻译，使用 HybridTranslationService
+    const hybridSettings = settings as UserSettings & { hybridTranslation?: { enabled?: boolean } };
     if (hybridSettings.hybridTranslation?.enabled) {
       logger.info('TranslationService: Using HybridTranslationService');
       return HybridTranslationService.translate(request);
     }
 
-    // 初始化缓存管理器
-    await enhancedCache.initialize();
+    // 策略2: DeepL 优先模式（如果配置了 DeepL API Key）
+    const hasDeepLKey = await this.hasDeepLApiKey(settings);
+    if (hasDeepLKey) {
+      logger.info('TranslationService: Using DeepLTranslationService (primary)');
+      return DeepLTranslationService.translate(request);
+    }
+
+    // 策略3: 标准 LLM 翻译
+    logger.info('TranslationService: Using standard LLM translation');
+    return this.translateWithLLM(request, settings, startTime);
+  }
+
+  /**
+   * 检查是否有 DeepL API Key 配置
+   */
+  private static async hasDeepLApiKey(settings: UserSettings): Promise<boolean> {
+    // 从混合翻译配置中检查
+    if (settings.hybridTranslation?.traditionalApiKey) {
+      return true;
+    }
+
+    // 从 apiConfigs 中查找 DeepL 配置
+    const deeplConfig = settings.apiConfigs?.find(
+      config => config.provider === 'deepl'
+    );
+
+    return !!deeplConfig?.apiKey;
+  }
+
+  /**
+   * 标准 LLM 翻译（当 DeepL 不可用时使用）
+   */
+  private static async translateWithLLM(
+    request: TranslationRequest,
+    settings: UserSettings,
+    startTime: number
+  ): Promise<TranslationResult> {
+    const { text, mode } = request;
 
     // 生成缓存键
     const cacheKey = generateCacheKey(text, mode);
@@ -88,7 +125,7 @@ export class TranslationService {
 
     // Cache result in enhanced cache
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
-    await enhancedCache.set(cacheKey, result, mode, pageUrl);
+    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm');
 
     // 记录 API 调用性能
     const totalDuration = performance.now() - startTime;
@@ -210,13 +247,14 @@ export class TranslationService {
 
   /**
    * Quick translate a single word/phrase (no caching)
-   * 使用 TranslationApiService 统一处理
+   * 优先使用 DeepL，失败时回退到 LLM
    */
   static async quickTranslate(
     text: string,
-    apiKey: string,
-    settings: UserSettings
+    _apiKey: string,
+    _settings: UserSettings
   ): Promise<string> {
-    return TranslationApiService.quickTranslate(text, apiKey, settings);
+    // 使用 DeepLTranslationService 的快速翻译（优先 DeepL）
+    return DeepLTranslationService.quickTranslate(text);
   }
 }

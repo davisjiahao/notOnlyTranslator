@@ -45,7 +45,12 @@ export type OperationType =
   | 'memory_check'
   | 'hybrid_translate'
   | 'traditional_translate'
-  | 'llm_translate';
+  | 'llm_translate'
+  | 'deepl_translate'
+  | 'deepl_cache_hit'
+  | 'deepl_primary_translate'
+  | 'translation_source'
+  | 'llm_fallback_translate';
 
 /**
  * 性能指标条目
@@ -87,6 +92,8 @@ export interface MetricMetadata {
   memoryUsage?: number;
   /** 错误信息 */
   errorMessage?: string;
+  /** 错误 */
+  error?: string;
   /** API 提供商 */
   provider?: string;
   /** 用户词汇量等级 */
@@ -95,6 +102,12 @@ export interface MetricMetadata {
   cacheKey?: string;
   /** 翻译引擎类型（混合翻译） */
   engine?: string;
+  /** 翻译来源（deepl/llm/hybrid） */
+  source?: 'deepl' | 'llm' | 'hybrid';
+  /** 单词数量 */
+  wordCount?: number;
+  /** 文本复杂度 */
+  textComplexity?: string;
 }
 
 /**

@@ -201,6 +201,17 @@ export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
 export const PARAGRAPH_CACHE_KEY = 'paragraphCache';
 
 /**
+ * DeepL 翻译缓存过期时间（30天，毫秒）
+ * DeepL 翻译结果更稳定，可以缓存更长时间
+ */
+export const DEEPL_CACHE_EXPIRE_TIME = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * LLM 翻译缓存过期时间（7天，毫秒）
+ */
+export const LLM_CACHE_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * 缓存版本号，用于迁移
  */
 export const CACHE_VERSION = 1;

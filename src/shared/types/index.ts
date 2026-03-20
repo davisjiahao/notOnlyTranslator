@@ -11,7 +11,7 @@ export type ExamType = 'cet4' | 'cet6' | 'toefl' | 'ielts' | 'gre' | 'custom';
  * - 自定义：custom
  */
 export type ApiProvider =
-  | 'openai' | 'anthropic' | 'gemini' | 'groq' | 'deepl' | 'google_translate'  // 国外
+  | 'openai' | 'anthropic' | 'gemini' | 'groq' | 'deepl' | 'google_translate' | 'youdao'  // 国外 + 传统翻译
   | 'deepseek' | 'zhipu' | 'alibaba' | 'baidu'  // 国内
   | 'ollama'  // 本地部署
   | 'custom';
@@ -19,7 +19,7 @@ export type ApiProvider =
 /**
  * API 格式类型
  */
-export type ApiFormat = 'openai' | 'anthropic' | 'gemini' | 'dashscope' | 'baidu' | 'ollama' | 'deepl' | 'google_translate';
+export type ApiFormat = 'openai' | 'anthropic' | 'gemini' | 'dashscope' | 'baidu' | 'ollama' | 'deepl' | 'google_translate' | 'youdao_translate';
 
 /**
  * 模型信息
@@ -117,6 +117,8 @@ export interface TranslationResult {
   grammarPoints?: GrammarPoint[]; // New field for segment-based grammar learning
   fullText?: string;  // 完整译文（用于双文对照和全文翻译模式）
   cached?: boolean;
+  /** 翻译来源（内部使用，用于调试和分析） */
+  _source?: 'deepl' | 'llm' | 'hybrid';
 }
 
 // API 配置（支持多个配置）
@@ -179,7 +181,7 @@ export interface UserSettings {
     /** 默认翻译引擎 */
     defaultEngine: 'llm' | 'traditional' | 'hybrid';
     /** 传统API提供商 */
-    traditionalProvider: 'deepl' | 'google_translate';
+    traditionalProvider: 'deepl' | 'google_translate' | 'youdao';
     /** 简单文本阈值（词数） */
     simpleTextThreshold: number;
     /** 是否启用智能路由 */
@@ -358,6 +360,8 @@ export interface ParagraphCacheEntry {
   createdAt: number;
   /** 最后访问时间，用于LRU */
   lastAccessedAt: number;
+  /** 翻译来源：'deepl' | 'llm' | 'hybrid' */
+  source?: 'deepl' | 'llm' | 'hybrid';
 }
 
 /**

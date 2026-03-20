@@ -8,6 +8,8 @@ import {
   DEFAULT_BATCH_CONFIG,
   PARAGRAPH_CACHE_KEY,
   CACHE_VERSION,
+  DEEPL_CACHE_EXPIRE_TIME,
+  LLM_CACHE_EXPIRE_TIME,
 } from '@/shared/constants';
 import { logger } from '@/shared/utils';
 import { generateCacheKey } from '@/shared/utils';
@@ -98,6 +100,7 @@ export class EnhancedCacheManager {
   /**
    * 获取缓存的翻译结果
    * 如果存在且未过期，返回结果并更新访问时间
+   * 根据来源使用不同的过期时间策略
    */
   async get(textHash: string): Promise<TranslationResult | null> {
     await this.initialize();
@@ -107,10 +110,13 @@ export class EnhancedCacheManager {
       return null;
     }
 
-    // 检查是否过期
+    // 检查是否过期（根据来源使用不同的过期时间）
     const now = Date.now();
-    if (now - entry.createdAt > DEFAULT_BATCH_CONFIG.cacheExpireTime) {
+    const expireTime = this.getCacheExpireTime(entry.source);
+    if (now - entry.createdAt > expireTime) {
       this.memoryCache.delete(textHash);
+      this.removeNode(this.nodeMap.get(textHash)!);
+      this.nodeMap.delete(textHash);
       return null;
     }
 
@@ -121,8 +127,27 @@ export class EnhancedCacheManager {
     // 更新链表位置（O(1) LRU）
     this.moveToTail(textHash);
 
-    logger.info(`EnhancedCacheManager: 缓存命中 ${textHash}`);
-    return { ...entry.result, cached: true };
+    logger.info(`EnhancedCacheManager: 缓存命中 (${entry.source || 'unknown'}) ${textHash}`);
+    return { ...entry.result, cached: true, _source: entry.source };
+  }
+
+  /**
+   * 根据翻译来源获取缓存过期时间
+   * DeepL 翻译结果更稳定，缓存时间更长
+   */
+  private getCacheExpireTime(source?: 'deepl' | 'llm' | 'hybrid'): number {
+    switch (source) {
+      case 'deepl':
+        // DeepL 翻译结果更稳定，缓存30天
+        return DEEPL_CACHE_EXPIRE_TIME;
+      case 'hybrid':
+        // 混合翻译缓存14天
+        return 14 * 24 * 60 * 60 * 1000;
+      case 'llm':
+      default:
+        // LLM 翻译缓存7天
+        return LLM_CACHE_EXPIRE_TIME;
+    }
   }
 
   /**
@@ -141,11 +166,12 @@ export class EnhancedCacheManager {
 
     for (const hash of textHashes) {
       const entry = this.memoryCache.get(hash);
+      const expireTime = this.getCacheExpireTime(entry?.source);
 
-      if (entry && now - entry.createdAt <= DEFAULT_BATCH_CONFIG.cacheExpireTime) {
+      if (entry && now - entry.createdAt <= expireTime) {
         // 更新访问时间
         entry.lastAccessedAt = now;
-        hits.set(hash, { ...entry.result, cached: true });
+        hits.set(hash, { ...entry.result, cached: true, _source: entry.source });
         // 更新链表位置（O(1) LRU）
         this.moveToTail(hash);
       } else {
@@ -165,12 +191,14 @@ export class EnhancedCacheManager {
 
   /**
    * 设置缓存
+   * @param source 翻译来源，影响缓存过期时间
    */
   async set(
     textHash: string,
     result: TranslationResult,
     mode: TranslationMode,
-    pageUrl: string
+    pageUrl: string,
+    source?: 'deepl' | 'llm' | 'hybrid'
   ): Promise<void> {
     await this.initialize();
 
@@ -182,6 +210,7 @@ export class EnhancedCacheManager {
       pageUrl,
       createdAt: now,
       lastAccessedAt: now,
+      source,
     };
 
     this.memoryCache.set(textHash, entry);
@@ -196,10 +225,17 @@ export class EnhancedCacheManager {
 
     // 异步持久化到存储
     this.persistToStorage();
+
+    // 记录缓存来源统计
+    logger.info(`EnhancedCacheManager: 缓存已设置 (${source || 'unknown'})`, {
+      textHash,
+      expireTime: this.getCacheExpireTime(source),
+    });
   }
 
   /**
    * 批量设置缓存
+   * @param source 翻译来源，影响缓存过期时间
    */
   async setBatch(
     entries: Array<{
@@ -207,7 +243,8 @@ export class EnhancedCacheManager {
       result: TranslationResult;
       mode: TranslationMode;
       pageUrl: string;
-    }>
+    }>,
+    source?: 'deepl' | 'llm' | 'hybrid'
   ): Promise<void> {
     await this.initialize();
 
@@ -221,6 +258,7 @@ export class EnhancedCacheManager {
         pageUrl,
         createdAt: now,
         lastAccessedAt: now,
+        source,
       };
       this.memoryCache.set(textHash, entry);
 
@@ -236,7 +274,7 @@ export class EnhancedCacheManager {
     // 异步持久化到存储
     this.persistToStorage();
 
-    logger.info(`EnhancedCacheManager: 批量缓存 ${entries.length} 条`);
+    logger.info(`EnhancedCacheManager: 批量缓存 ${entries.length} 条 (${source || 'unknown'})`);
   }
 
   /**
@@ -417,6 +455,7 @@ export class EnhancedCacheManager {
 
   /**
    * 清理过期缓存
+   * 根据来源使用不同的过期时间
    */
   async cleanExpired(): Promise<number> {
     await this.initialize();
@@ -425,7 +464,8 @@ export class EnhancedCacheManager {
     let cleanedCount = 0;
 
     for (const [key, entry] of this.memoryCache) {
-      if (now - entry.createdAt > DEFAULT_BATCH_CONFIG.cacheExpireTime) {
+      const expireTime = this.getCacheExpireTime(entry.source);
+      if (now - entry.createdAt > expireTime) {
         // 从 memoryCache 删除
         this.memoryCache.delete(key);
 
