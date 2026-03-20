@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MarkerService, type MarkerCallbacks, type MarkType } from '@/content/marker';
+import { MarkerService, createMarkerService, type MarkerCallbacks, type MarkType } from '@/content/marker';
 import { CSS_CLASSES } from '@/shared/constants';
 
 // Mock chrome.runtime
@@ -318,5 +318,106 @@ describe('MarkerService', () => {
       // All should be cleared
       expect(markerService.getMarkedCount()).toBe(0);
     });
+  });
+
+  describe('getSelectionContext', () => {
+    it('应该返回空字符串当没有选中文本时', () => {
+      const context = markerService.getSelectionContext();
+      expect(context).toBe('');
+    });
+
+    it('应该返回选中文本的上下文', () => {
+      // 创建一个包含文本的元素
+      const container = document.createElement('div');
+      container.textContent = 'This is a test sentence for context extraction.';
+      document.body.appendChild(container);
+
+      // 模拟选中文本
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        range.selectNodeContents(container);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      const context = markerService.getSelectionContext();
+      expect(context.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('addToVocabulary', () => {
+    it('应该添加单词到词汇表', async () => {
+      await markerService.addToVocabulary('test', '测试', 'This is a test.');
+
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'ADD_TO_VOCABULARY',
+          payload: expect.objectContaining({
+            entry: expect.objectContaining({
+              word: 'test',
+              translation: '测试',
+              context: 'This is a test.',
+            }),
+          }),
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('应该处理添加失败的情况', async () => {
+      mockSendMessage.mockImplementationOnce((message, callback) => {
+        if (callback) callback({ success: false, error: 'Failed to add' });
+      });
+
+      await markerService.addToVocabulary('test', '测试', 'context');
+
+      expect(mockCallbacks.onError).toHaveBeenCalledWith('test', 'Failed to add');
+    });
+
+    it('应该处理发送消息异常', async () => {
+      mockSendMessage.mockImplementationOnce(() => {
+        throw new Error('Network error');
+      });
+
+      await markerService.addToVocabulary('test', '测试', 'context');
+
+      expect(mockCallbacks.onError).toHaveBeenCalledWith('test', 'Error: Network error');
+    });
+  });
+
+  describe('sendMessage error handling', () => {
+    it('应该处理 chrome.runtime.lastError', async () => {
+      // 设置 lastError
+      (chrome as unknown as { runtime: { lastError: { message: string } | null } }).runtime.lastError = {
+        message: 'Extension context invalidated',
+      };
+
+      mockSendMessage.mockImplementationOnce((message, callback) => {
+        if (callback) callback(undefined);
+      });
+
+      // 尝试标记单词
+      await markerService.markKnown('error-test');
+
+      // 清理
+      (chrome as unknown as { runtime: { lastError: { message: string } | null } }).runtime.lastError = null;
+    });
+  });
+});
+
+describe('createMarkerService', () => {
+  it('应该创建 MarkerService 实例', () => {
+    const service = createMarkerService();
+    expect(service).toBeInstanceOf(MarkerService);
+  });
+
+  it('应该传递回调函数', () => {
+    const callbacks: MarkerCallbacks = {
+      onMarked: vi.fn(),
+      onError: vi.fn(),
+    };
+    const service = createMarkerService(callbacks);
+    expect(service).toBeInstanceOf(MarkerService);
   });
 });

@@ -22,6 +22,12 @@ export default defineConfig({
         '*.config.ts',
         '*.config.js',
         'scripts/',
+        // JSON 数据文件
+        'src/data/',
+        // 类型定义文件（无运行时代码）
+        '**/*.d.ts',
+        // 纯类型导出文件
+        'src/shared/types/vocabulary.ts',
       ],
       // 覆盖率阈值
       thresholds: {

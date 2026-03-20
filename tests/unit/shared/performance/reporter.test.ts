@@ -355,6 +355,42 @@ describe('PerformanceReporter', () => {
       expect(pending.length).toBe(0);
     });
   });
+
+  describe('exportToJSON', () => {
+    it('应该导出 JSON 格式的性能报告', async () => {
+      const json = await reporter.exportToJSON(24);
+
+      expect(typeof json).toBe('string');
+      const parsed = JSON.parse(json);
+      expect(parsed.exportedAt).toBeDefined();
+      expect(parsed.periodHours).toBe(24);
+      expect(parsed.report).toBeDefined();
+      expect(parsed.payload).toBeDefined();
+    });
+
+    it('应该使用默认时间范围', async () => {
+      const json = await reporter.exportToJSON();
+      const parsed = JSON.parse(json);
+      expect(parsed.periodHours).toBe(24);
+    });
+
+    it('应该支持自定义时间范围', async () => {
+      const json = await reporter.exportToJSON(48);
+      const parsed = JSON.parse(json);
+      expect(parsed.periodHours).toBe(48);
+    });
+  });
+
+  describe('downloadReport', () => {
+    it('应该调用 chrome.downloads.download', async () => {
+      await reporter.downloadReport(24);
+
+      expect(chrome.downloads.download).toHaveBeenCalled();
+      const callArgs = (chrome.downloads.download as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(callArgs.filename).toContain('performance-report');
+      expect(callArgs.saveAs).toBe(true);
+    });
+  });
 });
 
 describe('DEFAULT_REPORTER_CONFIG', () => {
