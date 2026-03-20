@@ -176,34 +176,134 @@ export class TranslationDisplay {
       this.wrapWordInText(paragraph, word, true, i);
     }
 
-    // 创建译文行
+    // 创建译文行（使用 DOM API 避免 XSS）
     const translationLine = document.createElement('div');
     translationLine.className = 'not-translator-translation-line';
 
-    let translationHtml = this.escapeHtml(result.fullText);
-
-    // 在译文中标记每个生词的翻译
-    // 按原始顺序处理
-    const wordsInOrder = [...result.words].sort((a, b) => a.position[0] - b.position[0]);
-    wordsInOrder.forEach((word, i) => {
-      const translation = word.translation;
-
-      // 使用字符串方法替代正则表达式，避免在循环中重复创建正则对象
-      const index = translationHtml.indexOf(translation);
-      if (index !== -1) {
-        const before = translationHtml.slice(0, index);
-        const after = translationHtml.slice(index + translation.length);
-        const wrapped = `<span class="not-translator-highlighted-translation" data-index="${i}" data-word="${this.escapeHtml(word.original)}">${translation}</span>`;
-        translationHtml = before + wrapped + after;
-      }
-    });
-
-    translationLine.innerHTML = translationHtml;
+    // 使用 DOM API 构建译文内容
+    this.buildTranslationLineContent(translationLine, result);
 
     // 在段落后插入译文行
     paragraph.insertAdjacentElement('afterend', translationLine);
 
     paragraph.classList.add('not-translator-processed');
+  }
+
+  /**
+   * 使用 DOM API 构建译文行内容（避免 XSS 风险）
+   */
+  private static buildTranslationLineContent(
+    container: HTMLElement,
+    result: TranslationResult
+  ): void {
+    const fullText = result.fullText;
+    if (!fullText) return;
+
+    // 收集需要高亮的词汇翻译及其索引
+    const highlights: Array<{ translation: string; index: number; word: string }> = [];
+    const wordsInOrder = [...result.words].sort((a, b) => a.position[0] - b.position[0]);
+    wordsInOrder.forEach((word, i) => {
+      if (word.translation && fullText.includes(word.translation)) {
+        highlights.push({
+          translation: word.translation,
+          index: i,
+          word: word.original
+        });
+      }
+    });
+
+    // 按位置排序，从后往前处理以避免位置偏移
+    highlights.sort((a, b) => {
+      const posA = fullText.lastIndexOf(a.translation);
+      const posB = fullText.lastIndexOf(b.translation);
+      return posB - posA;
+    });
+
+    // 构建文本内容
+    let currentText = fullText;
+
+    // 从后往前处理，避免索引变化
+    for (const highlight of highlights) {
+      const pos = currentText.lastIndexOf(highlight.translation);
+      if (pos === -1) continue;
+
+      // 分割文本
+      const before = currentText.slice(0, pos);
+      const matched = currentText.slice(pos, pos + highlight.translation.length);
+      const after = currentText.slice(pos + highlight.translation.length);
+
+      // 创建高亮 span
+      const highlightSpan = document.createElement('span');
+      highlightSpan.className = 'not-translator-highlighted-translation';
+      highlightSpan.dataset.index = String(highlight.index);
+      highlightSpan.dataset.word = highlight.word;
+      highlightSpan.textContent = matched;
+
+      // 构建片段（从后往前，所以先添加 after）
+      const fragment = document.createDocumentFragment();
+      if (after) fragment.appendChild(document.createTextNode(after));
+      fragment.appendChild(highlightSpan);
+      if (before) fragment.appendChild(document.createTextNode(before));
+
+      // 更新当前文本为片段内容（需要临时容器）
+      const tempDiv = document.createElement('div');
+      tempDiv.appendChild(fragment);
+      currentText = tempDiv.textContent || '';
+    }
+
+    // 最终渲染：逐个处理高亮词汇
+    this.renderTranslationWithHighlights(container, fullText, highlights);
+  }
+
+  /**
+   * 渲染带高亮的译文
+   */
+  private static renderTranslationWithHighlights(
+    container: HTMLElement,
+    fullText: string,
+    highlights: Array<{ translation: string; index: number; word: string }>
+  ): void {
+    if (highlights.length === 0) {
+      container.textContent = fullText;
+      return;
+    }
+
+    // 按首次出现位置排序
+    const sortedHighlights = [...highlights].sort((a, b) => {
+      const posA = fullText.indexOf(a.translation);
+      const posB = fullText.indexOf(b.translation);
+      return posA - posB;
+    });
+
+    let currentPos = 0;
+    const fragment = document.createDocumentFragment();
+
+    for (const highlight of sortedHighlights) {
+      const pos = fullText.indexOf(highlight.translation, currentPos);
+      if (pos === -1) continue;
+
+      // 添加高亮前的普通文本
+      if (pos > currentPos) {
+        fragment.appendChild(document.createTextNode(fullText.slice(currentPos, pos)));
+      }
+
+      // 添加高亮 span
+      const highlightSpan = document.createElement('span');
+      highlightSpan.className = 'not-translator-highlighted-translation';
+      highlightSpan.dataset.index = String(highlight.index);
+      highlightSpan.dataset.word = highlight.word;
+      highlightSpan.textContent = highlight.translation;
+      fragment.appendChild(highlightSpan);
+
+      currentPos = pos + highlight.translation.length;
+    }
+
+    // 添加剩余文本
+    if (currentPos < fullText.length) {
+      fragment.appendChild(document.createTextNode(fullText.slice(currentPos)));
+    }
+
+    container.appendChild(fragment);
   }
 
   /**
@@ -632,15 +732,6 @@ export class TranslationDisplay {
       paragraph.classList.remove('not-translator-processed');
       paragraph.classList.remove('not-translator-full-translated');
     }
-  }
-
-  /**
-   * HTML转义
-   */
-  private static escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 
   /**
