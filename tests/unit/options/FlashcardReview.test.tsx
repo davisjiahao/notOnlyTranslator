@@ -515,9 +515,10 @@ describe('FlashcardReview', () => {
       );
       fireEvent.click(rating5Button!);
 
+      // 等待 800ms 延迟后的状态更新
       await waitFor(() => {
         expect(screen.getByText('复习完成！')).toBeInTheDocument();
-      });
+      }, { timeout: 2000 });
     });
 
     it('完成界面应该显示统计信息', async () => {
@@ -527,12 +528,13 @@ describe('FlashcardReview', () => {
       );
       fireEvent.click(rating5Button!);
 
+      // 等待 800ms 延迟后的状态更新
       await waitFor(() => {
         expect(screen.getByText('总复习数')).toBeInTheDocument();
         expect(screen.getByText('熟练掌握')).toBeInTheDocument();
         expect(screen.getByText('平均评分')).toBeInTheDocument();
         expect(screen.getByText('掌握率')).toBeInTheDocument();
-      });
+      }, { timeout: 2000 });
     });
 
     it('完成界面应该有再来一轮按钮', async () => {
@@ -542,9 +544,10 @@ describe('FlashcardReview', () => {
       );
       fireEvent.click(rating5Button!);
 
+      // 等待 800ms 延迟后的状态更新
       await waitFor(() => {
         expect(screen.getByText('再来一轮')).toBeInTheDocument();
-      });
+      }, { timeout: 2000 });
     });
 
     it('点击再来一轮应该重新加载单词', async () => {
@@ -554,9 +557,10 @@ describe('FlashcardReview', () => {
       );
       fireEvent.click(rating5Button!);
 
+      // 等待 800ms 延迟后的状态更新
       await waitFor(() => {
         expect(screen.getByText('再来一轮')).toBeInTheDocument();
-      });
+      }, { timeout: 2000 });
 
       // 点击再来一轮
       fireEvent.click(screen.getByText('再来一轮'));
@@ -609,9 +613,10 @@ describe('FlashcardReview', () => {
       );
       fireEvent.click(rating5Button!);
 
+      // 等待 800ms 延迟后的状态更新
       await waitFor(() => {
         expect(screen.getByText('复习完成！')).toBeInTheDocument();
-      });
+      }, { timeout: 2000 });
 
       // 平均评分应该是 5
       expect(screen.getByText('5')).toBeInTheDocument();
