@@ -105,6 +105,35 @@ chrome.runtime.onInstalled.addListener(() => {
   logger.info('NotOnlyTranslator installed and context menus created');
 });
 
+// Handle keyboard commands (shortcuts defined in manifest.json)
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  logger.info(`NotOnlyTranslator: Command received: ${command}`);
+
+  if (!tab?.id) {
+    logger.warn('Command received but no active tab');
+    return;
+  }
+
+  switch (command) {
+    case 'translate-paragraph':
+      // 发送消息到 content script 触发段落翻译
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'TRANSLATE_PARAGRAPH',
+      }).catch(err => logger.error('Failed to send TRANSLATE_PARAGRAPH:', err));
+      break;
+
+    case 'toggle-translation':
+      // 发送消息到 content script 切换翻译显示
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'TOGGLE_TRANSLATION',
+      }).catch(err => logger.error('Failed to send TOGGLE_TRANSLATION:', err));
+      break;
+
+    default:
+      logger.warn(`Unknown command: ${command}`);
+  }
+});
+
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const selectedText = info.selectionText?.trim();

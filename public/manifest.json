@@ -42,6 +42,29 @@
     "contextMenus",
     "alarms"
   ],
+  "commands": {
+    "translate-paragraph": {
+      "suggested_key": {
+        "default": "Alt+T",
+        "mac": "Alt+T"
+      },
+      "description": "快速翻译当前段落"
+    },
+    "toggle-translation": {
+      "suggested_key": {
+        "default": "Alt+Shift+T",
+        "mac": "Alt+Shift+T"
+      },
+      "description": "切换翻译显示"
+    },
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "打开扩展弹窗"
+    }
+  },
   "host_permissions": [
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
