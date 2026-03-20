@@ -28,6 +28,8 @@ export default defineConfig({
         '**/*.d.ts',
         // 纯类型导出文件
         'src/shared/types/vocabulary.ts',
+        // 纯重新导出文件
+        'src/shared/performance/index.ts',
       ],
       // 覆盖率阈值
       thresholds: {
