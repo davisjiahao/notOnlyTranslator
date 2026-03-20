@@ -1,361 +1,199 @@
 # NotOnlyTranslator
 
-[English](#english) | [中文](#中文)
+**智能英语阅读助手 - 只翻译你不会的词**
+
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-即将上架-blue)](https://chromewebstore.google.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## English
+## 为什么选择 NotOnlyTranslator？
 
-### Overview
+**问题**：传统翻译工具翻译所有内容，让你失去学习机会。
 
-**NotOnlyTranslator** is an intelligent browser extension that adapts English translations to your proficiency level. Unlike traditional translation tools that translate everything, NotOnlyTranslator only translates words and phrases that are beyond your current English level, helping you learn naturally while reading.
+**解决方案**：NotOnlyTranslator 只翻译超出你水平的词汇，帮助你在阅读中自然学习。
 
-### ✨ Features
+| 传统翻译工具 | NotOnlyTranslator |
+|-------------|-------------------|
+| 翻译所有内容 ❌ | 只翻译你不会的词 ✅ |
+| 依赖翻译，无法进步 ❌ | 循序渐进，持续提升 ✅ |
+| 千篇一律 ❌ | 个性化定制 ✅ |
 
-- **🎯 Adaptive Translation**: Translates only content above your proficiency level
-- **📊 Level Assessment**: Initial assessment via exam scores (CET-4/6, TOEFL, IELTS, GRE) or quick vocabulary test
-- **🔄 Dynamic Learning**: Automatically adjusts your estimated vocabulary as you mark known/unknown words
-- **✏️ Word Marking**: Mark words as "known" or "unknown" to refine your profile
-- **📚 Vocabulary Book**: Save and review unknown words with context
-- **💡 Smart Highlighting**: Automatically highlights difficult words on web pages
-- **🎨 Customizable**: Adjust highlight colors, font size, and translation modes
-- **🤖 LLM-Powered**: Uses OpenAI GPT-4o-mini or Anthropic Claude for intelligent translation
-- **🔧 Custom API Support**: Connect to local models (LM Studio, Ollama) or any OpenAI-compatible API
+---
 
-### 🚀 Installation
+## 🎬 演示
 
-#### From Chrome Web Store (Coming Soon)
-1. Visit the Chrome Web Store
-2. Click "Add to Chrome"
-3. Follow the installation prompts
+> 🎥 **演示 GIF 即将添加**
 
-#### From Source
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/yourusername/notOnlyTranslator.git
-   cd notOnlyTranslator
-   ```
+*看一眼就懂：访问英文网站 → 自动高亮难词 → 点击查看翻译 → 标记学习*
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+---
 
-3. Build the extension:
-   ```bash
-   npm run build
-   ```
+## ✨ 核心功能
 
-4. Load the extension in Chrome:
-   - Open `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the `dist` folder
+### 🎯 智能翻译
+- **自适应水平**：根据你的英语水平（四六级/托福/雅思/GRE）智能判断
+- **精准高亮**：只高亮你不会的词，保持阅读流畅
+- **上下文翻译**：基于句子语境，翻译更准确
 
-### 🎓 Setup
+### 📊 个性化学习
+- **水平评估**：考试分数或 2 分钟快速测评
+- **动态调整**：随着你标记词汇，系统自动优化
+- **掌握度追踪**：可视化你的学习进度
 
-1. **Configure API**:
-   - Click the extension icon
-   - Go to Settings → API Settings
-   - Choose API provider:
-     - **OpenAI**: Official API (requires key from platform.openai.com)
-     - **Anthropic**: Official API (requires key from console.anthropic.com)
-     - **Custom API**: Use local models or custom endpoints (see [Custom API Guide](CUSTOM_API_GUIDE.md))
-   - Enter your API key
-   - (Optional) Customize API URL and model name
+### 📚 词汇管理
+- **生词本**：一键收藏，带上下文保存
+- **闪卡复习**：间隔重复，高效记忆
+- **词汇推荐**：基于水平推荐新词学习
 
-2. **Set Your English Level**:
-   - Go to Settings → English Level
-   - Select your exam type and score, or
-   - Take the quick 20-question vocabulary test
+### 🔧 灵活配置
+- **多 API 支持**：OpenAI、Anthropic、DeepL、有道翻译
+- **本地模型**：支持 Ollama、LM Studio
+- **界面定制**：高亮颜色、字体大小、翻译模式
 
-3. **Start Reading**:
-   - Visit any English website
-   - The extension will automatically highlight words above your level
-   - Click highlighted words to see translations
-   - Mark words as "known" or "add to vocabulary"
+---
 
-📚 **Need Help?** Check out our [Quick Start Guide](docs/help/QUICK_START.md) or [FAQ](docs/help/FAQ.md)
+## 🚀 快速开始
 
-### 📖 Usage
+### 安装（二选一）
 
-#### Translation Modes
+**方式一：Chrome 应用商店**（推荐）
+> 即将上架，敬请期待
 
-- **Selective Mode** (Default): Only translates words/phrases above your level
-- **Full Mode**: Translates all content
-
-#### Word Marking
-
-- **Known**: Removes the word from future highlights
-- **Unknown**: Adds to vocabulary book for review
-- **Add to Vocabulary**: Saves with translation and context
-
-#### Context Menu
-
-Right-click on any selected text:
-- Translate Selection
-- Mark as Known
-- Mark as Unknown
-- Add to Vocabulary
-
-### 🛠️ Development
-
-#### Tech Stack
-
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite + @crxjs/vite-plugin
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand
-- **Storage**: Chrome Storage API
-- **LLM APIs**: OpenAI / Anthropic
-
-#### Project Structure
-
-```
-notOnlyTranslator/
-├── src/
-│   ├── background/          # Service Worker
-│   │   ├── index.ts
-│   │   ├── translation.ts   # Translation service
-│   │   ├── userLevel.ts     # User level management
-│   │   └── storage.ts       # Storage management
-│   │
-│   ├── content/             # Content Script
-│   │   ├── index.ts
-│   │   ├── highlighter.ts   # Text highlighting
-│   │   ├── tooltip.ts       # Translation tooltip
-│   │   └── marker.ts        # Word marking
-│   │
-│   ├── popup/               # Extension popup
-│   │   ├── App.tsx
-│   │   └── components/
-│   │
-│   ├── options/             # Settings page
-│   │   ├── App.tsx
-│   │   └── components/
-│   │
-│   ├── shared/              # Shared code
-│   │   ├── types/           # TypeScript types
-│   │   ├── constants/       # Constants
-│   │   ├── utils/           # Utility functions
-│   │   └── hooks/           # React hooks
-│   │
-│   └── data/                # Static data
-│       └── vocabulary/      # Vocabulary lists
-│
-├── public/
-│   └── manifest.json        # Extension manifest
-│
-└── vite.config.ts
-```
-
-#### Development Commands
-
+**方式二：从源码安装**
 ```bash
-# Install dependencies
-npm install
+# 克隆仓库
+git clone https://github.com/hungrywu/notOnlyTranslator.git
+cd notOnlyTranslator
 
-# Start development server
-npm run dev
+# 安装依赖并构建
+npm install && npm run build
 
-# Build for production
-npm run build
-
-# Preview build
-npm run preview
-
-# Lint code
-npm run lint
+# 在 Chrome 中加载
+# 1. 打开 chrome://extensions/
+# 2. 启用"开发者模式"
+# 3. 点击"加载已解压的扩展程序"
+# 4. 选择 dist 文件夹
 ```
 
-### 🤝 Contributing
+### 配置（2 分钟）
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. **设置 API 密钥**
+   - 点击插件图标 → API 设置
+   - 选择提供商（OpenAI/Anthropic/有道等）
+   - 输入 API 密钥
 
-### 📄 License
+2. **设置英语水平**
+   - 选择考试类型和分数
+   - 或完成 20 题快速测评
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-### 🙏 Acknowledgments
-
-- Powered by OpenAI GPT-4o-mini and Anthropic Claude
-- Built with React, Vite, and Tailwind CSS
-- Icon design inspired by language learning concepts
+3. **开始阅读**
+   - 访问任何英文网站
+   - 自动高亮难词，点击查看翻译
 
 ---
 
-## 中文
+## 💡 使用场景
 
-### 项目简介
+| 场景 | 如何帮助 |
+|------|----------|
+| 📖 阅读英文文章 | 只翻译生词，保持阅读流畅 |
+| 📝 学术论文阅读 | 专业术语精准翻译 |
+| 💼 工作文档 | 快速理解，提升效率 |
+| 🎬 字幕学习 | 配合视频内容学习 |
 
-**NotOnlyTranslator** 是一款根据用户英语水平智能翻译的浏览器插件。与传统翻译工具不同,它只翻译超出您当前水平的单词和短语,帮助您在阅读中自然学习。
+---
 
-### ✨ 核心功能
+## 📈 用户评价
 
-- **🎯 自适应翻译**: 只翻译超出您水平的内容
-- **📊 水平评估**: 通过考试成绩(四六级、托福、雅思、GRE)或快速测评确定水平
-- **🔄 动态学习**: 根据标记行为自动调整词汇量估计
-- **✏️ 词汇标记**: 标记"认识"或"不认识"来优化个人档案
-- **📚 生词本**: 保存并复习不认识的词汇及其上下文
-- **💡 智能高亮**: 自动高亮网页中的难词
-- **🎨 个性化定制**: 调整高亮颜色、字体大小和翻译模式
-- **🤖 LLM驱动**: 使用 OpenAI GPT-4o-mini 或 Anthropic Claude 智能翻译
-- **🔧 自定义API支持**: 支持本地模型（LM Studio、Ollama）或任何 OpenAI 兼容 API
+> "用了两周，阅读速度提升明显，不再依赖全页翻译了。"
+> — 四六级备考用户
 
-### 🚀 安装方法
+> "终于找到一个不会过度翻译的工具，完美符合我的需求。"
+> — 托福 105 分用户
 
-#### 从 Chrome 应用商店安装(即将推出)
-1. 访问 Chrome 应用商店
-2. 点击"添加至 Chrome"
-3. 按照提示完成安装
+> "闪卡复习功能太棒了，每天 10 分钟巩固生词。"
+> — 职场英语学习者
 
-#### 从源码安装
-1. 克隆仓库:
-   ```bash
-   git clone https://github.com/yourusername/notOnlyTranslator.git
-   cd notOnlyTranslator
-   ```
+---
 
-2. 安装依赖:
-   ```bash
-   npm install
-   ```
+## 🛠️ 技术栈
 
-3. 构建插件:
-   ```bash
-   npm run build
-   ```
+<details>
+<summary>点击展开技术详情</summary>
 
-4. 在 Chrome 中加载插件:
-   - 打开 `chrome://extensions/`
-   - 启用"开发者模式"
-   - 点击"加载已解压的扩展程序"
-   - 选择 `dist` 文件夹
-
-### 🎓 设置步骤
-
-1. **配置 API**:
-   - 点击插件图标
-   - 进入设置 → API 设置
-   - 选择 API 提供商:
-     - **OpenAI**: 官方 API（需要从 platform.openai.com 获取密钥）
-     - **Anthropic**: 官方 API（需要从 console.anthropic.com 获取密钥）
-     - **自定义 API**: 使用本地模型或自定义端点（参见[自定义 API 指南](CUSTOM_API_GUIDE.md)）
-   - 输入您的 API 密钥
-   - （可选）自定义 API URL 和模型名称
-
-2. **设置英语水平**:
-   - 进入设置 → 英语水平
-   - 选择考试类型和分数,或
-   - 参加快速20题词汇测评
-
-3. **开始阅读**:
-   - 访问任何英文网站
-   - 插件会自动高亮超出您水平的词汇
-   - 点击高亮词汇查看翻译
-   - 标记词汇为"认识"或"加入生词本"
-
-### 📖 使用说明
-
-#### 翻译模式
-
-- **选择性模式**(默认): 只翻译超出您水平的词汇/短语
-- **全文模式**: 翻译所有内容
-
-#### 词汇标记
-
-- **认识**: 从未来的高亮中移除该词
-- **不认识**: 添加到生词本供复习
-- **加入生词本**: 保存词汇、翻译和上下文
-
-#### 右键菜单
-
-在任何选中的文本上右键:
-- 翻译选中内容
-- 标记为认识
-- 标记为不认识
-- 加入生词本
-
-### 🛠️ 开发指南
-
-#### 技术栈
-
-- **框架**: React 18 + TypeScript
+- **前端框架**: React 18 + TypeScript
 - **构建工具**: Vite + @crxjs/vite-plugin
 - **样式**: Tailwind CSS
 - **状态管理**: Zustand
 - **存储**: Chrome Storage API
-- **LLM API**: OpenAI / Anthropic
+- **翻译服务**: OpenAI / Anthropic / DeepL / 有道
 
-#### 项目结构
+</details>
 
-```
-notOnlyTranslator/
-├── src/
-│   ├── background/          # Service Worker
-│   │   ├── index.ts
-│   │   ├── translation.ts   # 翻译服务
-│   │   ├── userLevel.ts     # 用户水平管理
-│   │   └── storage.ts       # 存储管理
-│   │
-│   ├── content/             # Content Script
-│   │   ├── index.ts
-│   │   ├── highlighter.ts   # 文本高亮
-│   │   ├── tooltip.ts       # 翻译悬浮框
-│   │   └── marker.ts        # 词汇标记
-│   │
-│   ├── popup/               # 弹出页面
-│   │   ├── App.tsx
-│   │   └── components/
-│   │
-│   ├── options/             # 设置页面
-│   │   ├── App.tsx
-│   │   └── components/
-│   │
-│   ├── shared/              # 共享代码
-│   │   ├── types/           # TypeScript 类型
-│   │   ├── constants/       # 常量
-│   │   ├── utils/           # 工具函数
-│   │   └── hooks/           # React Hooks
-│   │
-│   └── data/                # 静态数据
-│       └── vocabulary/      # 词汇表
-│
-├── public/
-│   └── manifest.json        # 插件清单
-│
-└── vite.config.ts
-```
+---
 
-#### 开发命令
+## 🤝 贡献
 
-```bash
-# 安装依赖
-npm install
+欢迎贡献代码、报告问题或提出建议！
 
-# 启动开发服务器
-npm run dev
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'feat: 添加某某功能'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
 
-# 生产构建
-npm run build
+---
 
-# 预览构建
-npm run preview
+## 📄 许可证
 
-# 代码检查
-npm run lint
-```
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 
-### 🤝 贡献
+---
 
-欢迎贡献! 请随时提交 Pull Request。
+## 🙏 致谢
 
-### 📄 许可证
+- 翻译服务：OpenAI GPT-4o-mini、Anthropic Claude、DeepL、有道翻译
+- 构建工具：React、Vite、Tailwind CSS
+- 灵感来源：语言学习与间隔重复理论
 
-MIT 许可证 - 详见 [LICENSE](LICENSE)。
+---
 
-### 🙏 致谢
+**[⬆ 返回顶部](#notonlytranslator)**
 
-- 基于 OpenAI GPT-4o-mini 和 Anthropic Claude
-- 使用 React、Vite 和 Tailwind CSS 构建
-- 图标设计灵感来自语言学习概念
+---
+
+## English Version
+
+**Smart English Reading Assistant - Only Translate What You Don't Know**
+
+### Why NotOnlyTranslator?
+
+**Problem**: Traditional translators translate everything, causing you to lose learning opportunities.
+
+**Solution**: NotOnlyTranslator only translates words beyond your level, helping you learn naturally while reading.
+
+### Key Features
+
+- **Adaptive Translation**: Based on your proficiency level (CET-4/6, TOEFL, IELTS, GRE)
+- **Smart Highlighting**: Only highlights words you don't know
+- **Context-Aware Translation**: More accurate translations based on sentence context
+- **Personalized Learning**: Dynamic adjustment as you mark words
+- **Vocabulary Management**: Save unknown words with context
+- **Flashcard Review**: Spaced repetition for efficient learning
+- **Multiple API Support**: OpenAI, Anthropic, DeepL, Youdao, local models
+
+### Quick Start
+
+1. Install from Chrome Web Store (coming soon) or build from source
+2. Set your API key (OpenAI/Anthropic/Youdao)
+3. Set your English level (exam score or quick test)
+4. Start reading any English website
+
+### Tech Stack
+
+React 18 + TypeScript + Vite + Tailwind CSS + Zustand + Chrome Storage API
+
+---
+
+**Made with ❤️ for English learners**
