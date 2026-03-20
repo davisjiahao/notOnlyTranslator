@@ -816,6 +816,16 @@ class NotOnlyTranslator {
             sendResponse({ success: true });
             break;
 
+          case 'TRANSLATE_PARAGRAPH':
+            this.handleTranslateParagraph();
+            sendResponse({ success: true });
+            break;
+
+          case 'TOGGLE_TRANSLATION':
+            this.handleToggleTranslation();
+            sendResponse({ success: true });
+            break;
+
           default:
             sendResponse({ success: false, error: 'Unknown message type' });
         }
@@ -1234,6 +1244,152 @@ class NotOnlyTranslator {
     processedElements.forEach((element) => {
       TranslationDisplay.clearTranslation(element);
     });
+  }
+
+  /**
+   * 处理 Alt+T 快捷键：翻译当前段落
+   * 获取当前选中的段落或光标所在的段落并翻译
+   */
+  private handleTranslateParagraph(): void {
+    if (!this.settings?.enabled) return;
+
+    // 获取目标段落
+    const targetParagraph = this.getTargetParagraph();
+    if (!targetParagraph) {
+      logger.info('未找到可翻译的段落');
+      return;
+    }
+
+    // 触发段落翻译
+    this.translateParagraph(targetParagraph);
+  }
+
+  /**
+   * 获取目标段落（选中区域或光标位置）
+   */
+  private getTargetParagraph(): HTMLElement | null {
+    // 优先检查选中的文本所在的段落
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      let container: Node | null = range.commonAncestorContainer;
+
+      // 向上查找最近的块级元素
+      while (container && container !== document.body) {
+        if (container.nodeType === Node.ELEMENT_NODE) {
+          const el = container as HTMLElement;
+          const tagName = el.tagName.toLowerCase();
+          // 段落、文章、区块等
+          if (['p', 'div', 'article', 'section', 'li', 'td', 'blockquote'].includes(tagName)) {
+            // 确保有足够的文本内容
+            if (el.textContent && el.textContent.trim().length > 20) {
+              return el;
+            }
+          }
+        }
+        container = container.parentNode;
+      }
+    }
+
+    // 回退：查找当前聚焦元素或活动段落
+    const activeElement = document.activeElement;
+    if (activeElement && activeElement !== document.body) {
+      // 检查是否在编辑器中
+      const closestParagraph = activeElement.closest('p, div, article, section');
+      if (closestParagraph && closestParagraph.textContent && closestParagraph.textContent.trim().length > 20) {
+        return closestParagraph as HTMLElement;
+      }
+    }
+
+    // 最后尝试：获取视口中心附近的段落
+    const paragraphs = document.querySelectorAll<HTMLElement>('p, article p, div > p');
+    const viewportCenter = window.innerHeight / 2;
+
+    for (const p of paragraphs) {
+      const rect = p.getBoundingClientRect();
+      if (rect.top < viewportCenter && rect.bottom > viewportCenter) {
+        if (p.textContent && p.textContent.trim().length > 20) {
+          return p;
+        }
+      }
+    }
+
+    return paragraphs[0] || null;
+  }
+
+  /**
+   * 翻译指定段落
+   */
+  private async translateParagraph(paragraph: HTMLElement): Promise<void> {
+    const text = paragraph.textContent?.trim();
+    if (!text) return;
+
+    // 添加加载指示
+    paragraph.classList.add('not-translator-translating');
+
+    try {
+      const mode = this.settings?.translationMode || 'inline-only';
+      const result = await this.sendMessage({
+        type: 'TRANSLATE_TEXT',
+        payload: {
+          text,
+          context: text.slice(0, 200),
+          mode,
+        },
+      }, TIMING.TRANSLATION_MESSAGE_TIMEOUT);
+
+      if (result.success && result.data) {
+        // 应用翻译
+        const translationResult = result.data as TranslationResult;
+        TranslationDisplay.applyTranslation(
+          paragraph,
+          translationResult,
+          this.settings?.translationMode || 'inline-only',
+          this.settings
+        );
+      }
+    } catch (error) {
+      logger.error('段落翻译失败:', error);
+    } finally {
+      paragraph.classList.remove('not-translator-translating');
+    }
+  }
+
+  /**
+   * 处理 Alt+Shift+T 快捷键：切换翻译显示
+   * 显示/隐藏所有翻译内容
+   */
+  private handleToggleTranslation(): void {
+    const translations = document.querySelectorAll<HTMLElement>('.not-translator-translation-line');
+    const highlights = document.querySelectorAll<HTMLElement>('.not-translator-highlight');
+    const processed = document.querySelectorAll<HTMLElement>('.not-translator-processed');
+
+    if (translations.length === 0 && highlights.length === 0) {
+      // 没有翻译，触发当前段落翻译
+      this.handleTranslateParagraph();
+      return;
+    }
+
+    // 切换可见性
+    const isHidden = translations[0]?.style.display === 'none';
+
+    translations.forEach(el => {
+      el.style.display = isHidden ? '' : 'none';
+    });
+
+    highlights.forEach(el => {
+      el.style.opacity = isHidden ? '1' : '0.3';
+    });
+
+    processed.forEach(el => {
+      if (isHidden) {
+        el.classList.remove('not-translator-hidden');
+      } else {
+        el.classList.add('not-translator-hidden');
+      }
+    });
+
+    logger.info(`翻译显示已${isHidden ? '开启' : '关闭'}`);
   }
 
   /**
