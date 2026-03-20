@@ -50,6 +50,7 @@
     "https://api-free.deepl.com/*",
     "https://api.deepl.com/*",
     "https://translation.googleapis.com/*",
+    "https://openapi.youdao.com/*",
     "http://localhost:*/*",
     "http://127.0.0.1:*/*"
   ],
