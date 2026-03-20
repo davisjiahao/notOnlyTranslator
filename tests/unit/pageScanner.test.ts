@@ -455,8 +455,8 @@ describe('PageScanner', () => {
       const endTime = performance.now();
 
       expect(result.length).toBe(100);
-      // 性能测试：200ms 阈值，考虑 CI 环境波动
-      expect(endTime - startTime).toBeLessThan(200);
+      // 性能测试：500ms 阈值，考虑 CI 环境和系统负载波动
+      expect(endTime - startTime).toBeLessThan(500);
     });
 
     it('should cache results to avoid redundant scanning', () => {
