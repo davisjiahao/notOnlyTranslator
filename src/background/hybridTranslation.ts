@@ -11,6 +11,11 @@ import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts
 import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { TextComplexityAnalyzer } from './textComplexityAnalyzer';
+import {
+  LlmEnhancedAnalysisService,
+  type LlmEnhancedAnalysisResult,
+  type AnalysisOptions,
+} from './llmEnhancedAnalysis';
 
 /**
  * 翻译引擎类型
@@ -49,6 +54,10 @@ export interface HybridTranslationConfig {
   parallelTimeout: number;
   /** 回退策略 */
   fallbackStrategy: 'traditional_first' | 'llm_first' | 'fastest';
+  /** 是否启用 LLM 增强分析（CMP-106） */
+  enableEnhancedAnalysis: boolean;
+  /** 增强分析选项 */
+  enhancedAnalysisOptions?: Partial<AnalysisOptions>;
 }
 
 /**
@@ -69,6 +78,13 @@ export class HybridTranslationService {
     enableParallelTranslation: false,
     parallelTimeout: 3000,
     fallbackStrategy: 'traditional_first',
+    enableEnhancedAnalysis: true,  // 默认启用增强分析
+    enhancedAnalysisOptions: {
+      analyzeWords: true,
+      analyzePhrases: true,
+      analyzeGrammar: true,
+      analyzeCultural: false,  // 文化背景分析按需开启
+    },
   };
 
   /**
@@ -326,14 +342,14 @@ export class HybridTranslationService {
   /**
    * 混合翻译策略
    * 传统API快速翻译 + LLM深度分析
-   * 支持并行处理模式
+   * 支持并行处理模式和增强分析 (CMP-106)
    */
   private static async translateWithHybrid(
     request: TranslationRequest,
     settings: UserSettings
   ): Promise<TranslationResult> {
     const startTime = performance.now();
-    const { text } = request;
+    const { text, userLevel } = request;
 
     // 如果启用并行翻译，使用并行策略
     if (this.config.enableParallelTranslation) {
@@ -345,24 +361,62 @@ export class HybridTranslationService {
       // 步骤1: 使用传统API快速翻译
       const traditionalResult = await this.translateWithTraditional(request, settings);
 
-      // 步骤2: 识别需要LLM深度分析的内容
-      const wordsToAnalyze = traditionalResult.words.filter(w => w.difficulty >= 7);
+      // 步骤2: 检查是否需要增强分析
+      const complexityAnalysis = TextComplexityAnalyzer.analyze(text);
+      const needsEnhancedAnalysis = this.config.enableEnhancedAnalysis &&
+        (complexityAnalysis.level === 'complex' || complexityAnalysis.level === 'medium');
 
-      // 步骤3: 如果存在复杂词汇，使用LLM进行深度分析
-      if (wordsToAnalyze.length > 0) {
+      // 步骤3: 执行增强分析（如启用）
+      if (needsEnhancedAnalysis) {
         const apiKey = await StorageManager.getApiKey();
         if (apiKey || settings.apiProvider === 'ollama') {
           try {
-            const analysis = await this.analyzeWithLLM(wordsToAnalyze, text, settings);
+            logger.info('HybridTranslationService: Performing enhanced analysis');
 
-            // 合并分析结果
-            traditionalResult.words = this.mergeWordAnalysis(
-              traditionalResult.words,
-              analysis
+            // 调用 LLM 增强分析服务
+            const analysisOptions: Partial<AnalysisOptions> = {
+              ...this.config.enhancedAnalysisOptions,
+              userVocabulary: userLevel.estimatedVocabulary,
+            };
+
+            const enhancedResult = await LlmEnhancedAnalysisService.analyze(
+              text,
+              settings,
+              analysisOptions
             );
+
+            // 合并增强分析结果
+            this.mergeEnhancedAnalysis(traditionalResult, enhancedResult);
+
+            // 记录增强分析指标
+            recordMetric(MetricType.API_RESPONSE_TIME, 'enhanced_analysis', enhancedResult.analysisTime, true, {
+              wordCount: enhancedResult.wordDetails.length,
+              phraseCount: enhancedResult.phrases.length,
+              grammarCount: enhancedResult.grammarAnalysis.length,
+            });
           } catch (error) {
-            logger.warn('LLM analysis failed in hybrid mode:', error);
-            // LLM分析失败不影响主翻译结果
+            logger.warn('Enhanced analysis failed in hybrid mode:', error);
+            // 增强分析失败不影响主翻译结果
+          }
+        }
+      } else {
+        // 原有逻辑：仅对复杂词汇进行简单分析
+        const wordsToAnalyze = traditionalResult.words.filter(w => w.difficulty >= 7);
+
+        if (wordsToAnalyze.length > 0) {
+          const apiKey = await StorageManager.getApiKey();
+          if (apiKey || settings.apiProvider === 'ollama') {
+            try {
+              const analysis = await this.analyzeWithLLM(wordsToAnalyze, text, settings);
+
+              // 合并分析结果
+              traditionalResult.words = this.mergeWordAnalysis(
+                traditionalResult.words,
+                analysis
+              );
+            } catch (error) {
+              logger.warn('LLM analysis failed in hybrid mode:', error);
+            }
           }
         }
       }
@@ -371,6 +425,7 @@ export class HybridTranslationService {
       logger.info('Hybrid translation completed:', {
         duration: `${duration.toFixed(2)}ms`,
         wordCount: traditionalResult.words.length,
+        grammarCount: traditionalResult.grammarPoints?.length || 0,
       });
 
       return traditionalResult;
@@ -378,6 +433,99 @@ export class HybridTranslationService {
       // 使用增强的错误回退
       logger.error('Hybrid translation failed, using fallback:', error);
       return this.translateWithFallback(request, settings);
+    }
+  }
+
+  /**
+   * 合并增强分析结果到翻译结果
+   */
+  private static mergeEnhancedAnalysis(
+    result: TranslationResult,
+    enhancedResult: LlmEnhancedAnalysisResult
+  ): void {
+    // 合并生词详细释义
+    if (enhancedResult.wordDetails.length > 0) {
+      const enhancedWords = LlmEnhancedAnalysisService.convertToTranslatedWords(
+        enhancedResult.wordDetails
+      );
+
+      // 使用 Map 去重并合并
+      const wordMap = new Map<string, TranslatedWord>();
+
+      // 先添加现有词汇
+      for (const word of result.words) {
+        wordMap.set(word.original.toLowerCase(), word);
+      }
+
+      // 添加/更新增强词汇
+      for (const word of enhancedWords) {
+        const key = word.original.toLowerCase();
+        const existing = wordMap.get(key);
+        if (existing) {
+          // 合并信息
+          wordMap.set(key, {
+            ...existing,
+            phonetic: word.phonetic || existing.phonetic,
+            partOfSpeech: word.partOfSpeech || existing.partOfSpeech,
+            examples: word.examples?.length ? word.examples : existing.examples,
+          });
+        } else {
+          wordMap.set(key, word);
+        }
+      }
+
+      result.words = Array.from(wordMap.values());
+    }
+
+    // 合并语法分析
+    if (enhancedResult.grammarAnalysis.length > 0) {
+      const grammarPoints = LlmEnhancedAnalysisService.convertToGrammarPoints(
+        enhancedResult.grammarAnalysis
+      );
+
+      if (!result.grammarPoints) {
+        result.grammarPoints = [];
+      }
+
+      // 添加新的语法点（避免重复）
+      const existingKeys = new Set(result.grammarPoints.map(g => g.original));
+      for (const gp of grammarPoints) {
+        if (!existingKeys.has(gp.original)) {
+          result.grammarPoints.push(gp);
+        }
+      }
+    }
+
+    // 短语分析作为词汇添加
+    if (enhancedResult.phrases.length > 0) {
+      const phraseWords: TranslatedWord[] = enhancedResult.phrases.map(p => ({
+        original: p.phrase,
+        translation: p.translation,
+        position: [0, 0] as [number, number],
+        difficulty: p.difficulty,
+        isPhrase: true,
+        examples: p.examples?.map(e => e.sentence),
+      }));
+
+      // 添加短语（避免重复）
+      const existingKeys = new Set(result.words.map(w => w.original.toLowerCase()));
+      for (const phrase of phraseWords) {
+        if (!existingKeys.has(phrase.original.toLowerCase())) {
+          result.words.push(phrase);
+        }
+      }
+    }
+
+    // 文化背景注释添加到语法点的说明中
+    if (enhancedResult.culturalNotes.length > 0 && result.grammarPoints) {
+      for (const note of enhancedResult.culturalNotes) {
+        result.grammarPoints.push({
+          original: note.text,
+          explanation: `【文化背景】${note.title}：${note.description}`,
+          position: [0, 0] as [number, number],
+          type: 'cultural',
+        });
+      }
     }
   }
 

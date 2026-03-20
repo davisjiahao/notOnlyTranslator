@@ -50,7 +50,8 @@ export type OperationType =
   | 'deepl_cache_hit'
   | 'deepl_primary_translate'
   | 'translation_source'
-  | 'llm_fallback_translate';
+  | 'llm_fallback_translate'
+  | 'enhanced_analysis';  // CMP-106: LLM 增强分析
 
 /**
  * 性能指标条目
@@ -106,6 +107,10 @@ export interface MetricMetadata {
   source?: 'deepl' | 'llm' | 'hybrid';
   /** 单词数量 */
   wordCount?: number;
+  /** 短语数量 (CMP-106) */
+  phraseCount?: number;
+  /** 语法点数量 (CMP-106) */
+  grammarCount?: number;
   /** 文本复杂度 */
   textComplexity?: string;
 }
