@@ -306,6 +306,13 @@ export class Tooltip {
   }
 
   /**
+   * 获取 Tooltip DOM 元素
+   */
+  getElement(): HTMLElement | null {
+    return this.element;
+  }
+
+  /**
    * Show tooltip for a word
    */
   showWord(

@@ -213,6 +213,86 @@ class NotOnlyTranslator {
   }
 
   /**
+   * 翻译词汇高亮词并显示 Tooltip
+   * 包含 CEFR 等级信息
+   */
+  private async translateAndShowVocabTooltip(
+    word: string,
+    target: HTMLElement,
+    level: string,
+    difficulty: number
+  ): Promise<void> {
+    try {
+      // 显示加载状态
+      this.tooltip.showLoading(target);
+
+      // 发送翻译请求
+      const response = await chrome.runtime.sendMessage({
+        type: 'TRANSLATE_TEXT',
+        payload: {
+          text: word,
+          context: word,
+          userLevel: await this.getUserProfile(),
+          mode: 'inline-only' as TranslationMode,
+        },
+      });
+
+      if (!response.success || !response.data) {
+        this.tooltip.showError(target, '翻译失败，请稍后重试');
+        logger.warn('词汇翻译失败:', response.error);
+        return;
+      }
+
+      const result = response.data as TranslationResult;
+      const translation = result.words?.[0]?.translation || result.fullText || '';
+
+      if (translation) {
+        // 缓存翻译结果到元素上
+        target.dataset.translation = translation;
+
+        // 显示 Tooltip
+        this.tooltip.showWord(target, {
+          original: word,
+          translation,
+          position: [0, word.length],
+          difficulty,
+          isPhrase: false,
+        });
+
+        // 在 Tooltip 头部添加 CEFR 等级标签
+        this.addCEFRLevelBadge(level);
+      } else {
+        this.tooltip.showError(target, '未找到翻译');
+      }
+
+      logger.info(`词汇查词: ${word} (${level})`);
+    } catch (error) {
+      this.tooltip.showError(target, '翻译出错');
+      logger.error('词汇翻译出错:', error);
+    }
+  }
+
+  /**
+   * 在 Tooltip 中添加 CEFR 等级标签
+   */
+  private addCEFRLevelBadge(level: string): void {
+    const tooltipEl = this.tooltip.getElement();
+    if (!tooltipEl) return;
+
+    const header = tooltipEl.querySelector(`.${CSS_CLASSES.TOOLTIP}-header`);
+    if (!header) return;
+
+    // 检查是否已有等级标签
+    if (header.querySelector('.not-translator-cefr-badge')) return;
+
+    // 创建 CEFR 等级标签
+    const badge = document.createElement('span');
+    badge.className = `not-translator-cefr-badge not-translator-cefr-${level.toLowerCase()}`;
+    badge.textContent = level;
+    header.appendChild(badge);
+  }
+
+  /**
    * 获取用户配置
    */
   private async getUserProfile() {
@@ -848,6 +928,31 @@ class NotOnlyTranslator {
           difficulty,
           isPhrase,
         });
+      }
+      return;
+    }
+
+    // CEFR 词汇高亮（根据用户水平标注的生词）
+    if (element.classList.contains('not-translator-vocab-highlight')) {
+      const word = element.dataset.word || element.textContent?.trim() || '';
+      const level = element.dataset.level || 'B1'; // CEFR 等级
+      const difficulty = parseInt(element.dataset.difficulty || '5', 10);
+      const translation = element.dataset.translation || '';
+
+      if (translation) {
+        // 已有翻译，直接显示
+        this.tooltip.showWord(element, {
+          original: word,
+          translation,
+          position: [0, 0],
+          difficulty,
+          isPhrase: false,
+        });
+      } else if (word) {
+        // 没有翻译数据，获取翻译
+        this.tooltip.showLoading(element);
+        // 存储等级信息到元素上，以便翻译完成后显示
+        this.translateAndShowVocabTooltip(word, element, level, difficulty);
       }
       return;
     }
