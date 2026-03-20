@@ -1,91 +1,78 @@
 # 报名表单链接配置
 
 **创建时间**: 2026-03-18
-**状态**: ✅ 已创建
-**表单工具**: Google Forms
+**更新时间**: 2026-03-21
+**状态**: ⏳ 待创建腾讯问卷
+**表单工具**: 腾讯问卷 (CEO 决策)
 
 ---
 
 ## 表单链接
 
-**报名链接**: https://forms.gle/notonlytranslator-onboarding-recruitment
+**Google Form (已废弃)**: ~~https://forms.gle/notonlytranslator-onboarding-recruitment~~ (404)
 
-**二维码**: [待生成]
+**腾讯问卷 (当前方案)**:
+- 链接: `https://wj.qq.com/s2/[待创建]/`
+- 创建截止: 2026-03-22
+- 负责人: UX Researcher
 
-**短链接**: [待创建]
+---
+
+## 创建要求 (CEO 决策)
+
+### 必填字段 (5个)
+
+| # | 字段名 | 类型 | 用途 |
+|---|--------|------|------|
+| 1 | 微信号/手机号 | 文本 | 联系用户 |
+| 2 | 英语学习时长 | 单选 | 筛选条件 |
+| 3 | 是否已安装扩展 | 单选 | 验证条件 |
+| 4 | 使用频率 | 单选 | 筛选活跃用户 |
+| 5 | 方便访谈时间 | 多选 | 调度安排 |
+
+### 可选字段 (2个)
+
+| # | 字段名 | 类型 | 用途 |
+|---|--------|------|------|
+| 6 | 主要使用场景 | 多选 | 了解用户背景 |
+| 7 | 对产品的期望 | 文本 | 收集反馈 |
+
+**详细指南**: `tencent-survey-creation-guide.md`
 
 ---
 
 ## 链接使用位置
 
-### 1. 应用内 Banner
-**文件**: `src/popup/components/RecruitmentBanner.tsx`
-**位置**: 第 15 行左右
-**当前状态**: 占位符链接，需要替换
-
-```typescript
-// 当前代码
-const FORM_LINK = "https://forms.gle/example-placeholder";
-
-// 替换为
-const FORM_LINK = "https://forms.gle/notonlytranslator-onboarding-recruitment";
-```
-
-**状态**: ⏳ 等待 CTO 更新
-
----
-
-### 2. 邮件邀请模板
-**文件**: `research/ux-research/promotion-materials.md`
-**搜索**: `{表单链接}`
-**替换为**: `https://forms.gle/notonlytranslator-onboarding-recruitment`
-
-**状态**: ✅ 已更新
-
----
-
-### 3. 社交媒体文案
-**文件**: `research/ux-research/promotion-materials.md`
-**搜索**: `{表单链接}` 或 `{表单链接}`
-**替换为**: `https://forms.gle/notonlytranslator-onboarding-recruitment`
-
-**状态**: ✅ 已更新
-
----
-
-## 链接更新检查清单
-
-- [x] Google Forms 创建完成
-- [x] 表单链接: https://forms.gle/notonlytranslator-onboarding-recruitment
-- [ ] 应用内 Banner 更新（CTO 负责）
-- [x] 邮件模板更新
-- [x] 社交媒体文案更新
-- [ ] 二维码生成（可选）
-- [ ] 短链接创建（可选）
-
----
-
-## 推广渠道链接汇总
-
 | 渠道 | 链接位置 | 状态 |
 |------|----------|------|
-| 应用内 Banner | RecruitmentBanner.tsx | ⏳ 等待 CTO 更新 |
-| 邮件邀请 | promotion-materials.md | ✅ 已更新 |
-| 小红书 | promotion-materials.md | ✅ 已更新 |
-| 知乎 | promotion-materials.md | ✅ 已更新 |
-| V2EX | promotion-materials.md | ✅ 已更新 |
-| Twitter | promotion-materials.md | ✅ 已更新 |
-| 微信社群 | promotion-materials.md | ✅ 已更新 |
+| 应用内 Banner | `RecruitmentBanner.tsx` | ⏳ 等待新链接 |
+| 小红书 | 已发布帖子 | ⏳ 需更新/重发 |
+| 知乎 | 已发布帖子 | ⏳ 需更新/重发 |
+| V2EX | 已发布帖子 | ⏳ 需重发新主题 |
+| Twitter/X | 已发布帖子 | ⏳ 需重发 |
 
 ---
 
-## 下一步
+## 创建后检查清单
 
-1. **CTO 更新 Banner 链接**
-2. **UX Researcher 开始推广**
-3. **监控报名情况**
+- [ ] 登录腾讯问卷创建表单
+- [ ] 添加 5 个必填 + 2 个可选字段
+- [ ] 设置逻辑跳转（未安装用户跳结束页）
+- [ ] 发布并获取链接
+- [ ] 更新本文件的链接
+- [ ] 通知 CTO 更新 Banner 链接
+- [ ] 更新社交媒体推广文案
 
 ---
 
-**表单链接**: https://forms.gle/notonlytranslator-onboarding-recruitment
-**状态**: ✅ 已创建，准备推广
+## 执行时间线
+
+| 步骤 | 负责人 | 截止时间 |
+|------|--------|----------|
+| 创建腾讯问卷 | UX Researcher | 2026-03-22 |
+| 更新推广链接 | UX Researcher | 创建后 1 小时 |
+| 更新 Banner | CTO | 创建后 2 小时 |
+
+---
+
+*配置负责人: UX Researcher*
