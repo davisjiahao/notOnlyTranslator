@@ -196,6 +196,41 @@ const googleTranslateExtractor: ProviderResponseExtractor = {
 };
 
 /**
+ * 有道翻译响应类型
+ */
+interface YoudaoResponse {
+  translation?: string[];
+  query?: string;
+  errorCode?: string;
+}
+
+/**
+ * 有道翻译格式响应提取器
+ */
+const youdaoExtractor: ProviderResponseExtractor = {
+  isValid: (data): data is YoudaoResponse => {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'translation' in data &&
+      Array.isArray((data as YoudaoResponse).translation)
+    );
+  },
+  extractContent: (data) => {
+    const d = data as YoudaoResponse;
+    return d.translation?.[0];
+  },
+  extractError: (data) => {
+    if (typeof data !== 'object' || data === null) return undefined;
+    const d = data as YoudaoResponse;
+    if (d.errorCode && d.errorCode !== '0') {
+      return `有道翻译错误: ${d.errorCode}`;
+    }
+    return undefined;
+  },
+};
+
+/**
  * 百度 Token 响应类型
  */
 interface BaiduTokenResponse {
@@ -346,6 +381,11 @@ export class TranslationApiService {
     // Google Translate 格式特殊处理
     if (apiFormat === 'google_translate') {
       return this.callGoogleTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+    }
+
+    // 有道翻译 格式特殊处理
+    if (apiFormat === 'youdao_translate') {
+      return this.callYoudaoTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
     }
 
     // DashScope 直接使用 OpenAI 兼容格式
@@ -557,6 +597,69 @@ export class TranslationApiService {
   }
 
   /**
+   * 调用有道翻译 API 进行翻译
+   * 有道翻译使用签名验证机制
+   */
+  private static async callYoudaoTranslateFormat(
+    _systemPrompt: string,
+    userPrompt: string,
+    apiKey: string,
+    endpoint: string,
+    retryOptions: RetryOptions,
+    providerName: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      // 有道API使用 appKey + appSecret 签名机制
+      // 注意：settings中存储的 apiKey 格式为 "appKey:appSecret"
+      const [appKey, appSecret] = apiKey.split(':');
+
+      if (!appKey || !appSecret) {
+        throw new ApiError('有道翻译需要 appKey:appSecret 格式的API密钥', undefined, false);
+      }
+
+      const salt = Date.now().toString();
+      const curtime = Math.round(Date.now() / 1000).toString();
+      const sign = await this.generateYoudaoSign(appKey, appSecret, userPrompt, salt, curtime);
+
+      const params = new URLSearchParams();
+      params.append('q', userPrompt);
+      params.append('from', 'en');
+      params.append('to', 'zh-CHS');
+      params.append('appKey', appKey);
+      params.append('salt', salt);
+      params.append('sign', sign);
+      params.append('signType', 'v3');
+      params.append('curtime', curtime);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json();
+
+      if (!youdaoExtractor.isValid(data)) {
+        const errorMsg = youdaoExtractor.extractError?.(data);
+        throw new ApiError(errorMsg || `${providerName} API 返回格式无效`, undefined, true);
+      }
+
+      const content = youdaoExtractor.extractContent(data);
+      if (!content) {
+        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
+      }
+
+      return content;
+    }, retryOptions);
+  }
+
+  /**
    * 调用百度文心 API（使用自定义系统提示词）
    * 需要先获取 access token
    */
@@ -678,6 +781,11 @@ export class TranslationApiService {
     // Google Translate 快速翻译
     if (apiFormat === 'google_translate') {
       return this.quickTranslateGoogle(text, apiKey, endpoint, config.name);
+    }
+
+    // 有道翻译 快速翻译
+    if (apiFormat === 'youdao_translate') {
+      return this.quickTranslateYoudao(text, apiKey, endpoint, config.name);
     }
 
     const prompt = `Translate the following English word or phrase to Chinese. Only respond with the translation, nothing else.\n\n${text}`;
@@ -857,5 +965,86 @@ export class TranslationApiService {
       const data = await response.json() as BaiduResponse;
       return data.result || '';
     }, QUICK_RETRY_OPTIONS).catch(() => '');
+  }
+
+  /**
+   * 快速翻译 - 有道格式
+   * 有道API需要appKey和appSecret进行签名
+   */
+  private static async quickTranslateYoudao(
+    text: string,
+    appKey: string,
+    endpoint: string,
+    providerName: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      // 有道API使用 appKey + appSecret 签名机制
+      // 注意：settings中存储的 apiKey 格式为 "appKey:appSecret"
+      const [actualAppKey, appSecret] = appKey.split(':');
+
+      if (!actualAppKey || !appSecret) {
+        throw new ApiError('有道翻译需要 appKey:appSecret 格式的API密钥', undefined, false);
+      }
+
+      const salt = Date.now().toString();
+      const curtime = Math.round(Date.now() / 1000).toString();
+      const sign = await this.generateYoudaoSign(actualAppKey, appSecret, text, salt, curtime);
+
+      const params = new URLSearchParams();
+      params.append('q', text);
+      params.append('from', 'en');
+      params.append('to', 'zh-CHS');
+      params.append('appKey', actualAppKey);
+      params.append('salt', salt);
+      params.append('sign', sign);
+      params.append('signType', 'v3');
+      params.append('curtime', curtime);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json() as YoudaoResponse;
+
+      if (data.errorCode && data.errorCode !== '0') {
+        throw new ApiError(`有道翻译错误: ${data.errorCode}`, undefined, false);
+      }
+
+      return data.translation?.[0] || '';
+    }, QUICK_RETRY_OPTIONS).catch(() => '');
+  }
+
+  /**
+   * 生成有道API签名
+   * 签名规则：sha256(appKey + truncate(q) + salt + curtime + appSecret)
+   */
+  private static async generateYoudaoSign(
+    appKey: string,
+    appSecret: string,
+    q: string,
+    salt: string,
+    curtime: string
+  ): Promise<string> {
+    const truncate = (str: string): string => {
+      if (str.length <= 20) return str;
+      return str.substring(0, 10) + str.length + str.substring(str.length - 10);
+    };
+
+    const str = appKey + truncate(q) + salt + curtime + appSecret;
+
+    // 使用 Web Crypto API 生成 SHA-256 哈希
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 }

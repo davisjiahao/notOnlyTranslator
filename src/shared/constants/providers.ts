@@ -223,6 +223,23 @@ export const PROVIDER_CONFIGS: Record<ApiProvider, ProviderConfig> = {
     apiKeyPlaceholder: 'AIza...',
   },
 
+  youdao: {
+    id: 'youdao',
+    name: '有道翻译',
+    description: '有道智云翻译API，国内可访问，每月200万字符免费额度',
+    region: 'domestic',
+    apiFormat: 'youdao_translate',
+    defaultEndpoint: 'https://openapi.youdao.com',
+    chatEndpoint: 'https://openapi.youdao.com/api',
+    modelsSupported: false,
+    defaultModels: [
+      { id: 'youdao-standard', name: '有道标准版', description: '标准翻译API，200万字符/月免费', isRecommended: true },
+    ],
+    recommendedModel: 'youdao-standard',
+    docUrl: 'https://ai.youdao.com/console',
+    apiKeyPlaceholder: '应用ID',
+  },
+
   // ========== 自定义供应商 ==========
   custom: {
     id: 'custom',
@@ -258,7 +275,7 @@ export const PROVIDER_GROUPS: ProviderGroup[] = [
   },
   {
     label: '专业翻译服务',
-    providers: ['deepl', 'google_translate'],
+    providers: ['deepl', 'google_translate', 'youdao'],
   },
   {
     label: '国内供应商',
