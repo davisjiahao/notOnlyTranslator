@@ -488,13 +488,23 @@ class NotOnlyTranslator {
     }
 
     // 创建浮动按钮
-    this.floatingButton = new FloatingButton((mode) => {
-      this.handleModeChange(mode);
-    });
+    this.floatingButton = new FloatingButton(
+      (mode) => {
+        this.handleModeChange(mode);
+      },
+      (engine) => {
+        this.handleEngineChange(engine);
+      }
+    );
 
     // 设置初始模式
     if (this.settings?.translationMode) {
       this.floatingButton.updateMode(this.settings.translationMode);
+    }
+
+    // 设置初始翻译引擎
+    if (this.settings?.hybridTranslation?.defaultEngine) {
+      this.floatingButton.setEngine(this.settings.hybridTranslation.defaultEngine);
     }
 
     logger.info('NotOnlyTranslator: 浮动按钮已初始化');
@@ -531,6 +541,46 @@ class NotOnlyTranslator {
 
     // 刷新页面翻译
     this.refreshTranslation(mode);
+  }
+
+  /**
+   * 处理翻译引擎切换
+   */
+  private handleEngineChange(engine: 'llm' | 'traditional' | 'hybrid'): void {
+    if (!this.settings) return;
+
+    // 更新混合翻译配置
+    const currentHybrid = this.settings.hybridTranslation || {
+      enabled: true,
+      defaultEngine: 'hybrid' as const,
+      traditionalProvider: 'deepl' as const,
+      simpleTextThreshold: 20,
+      enableSmartRouting: true,
+      priority: 'balanced' as const,
+    };
+
+    const newHybridConfig = { ...currentHybrid, defaultEngine: engine };
+    const newSettings = {
+      ...this.settings,
+      hybridTranslation: newHybridConfig
+    };
+    this.settings = newSettings;
+
+    // 更新浮动按钮显示
+    this.floatingButton?.setEngine(engine);
+
+    // 保存设置到 background
+    this.sendMessage({
+      type: 'UPDATE_SETTINGS',
+      payload: { hybridTranslation: newHybridConfig }
+    }).then(() => {
+      logger.info(`NotOnlyTranslator: 翻译引擎已切换为 ${engine}`);
+    }).catch((error) => {
+      logger.error('NotOnlyTranslator: 保存设置失败:', error);
+    });
+
+    // 刷新页面翻译
+    this.refreshTranslation(this.settings.translationMode);
   }
 
   /**

@@ -1570,6 +1570,62 @@ a .not-translator-inline-translation,
   color: #475569;
 }
 
+/* 面板分隔线 */
+.not-translator-floating-panel-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 8px 12px;
+}
+
+/* 引擎选择网格 */
+.not-translator-floating-engine-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+/* 引擎选择项 */
+.not-translator-floating-engine-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.not-translator-floating-engine-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.not-translator-floating-engine-item.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+/* 引擎图标 */
+.not-translator-floating-engine-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+/* 引擎标签 */
+.not-translator-floating-engine-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.not-translator-floating-engine-item.active .not-translator-floating-engine-label {
+  color: #3b82f6;
+}
+
 /* 暗色模式适配 */
 @media (prefers-color-scheme: dark) {
   .not-translator-floating-btn-inner {
