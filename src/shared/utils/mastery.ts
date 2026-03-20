@@ -69,10 +69,15 @@ export function bayesianMasteryUpdate(params: BayesianUpdateParams): {
   let newMastery: number;
 
   if (observation) {
-    // 用户认识单词：向预期概率方向调整，但给予正向偏向
-    // 使用 sigmoid 函数平滑调整
-    const positiveBias = 0.1; // 认识的正向偏向
-    const targetP = Math.min(1, expectedP + positiveBias);
+    // 用户认识单词：根据难度给予掌握度奖励
+    // 核心逻辑：认识高难度词应该获得更高的掌握度
+
+    // 难度因子：难度越高，奖励越大 (0.5 - 1.0)
+    const difficultyFactor = 0.5 + (wordDifficulty / 10) * 0.5;
+
+    // 基础目标掌握度：认识单词时，掌握度应该增加
+    // 使用难度因子调整目标掌握度
+    const targetP = Math.min(1, priorMastery + difficultyFactor * 0.3);
 
     // 加权平均：新掌握度 = 旧掌握度 * 置信度权重 + 目标 * 观察权重
     newMastery = priorMastery * confidenceWeight + targetP * observationWeight;
