@@ -20,8 +20,9 @@ import TranslationHistory from './components/TranslationHistory';
 import PromptSettings from './components/PromptSettings';
 import DataManager from './components/DataManager';
 import HybridTranslationSettings from './components/HybridTranslationSettings';
+import ShortcutSettings from './components/ShortcutSettings';
 
-type Tab = 'level' | 'test' | 'api' | 'engine' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt';
+type Tab = 'level' | 'test' | 'api' | 'engine' | 'shortcuts' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -52,6 +53,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+        </svg>
+      );
+    case 'shortcuts':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
         </svg>
       );
     case 'vocabulary':
@@ -128,6 +135,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'test', label: '快速测评' },
   { id: 'api', label: 'API 设置' },
   { id: 'engine', label: '翻译引擎' },
+  { id: 'shortcuts', label: '快捷键' },
   { id: 'vocabulary', label: '生词本' },
   { id: 'mastery', label: '掌握度' },
   { id: 'review', label: '闪卡复习' },
@@ -407,6 +415,14 @@ export default function App() {
 
             {activeTab === 'engine' && (
               <HybridTranslationSettings
+                settings={settings}
+                onUpdate={handleSettingsUpdate}
+                isSaving={isSaving}
+              />
+            )}
+
+            {activeTab === 'shortcuts' && (
+              <ShortcutSettings
                 settings={settings}
                 onUpdate={handleSettingsUpdate}
                 isSaving={isSaving}

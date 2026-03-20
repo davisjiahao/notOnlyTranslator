@@ -191,6 +191,22 @@ export interface UserSettings {
     /** 传统API API Key */
     traditionalApiKey?: string;
   };
+  /** 自定义快捷键配置 */
+  shortcuts?: ShortcutConfig[];
+}
+
+/**
+ * 快捷键配置
+ */
+export interface ShortcutConfig {
+  /** 动作标识 */
+  action: string;
+  /** 快捷键组合 */
+  key: string;
+  /** 描述 */
+  description: string;
+  /** 是否启用 */
+  enabled: boolean;
 }
 
 // Storage Types
