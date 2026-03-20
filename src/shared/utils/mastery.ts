@@ -58,8 +58,6 @@ export function bayesianMasteryUpdate(params: BayesianUpdateParams): {
   const estimatedVocabSize = Math.min(20000, Math.max(1000, userVocabularySize));
   // 单词难度对应的词汇量位置（难度1-10映射到0-20000）
   const wordVocabPosition = (wordDifficulty / 10) * 20000;
-  // 预期掌握概率
-  const expectedP = estimatedVocabSize / (estimatedVocabSize + wordVocabPosition);
 
   // 置信度权重：基于先验置信度和观察次数
   // 置信度越高，新观察的影响越小（更相信先验）
