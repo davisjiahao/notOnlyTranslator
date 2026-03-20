@@ -2,6 +2,11 @@ import type { TranslationMode } from '@/shared/types';
 import { logger } from '@/shared/utils';
 
 /**
+ * 翻译引擎类型
+ */
+type DefaultEngine = 'llm' | 'traditional' | 'hybrid';
+
+/**
  * FloatingButton - 页面浮动模式切换按钮
  *
  * 功能：
@@ -10,6 +15,7 @@ import { logger } from '@/shared/utils';
  * - 可拖拽调整位置
  * - 支持最小化/收起
  * - 添加到黑名单的网站不显示
+ * - 支持翻译引擎快速切换
  */
 export class FloatingButton {
   private container: HTMLElement | null = null;
@@ -17,7 +23,9 @@ export class FloatingButton {
   private isExpanded: boolean = false;
   private isMinimized: boolean = false;
   private currentMode: TranslationMode = 'inline-only';
+  private currentEngine: DefaultEngine = 'hybrid';
   private onModeChange: (mode: TranslationMode) => void;
+  private onEngineChange: ((engine: DefaultEngine) => void) | null = null;
 
   /** 拖拽相关 */
   private isDragging: boolean = false;
@@ -35,11 +43,39 @@ export class FloatingButton {
     minimizeRestore: (e: MouseEvent) => void;
   } | null = null;
 
-  constructor(onModeChange: (mode: TranslationMode) => void) {
+  constructor(
+    onModeChange: (mode: TranslationMode) => void,
+    onEngineChange?: (engine: DefaultEngine) => void
+  ) {
     this.onModeChange = onModeChange;
+    this.onEngineChange = onEngineChange || null;
     this.loadPosition();
     this.createButton();
     logger.info('FloatingButton: 初始化完成');
+  }
+
+  /**
+   * 更新当前翻译引擎
+   */
+  setEngine(engine: DefaultEngine): void {
+    this.currentEngine = engine;
+    this.updateEngineButtons();
+  }
+
+  /**
+   * 更新引擎按钮状态
+   */
+  private updateEngineButtons(): void {
+    if (!this.panel) return;
+    this.panel.querySelectorAll('.not-translator-floating-engine-item').forEach(item => {
+      const el = item as HTMLElement;
+      const engine = el.dataset.engine as DefaultEngine;
+      if (engine === this.currentEngine) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    });
   }
 
   /**
@@ -93,24 +129,55 @@ export class FloatingButton {
       { value: 'full-translate', label: '全文', icon: '🔤', desc: '全文翻译' },
     ];
 
-    this.panel.innerHTML = `
-      <div class="not-translator-floating-panel-header">
-        <span>翻译模式</span>
-        <button class="not-translator-floating-panel-close" title="收起">−</button>
-      </div>
-      <div class="not-translator-floating-panel-content">
-        ${modes.map(mode => `
-          <button class="not-translator-floating-mode-item ${mode.value === this.currentMode ? 'active' : ''}" data-mode="${mode.value}">
-            <span class="not-translator-floating-mode-icon">${mode.icon}</span>
-            <span class="not-translator-floating-mode-label">${mode.label}</span>
-            <span class="not-translator-floating-mode-desc">${mode.desc}</span>
-          </button>
-        `).join('')}
-      </div>
-      <div class="not-translator-floating-panel-footer">
-        <button class="not-translator-floating-minimize" title="最小化到角落">最小化</button>
-      </div>
-    `;
+    const engines: { value: DefaultEngine; label: string; icon: string }[] = [
+      { value: 'llm', label: 'AI', icon: '🤖' },
+      { value: 'traditional', label: '传统', icon: '🌐' },
+      { value: 'hybrid', label: '混合', icon: '⚡' },
+    ];
+
+    // 使用 DOM API 构建 HTML，避免 XSS 风险
+    const header = document.createElement('div');
+    header.className = 'not-translator-floating-panel-header';
+    header.innerHTML = '<span>翻译模式</span><button class="not-translator-floating-panel-close" title="收起">−</button>';
+
+    const modeContent = document.createElement('div');
+    modeContent.className = 'not-translator-floating-panel-content';
+    modes.forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = `not-translator-floating-mode-item ${mode.value === this.currentMode ? 'active' : ''}`;
+      btn.dataset.mode = mode.value;
+      btn.innerHTML = `<span class="not-translator-floating-mode-icon">${mode.icon}</span><span class="not-translator-floating-mode-label">${mode.label}</span><span class="not-translator-floating-mode-desc">${mode.desc}</span>`;
+      modeContent.appendChild(btn);
+    });
+
+    const divider = document.createElement('div');
+    divider.className = 'not-translator-floating-panel-divider';
+
+    const engineHeader = document.createElement('div');
+    engineHeader.className = 'not-translator-floating-panel-header';
+    engineHeader.innerHTML = '<span>翻译引擎</span>';
+
+    const engineContent = document.createElement('div');
+    engineContent.className = 'not-translator-floating-panel-content not-translator-floating-engine-grid';
+    engines.forEach(engine => {
+      const btn = document.createElement('button');
+      btn.className = `not-translator-floating-engine-item ${engine.value === this.currentEngine ? 'active' : ''}`;
+      btn.dataset.engine = engine.value;
+      btn.title = `${engine.label}翻译`;
+      btn.innerHTML = `<span class="not-translator-floating-engine-icon">${engine.icon}</span><span class="not-translator-floating-engine-label">${engine.label}</span>`;
+      engineContent.appendChild(btn);
+    });
+
+    const footer = document.createElement('div');
+    footer.className = 'not-translator-floating-panel-footer';
+    footer.innerHTML = '<button class="not-translator-floating-minimize" title="最小化到角落">最小化</button>';
+
+    this.panel.appendChild(header);
+    this.panel.appendChild(modeContent);
+    this.panel.appendChild(divider);
+    this.panel.appendChild(engineHeader);
+    this.panel.appendChild(engineContent);
+    this.panel.appendChild(footer);
 
     // 绑定模式切换事件
     this.panel.querySelectorAll('.not-translator-floating-mode-item').forEach(item => {
@@ -118,6 +185,15 @@ export class FloatingButton {
         const target = e.currentTarget as HTMLElement;
         const mode = target.dataset.mode as TranslationMode;
         this.switchMode(mode);
+      });
+    });
+
+    // 绑定引擎切换事件
+    this.panel.querySelectorAll('.not-translator-floating-engine-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const engine = target.dataset.engine as DefaultEngine;
+        this.switchEngine(engine);
       });
     });
 
@@ -348,6 +424,27 @@ export class FloatingButton {
 
     // 收起面板
     setTimeout(() => this.collapse(), 300);
+  }
+
+  /**
+   * 切换翻译引擎
+   */
+  private switchEngine(engine: DefaultEngine): void {
+    this.currentEngine = engine;
+    if (this.onEngineChange) {
+      this.onEngineChange(engine);
+    }
+
+    // 更新 UI
+    this.updateEngineButtons();
+
+    // 显示切换提示
+    const engineLabels: Record<DefaultEngine, string> = {
+      'llm': 'AI 大模型',
+      'traditional': '传统翻译',
+      'hybrid': '智能混合'
+    };
+    logger.info(`FloatingButton: 切换到 ${engineLabels[engine]} 引擎`);
   }
 
   /**
