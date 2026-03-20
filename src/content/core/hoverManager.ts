@@ -58,7 +58,11 @@ export class HoverManager {
       ? target
       : target.closest('.not-translator-highlighted-translation') as HTMLElement | null;
 
-    return highlightElement || grammarElement || highlightedWord || highlightedTranslation;
+    const vocabHighlight = target.classList.contains('not-translator-vocab-highlight')
+      ? target
+      : target.closest('.not-translator-vocab-highlight') as HTMLElement | null;
+
+    return highlightElement || grammarElement || highlightedWord || highlightedTranslation || vocabHighlight;
   }
 
   /**
@@ -95,6 +99,7 @@ export class HoverManager {
       target.classList.contains('not-translator-grammar-highlight') ||
       target.classList.contains('not-translator-highlighted-word') ||
       target.classList.contains('not-translator-highlighted-translation') ||
+      target.classList.contains('not-translator-vocab-highlight') ||
       target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) ||
       target.closest('.not-translator-grammar-highlight') ||
       target.closest('.not-translator-highlighted-word') ||
