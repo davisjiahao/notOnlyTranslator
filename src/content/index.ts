@@ -92,6 +92,134 @@ class NotOnlyTranslator {
     this.hoverManager?.handleMouseOut(e);
   };
 
+  /**
+   * 处理双击查词
+   * 双击任意单词时立即显示翻译 Tooltip
+   */
+  private handleDoubleClick = (e: MouseEvent): void => {
+    if (!this.settings?.enabled) return;
+
+    const target = e.target as HTMLElement;
+
+    // 忽略在 Tooltip 内的双击
+    if (target.closest('.not-translator-tooltip')) return;
+
+    // 获取双击位置的单词
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    // 清除之前的选择
+    selection.removeAllRanges();
+
+    // 使用 document.caretRangeFromPoint 获取光标位置的范围
+    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    if (!range || !range.startContainer) return;
+
+    // 扩展选区到整个单词
+    const textNode = range.startContainer;
+    if (textNode.nodeType !== Node.TEXT_NODE) return;
+
+    const text = textNode.textContent || '';
+    const offset = range.startOffset;
+
+    // 找到单词边界
+    const wordStart = this.findWordBoundary(text, offset, 'start');
+    const wordEnd = this.findWordBoundary(text, offset, 'end');
+
+    if (wordStart === wordEnd) return;
+
+    const word = text.substring(wordStart, wordEnd).trim();
+    if (!word || word.length < 2) return;
+
+    // 设置选区
+    const wordRange = document.createRange();
+    wordRange.setStart(textNode, wordStart);
+    wordRange.setEnd(textNode, wordEnd);
+    selection.addRange(wordRange);
+
+    // 翻译并显示 Tooltip
+    this.translateAndShowTooltip(word, target);
+  };
+
+  /**
+   * 查找单词边界
+   */
+  private findWordBoundary(text: string, offset: number, direction: 'start' | 'end'): number {
+    const isWordChar = (char: string) => /[a-zA-Z]/.test(char);
+
+    if (direction === 'start') {
+      let pos = offset;
+      while (pos > 0 && isWordChar(text[pos - 1])) {
+        pos--;
+      }
+      return pos;
+    } else {
+      let pos = offset;
+      while (pos < text.length && isWordChar(text[pos])) {
+        pos++;
+      }
+      return pos;
+    }
+  }
+
+  /**
+   * 翻译单词并显示 Tooltip
+   */
+  private async translateAndShowTooltip(word: string, target: HTMLElement): Promise<void> {
+    try {
+      // 显示加载状态
+      this.tooltip.showLoading(target);
+
+      // 发送翻译请求
+      const response = await chrome.runtime.sendMessage({
+        type: 'TRANSLATE_TEXT',
+        payload: {
+          text: word,
+          context: word,
+          userLevel: await this.getUserProfile(),
+          mode: 'inline-only' as TranslationMode,
+        },
+      });
+
+      if (!response.success || !response.data) {
+        this.tooltip.showError(target, '翻译失败，请稍后重试');
+        logger.warn('双击翻译失败:', response.error);
+        return;
+      }
+
+      const result = response.data as TranslationResult;
+
+      // 如果有翻译结果，显示 Tooltip
+      if (result.words?.[0]) {
+        this.tooltip.showWord(target, result.words[0]);
+      } else if (result.fullText) {
+        // 如果只有全文翻译，构造一个简单的 TranslatedWord
+        this.tooltip.showWord(target, {
+          original: word,
+          translation: result.fullText,
+          position: [0, word.length],
+          difficulty: 5,
+          isPhrase: false,
+        });
+      } else {
+        this.tooltip.showError(target, '未找到翻译');
+      }
+
+      logger.info('双击查词:', word);
+    } catch (error) {
+      this.tooltip.showError(target, '翻译出错');
+      logger.error('双击翻译出错:', error);
+    }
+  }
+
+  /**
+   * 获取用户配置
+   */
+  private async getUserProfile() {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_USER_PROFILE' });
+    return response.data;
+  }
+
   private handleKeyDown = (e: KeyboardEvent): void => {
     if (!this.settings?.enabled) return;
 
@@ -600,6 +728,7 @@ class NotOnlyTranslator {
   private setupEventListeners(): void {
     document.addEventListener('mouseup', this.handleMouseUp);
     document.addEventListener('mousedown', this.handleMouseDown);
+    document.addEventListener('dblclick', this.handleDoubleClick);
 
     // 悬停触发 Tooltip
     this.setupHoverListeners();
