@@ -142,6 +142,31 @@ export interface ApiConfig {
 // Settings Types
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+/**
+ * 高亮样式类型
+ */
+export type HighlightStyleType = 'background' | 'underline' | 'bold' | 'dotted';
+
+/**
+ * 翻译样式配置
+ */
+export interface TranslationStyleConfig {
+  /** 高亮样式类型 */
+  highlightStyle: HighlightStyleType;
+  /** 高亮透明度 (0-100) */
+  highlightOpacity: number;
+  /** 译文行透明度 (0-100) */
+  translationLineOpacity: number;
+  /** 译文行缩进 (px) */
+  translationLineIndent: number;
+  /** 是否显示原文标注 */
+  showOriginalAnnotation: boolean;
+  /** 自定义 CSS */
+  customCss?: string;
+  /** 译文字体 */
+  translationFontFamily?: string;
+}
+
 export interface UserSettings {
   enabled: boolean;
   autoHighlight: boolean;
@@ -193,6 +218,8 @@ export interface UserSettings {
   };
   /** 自定义快捷键配置 */
   shortcuts?: ShortcutConfig[];
+  /** 翻译样式配置 */
+  translationStyle?: TranslationStyleConfig;
 }
 
 /**
