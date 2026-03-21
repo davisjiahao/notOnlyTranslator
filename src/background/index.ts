@@ -19,6 +19,7 @@ import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
 import { CacheMetrics } from './cacheMetrics';
 import { reviewReminderManager } from './reviewReminder';
+import { contextCaptureManager } from './contextCapture';
 import {
   getErrorStats,
   queryErrors,
@@ -84,6 +85,7 @@ Promise.all([
     // 设置复习提醒闹钟
     await reviewReminderManager.scheduleReminderAlarm();
   }),
+  contextCaptureManager.load().then(() => logger.info('NotOnlyTranslator: 语境捕获管理器已初始化')),
 ]).catch(err => logger.error('NotOnlyTranslator: 初始化失败', err));
 
 // Initialize context menus on install
@@ -432,6 +434,39 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         return { success: true, data: words };
       } catch (error) {
         logger.error('NotOnlyTranslator: 获取复习单词失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'GET_CONTEXTUAL_WORDS': {
+      try {
+        const { limit = 15 } = message.payload as { limit?: number };
+        const contextualEntries = contextCaptureManager.getVocabularyWithContexts();
+        // 转换为语境学习格式
+        const words = contextualEntries.slice(0, limit).map(entry => ({
+          word: entry.word,
+          translation: undefined, // 可以从 mastery 获取或后续翻译
+          contexts: entry.contexts,
+        }));
+        return { success: true, data: words };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 获取语境词汇失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    case 'CAPTURE_CONTEXT': {
+      try {
+        const { word, sentence, source, url } = message.payload as {
+          word: string;
+          sentence: string;
+          source?: string;
+          url?: string;
+        };
+        const success = await contextCaptureManager.captureContext(word, sentence, source, url);
+        return { success };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 捕获语境失败', error);
         return { success: false, error: (error as Error).message };
       }
     }

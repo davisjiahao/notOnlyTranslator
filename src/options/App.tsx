@@ -23,8 +23,9 @@ import HybridTranslationSettings from './components/HybridTranslationSettings';
 import ShortcutSettings from './components/ShortcutSettings';
 import TranslationStyleSettings from './components/TranslationStyleSettings';
 import ReviewReminderSettings from './components/ReviewReminderSettings';
+import ContextualLearningMode from './components/ContextualLearningMode';
 
-type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'review' | 'reminder' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt' | 'general';
+type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'review' | 'contextual' | 'reminder' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt' | 'general';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -99,6 +100,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
       );
+    case 'contextual':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      );
     case 'statistics':
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
@@ -154,6 +161,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'vocabulary', label: '生词本' },
   { id: 'mastery', label: '掌握度' },
   { id: 'review', label: '闪卡复习' },
+  { id: 'contextual', label: '语境学习' },
   { id: 'reminder', label: '复习提醒' },
   { id: 'recommendation', label: '词汇推荐' },
   { id: 'statistics', label: '学习统计' },
@@ -460,6 +468,8 @@ export default function App() {
             {activeTab === 'mastery' && <MasteryOverview isSaving={isSaving} />}
 
             {activeTab === 'review' && <FlashcardReview isSaving={isSaving} />}
+
+            {activeTab === 'contextual' && <ContextualLearningMode />}
 
             {activeTab === 'reminder' && (
               <ReviewReminderSettings
