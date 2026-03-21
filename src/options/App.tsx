@@ -21,8 +21,9 @@ import PromptSettings from './components/PromptSettings';
 import DataManager from './components/DataManager';
 import HybridTranslationSettings from './components/HybridTranslationSettings';
 import ShortcutSettings from './components/ShortcutSettings';
+import TranslationStyleSettings from './components/TranslationStyleSettings';
 
-type Tab = 'level' | 'test' | 'api' | 'engine' | 'shortcuts' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt';
+type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -53,6 +54,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+        </svg>
+      );
+    case 'style':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
         </svg>
       );
     case 'shortcuts':
@@ -135,6 +142,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'test', label: '快速测评' },
   { id: 'api', label: 'API 设置' },
   { id: 'engine', label: '翻译引擎' },
+  { id: 'style', label: '翻译样式' },
   { id: 'shortcuts', label: '快捷键' },
   { id: 'vocabulary', label: '生词本' },
   { id: 'mastery', label: '掌握度' },
@@ -415,6 +423,14 @@ export default function App() {
 
             {activeTab === 'engine' && (
               <HybridTranslationSettings
+                settings={settings}
+                onUpdate={handleSettingsUpdate}
+                isSaving={isSaving}
+              />
+            )}
+
+            {activeTab === 'style' && (
+              <TranslationStyleSettings
                 settings={settings}
                 onUpdate={handleSettingsUpdate}
                 isSaving={isSaving}
