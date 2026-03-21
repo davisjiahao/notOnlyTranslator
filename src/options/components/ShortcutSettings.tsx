@@ -183,8 +183,8 @@ export default function ShortcutSettings({
 
   // 重置所有快捷键
   const resetAllShortcuts = async () => {
-    setShortcuts(defaultShortcuts);
-    await onUpdate({ shortcuts: defaultShortcuts });
+    setShortcuts(DEFAULT_SHORTCUTS);
+    await onUpdate({ shortcuts: DEFAULT_SHORTCUTS });
   };
 
   // 打开 Chrome 扩展快捷键设置页面
