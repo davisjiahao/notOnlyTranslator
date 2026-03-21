@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NotOnlyTranslator - 智能分级翻译助手",
   "short_name": "NotOnlyTranslator",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "智能识别超出你词汇量的单词，只翻译该翻译的内容，让英语学习更自然高效",
   "author": "NotOnlyTranslator Team",
   "homepage_url": "https://github.com/yourusername/notOnlyTranslator",
