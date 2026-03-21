@@ -40,7 +40,8 @@
     "storage",
     "activeTab",
     "contextMenus",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
   "commands": {
     "translate-paragraph": {

@@ -1,6 +1,9 @@
 // User Profile Types
 export type ExamType = 'cet4' | 'cet6' | 'toefl' | 'ielts' | 'gre' | 'custom';
 
+// 导入复习提醒类型（需要在 UserSettings 中使用）
+import type { ReviewReminderConfig as ReviewReminderConfigType } from './reviewReminder';
+
 // ========== API 供应商类型 ==========
 
 /**
@@ -220,6 +223,8 @@ export interface UserSettings {
   shortcuts?: ShortcutConfig[];
   /** 翻译样式配置 */
   translationStyle?: TranslationStyleConfig;
+  /** 复习提醒配置 */
+  reviewReminder?: ReviewReminderConfigType;
 }
 
 /**
@@ -435,3 +440,13 @@ export interface BatchTranslationConfig {
   /** 缓存过期时间（毫秒） */
   cacheExpireTime: number;
 }
+
+// 导出复习提醒类型
+export type {
+  ReviewReminderConfig,
+  ReviewScheduleItem,
+  SM2Parameters,
+  ReviewStats,
+  ReviewResult,
+} from './reviewReminder';
+export { ReviewQuality, DEFAULT_REVIEW_REMINDER_CONFIG, DEFAULT_SM2_PARAMETERS } from './reviewReminder';

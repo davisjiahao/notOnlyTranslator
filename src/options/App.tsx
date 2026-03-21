@@ -22,8 +22,9 @@ import DataManager from './components/DataManager';
 import HybridTranslationSettings from './components/HybridTranslationSettings';
 import ShortcutSettings from './components/ShortcutSettings';
 import TranslationStyleSettings from './components/TranslationStyleSettings';
+import ReviewReminderSettings from './components/ReviewReminderSettings';
 
-type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'general' | 'review' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt';
+type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'review' | 'reminder' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt' | 'general';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -92,6 +93,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       );
+    case 'reminder':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      );
     case 'statistics':
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
@@ -147,6 +154,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'vocabulary', label: '生词本' },
   { id: 'mastery', label: '掌握度' },
   { id: 'review', label: '闪卡复习' },
+  { id: 'reminder', label: '复习提醒' },
   { id: 'recommendation', label: '词汇推荐' },
   { id: 'statistics', label: '学习统计' },
   { id: 'achievements', label: '成就' },
@@ -452,6 +460,14 @@ export default function App() {
             {activeTab === 'mastery' && <MasteryOverview isSaving={isSaving} />}
 
             {activeTab === 'review' && <FlashcardReview isSaving={isSaving} />}
+
+            {activeTab === 'reminder' && (
+              <ReviewReminderSettings
+                settings={settings}
+                onUpdate={handleSettingsUpdate}
+                isSaving={isSaving}
+              />
+            )}
 
             {activeTab === 'recommendation' && profile && (
               <VocabularyRecommendation
