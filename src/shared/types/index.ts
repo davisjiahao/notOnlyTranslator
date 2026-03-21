@@ -307,7 +307,10 @@ export type MessageType =
   | 'IMPORT_HISTORY_DATA'
   // 快捷键命令消息类型 (CMP-113)
   | 'TRANSLATE_PARAGRAPH'
-  | 'TOGGLE_TRANSLATION';
+  | 'TOGGLE_TRANSLATION'
+  // 语境学习消息类型
+  | 'GET_CONTEXTUAL_WORDS'
+  | 'CAPTURE_CONTEXT';
 
 export interface Message<T = unknown> {
   type: MessageType;
