@@ -18,6 +18,7 @@ import { MasteryManager } from './mastery';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
 import { CacheMetrics } from './cacheMetrics';
+import { reviewReminderManager } from './reviewReminder';
 import {
   getErrorStats,
   queryErrors,
@@ -66,13 +67,23 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     // Service worker stays alive as long as it has active event listeners
     // This alarm firing is enough to prevent termination
     logger.debug('NotOnlyTranslator: Keep-alive alarm fired');
+  } else if (alarm.name === 'review-reminder') {
+    // 复习提醒闹钟
+    reviewReminderManager.checkAndSendReminder().catch(err =>
+      logger.error('Failed to send review reminder:', err)
+    );
   }
 });
 
 // 初始化核心服务
 Promise.all([
   enhancedCache.initialize().then(() => logger.info('NotOnlyTranslator: 增强缓存已初始化')),
-  frequencyManager.initialize().then(() => logger.info('NotOnlyTranslator: 词频管理器已初始化'))
+  frequencyManager.initialize().then(() => logger.info('NotOnlyTranslator: 词频管理器已初始化')),
+  reviewReminderManager.load().then(async () => {
+    logger.info('NotOnlyTranslator: 复习提醒管理器已初始化');
+    // 设置复习提醒闹钟
+    await reviewReminderManager.scheduleReminderAlarm();
+  }),
 ]).catch(err => logger.error('NotOnlyTranslator: 初始化失败', err));
 
 // Initialize context menus on install
@@ -103,6 +114,13 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 
   logger.info('NotOnlyTranslator installed and context menus created');
+});
+
+// Handle notification clicks (for review reminders)
+chrome.notifications.onClicked.addListener((notificationId) => {
+  logger.info(`Notification clicked: ${notificationId}`);
+  // 打开选项页面，导航到生词复习区域
+  chrome.runtime.openOptionsPage();
 });
 
 // Handle keyboard commands (shortcuts defined in manifest.json)
