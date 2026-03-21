@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { UserSettings } from '@/shared/types';
 
 interface ShortcutSettingsProps {
@@ -14,6 +14,64 @@ interface ShortcutInfo {
   enabled: boolean;
 }
 
+// 默认快捷键配置（移到组件外部避免依赖问题）
+const DEFAULT_SHORTCUTS: ShortcutInfo[] = [
+  {
+    action: 'translate-paragraph',
+    key: 'Alt+T',
+    description: '快速翻译当前段落',
+    enabled: true,
+  },
+  {
+    action: 'toggle-translation',
+    key: 'Alt+Shift+T',
+    description: '切换翻译显示',
+    enabled: true,
+  },
+  {
+    action: 'close-tooltip',
+    key: 'Escape',
+    description: '关闭翻译/Tooltip',
+    enabled: true,
+  },
+  {
+    action: 'next-highlight',
+    key: 'J',
+    description: '下一个高亮词汇',
+    enabled: true,
+  },
+  {
+    action: 'prev-highlight',
+    key: 'K',
+    description: '上一个高亮词汇',
+    enabled: true,
+  },
+  {
+    action: 'pin-tooltip',
+    key: 'P',
+    description: '钉住/取消钉住 Tooltip',
+    enabled: true,
+  },
+  {
+    action: 'mark-known',
+    key: 'M',
+    description: '标记当前词汇为已知',
+    enabled: true,
+  },
+  {
+    action: 'mark-unknown',
+    key: 'U',
+    description: '标记当前词汇为未知',
+    enabled: true,
+  },
+  {
+    action: 'add-vocabulary',
+    key: 'A',
+    description: '添加到生词本',
+    enabled: true,
+  },
+];
+
 /**
  * 快捷键设置组件
  *
@@ -28,81 +86,34 @@ export default function ShortcutSettings({
   const [editingAction, setEditingAction] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<string[]>([]);
 
-  // 默认快捷键配置
-  const defaultShortcuts: ShortcutInfo[] = [
-    {
-      action: 'translate-paragraph',
-      key: 'Alt+T',
-      description: '快速翻译当前段落',
-      enabled: true,
-    },
-    {
-      action: 'toggle-translation',
-      key: 'Alt+Shift+T',
-      description: '切换翻译显示',
-      enabled: true,
-    },
-    {
-      action: 'close-tooltip',
-      key: 'Escape',
-      description: '关闭翻译/Tooltip',
-      enabled: true,
-    },
-    {
-      action: 'next-highlight',
-      key: 'J',
-      description: '下一个高亮词汇',
-      enabled: true,
-    },
-    {
-      action: 'prev-highlight',
-      key: 'K',
-      description: '上一个高亮词汇',
-      enabled: true,
-    },
-    {
-      action: 'pin-tooltip',
-      key: 'P',
-      description: '钉住/取消钉住 Tooltip',
-      enabled: true,
-    },
-    {
-      action: 'mark-known',
-      key: 'M',
-      description: '标记当前词汇为已知',
-      enabled: true,
-    },
-    {
-      action: 'mark-unknown',
-      key: 'U',
-      description: '标记当前词汇为未知',
-      enabled: true,
-    },
-    {
-      action: 'add-vocabulary',
-      key: 'A',
-      description: '添加到生词本',
-      enabled: true,
-    },
-  ];
-
   useEffect(() => {
     // 加载用户自定义快捷键
     const savedShortcuts = settings.shortcuts as ShortcutInfo[] | undefined;
     if (savedShortcuts) {
       // 合并默认配置和用户配置
-      const merged = defaultShortcuts.map(def => {
+      const merged = DEFAULT_SHORTCUTS.map(def => {
         const saved = savedShortcuts.find(s => s.action === def.action);
         return saved ? { ...def, ...saved } : def;
       });
       setShortcuts(merged);
     } else {
-      setShortcuts(defaultShortcuts);
+      setShortcuts(DEFAULT_SHORTCUTS);
     }
   }, [settings.shortcuts]);
 
+  // 更新快捷键
+  const updateShortcut = useCallback(async (action: string, newKey: string) => {
+    setShortcuts(prev => {
+      const updated = prev.map(s =>
+        s.action === action ? { ...s, key: newKey } : s
+      );
+      onUpdate({ shortcuts: updated });
+      return updated;
+    });
+  }, [onUpdate]);
+
   // 处理按键捕获
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!editingAction) return;
 
     e.preventDefault();
@@ -127,9 +138,9 @@ export default function ShortcutSettings({
     }
 
     setPressedKeys(keys);
-  };
+  }, [editingAction]);
 
-  const handleKeyUp = (e: KeyboardEvent) => {
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (!editingAction) return;
 
     // 如果按下 Escape，取消编辑
@@ -140,13 +151,15 @@ export default function ShortcutSettings({
     }
 
     // 如果有有效的快捷键组合，保存它
-    if (pressedKeys.length > 0) {
-      const newKey = pressedKeys.join('+');
-      updateShortcut(editingAction, newKey);
-      setEditingAction(null);
-      setPressedKeys([]);
-    }
-  };
+    setPressedKeys(prevKeys => {
+      if (prevKeys.length > 0) {
+        const newKey = prevKeys.join('+');
+        updateShortcut(editingAction, newKey);
+        setEditingAction(null);
+      }
+      return [];
+    });
+  }, [editingAction, updateShortcut]);
 
   useEffect(() => {
     if (editingAction) {
@@ -157,16 +170,7 @@ export default function ShortcutSettings({
         window.removeEventListener('keyup', handleKeyUp);
       };
     }
-  }, [editingAction, pressedKeys]);
-
-  // 更新快捷键
-  const updateShortcut = async (action: string, newKey: string) => {
-    const updated = shortcuts.map(s =>
-      s.action === action ? { ...s, key: newKey } : s
-    );
-    setShortcuts(updated);
-    await onUpdate({ shortcuts: updated });
-  };
+  }, [editingAction, handleKeyDown, handleKeyUp]);
 
   // 切换快捷键启用状态
   const toggleShortcut = async (action: string) => {
