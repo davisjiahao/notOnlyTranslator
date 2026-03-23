@@ -42,6 +42,7 @@ coverage/
 .nyc_output
 test-results/
 e2e-report/
+benchmark/results/
 
 # Misc
 .cache
