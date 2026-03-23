@@ -5,7 +5,7 @@
 ### 🔍 待研究 (To Research)
 - [ ] 用户 onboarding 流程优化研究
 - [ ] 高级用户功能需求调研
-- [ ] 竞品分析：沉浸式翻译 vs NotOnlyTranslator
+- [x] ~~竞品分析：沉浸式翻译 vs NotOnlyTranslator~~ ✅ CMP-88 已完成 (2026-03-22)
 
 ### 📊 研究中 (In Progress)
 - [x] **用户 onboarding 流程优化研究** 🔄 进行中
@@ -28,6 +28,7 @@
 - [x] 核心用户旅程地图绘制
 - [x] MVP 可用性测试（5位用户）
 - [x] 开发者工作流程分析与洞察 (CMP-51)
+- [x] 竞品调研与优化分析 (CMP-88) - 2026-03-22
 
 ---
 
