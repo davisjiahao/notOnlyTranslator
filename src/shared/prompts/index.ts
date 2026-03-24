@@ -539,3 +539,17 @@ export type {
   HistoricalDataPoint,
 } from './evaluation';
 
+// 翻译质量评估
+export {
+  TranslationQualityEvaluator,
+  getQualityEvaluator,
+  evaluateTranslationQuality,
+  DEFAULT_QUALITY_CONFIG,
+} from './translationQuality';
+
+export type {
+  TranslationQualityResult,
+  QualityIssue,
+  QualityEvaluatorConfig,
+} from './translationQuality';
+
