@@ -24,8 +24,9 @@ import ShortcutSettings from './components/ShortcutSettings';
 import TranslationStyleSettings from './components/TranslationStyleSettings';
 import ReviewReminderSettings from './components/ReviewReminderSettings';
 import ContextualLearningMode from './components/ContextualLearningMode';
+import CostDashboard from './components/CostDashboard';
 
-type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'review' | 'contextual' | 'reminder' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt' | 'general';
+type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'review' | 'contextual' | 'reminder' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt' | 'general' | 'cost';
 
 /** Sidebar Tab 图标 */
 const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
@@ -148,6 +149,12 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
         </svg>
       );
+    case 'cost':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={sw}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
   }
 };
 
@@ -167,6 +174,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'statistics', label: '学习统计' },
   { id: 'achievements', label: '成就' },
   { id: 'history', label: '翻译历史' },
+  { id: 'cost', label: '成本监控' },
   { id: 'prompt', label: '提示词设置' },
   { id: 'data', label: '数据管理' },
   { id: 'general', label: '通用设置' },
@@ -492,6 +500,8 @@ export default function App() {
             {activeTab === 'errors' && <ErrorDashboard />}
 
             {activeTab === 'history' && <TranslationHistory />}
+
+            {activeTab === 'cost' && <CostDashboard />}
 
             {activeTab === 'prompt' && (
               <PromptSettings
