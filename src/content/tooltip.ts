@@ -559,52 +559,6 @@ export class Tooltip {
   }
 
   /**
-   * Show loading state
-   */
-  showLoading(targetElement: HTMLElement): void {
-    if (!this.element) return;
-
-    this.currentTarget = targetElement;
-
-    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
-    if (!content) return;
-
-    // 使用 DOM API 避免 XSS 风险
-    content.innerHTML = '';
-
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = `${CSS_CLASSES.TOOLTIP}-loading`;
-    loadingDiv.textContent = '正在翻译...';
-    content.appendChild(loadingDiv);
-
-    this.positionTooltip(targetElement);
-    this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
-  }
-
-  /**
-   * Show error state
-   */
-  showError(targetElement: HTMLElement, message: string): void {
-    if (!this.element) return;
-
-    this.currentTarget = targetElement;
-
-    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
-    if (!content) return;
-
-    // 使用 DOM API 避免 XSS 风险
-    content.innerHTML = '';
-
-    const errorDiv = document.createElement('div');
-    errorDiv.className = `${CSS_CLASSES.TOOLTIP}-error`;
-    errorDiv.textContent = message; // 使用 textContent 防止 XSS
-    content.appendChild(errorDiv);
-
-    this.positionTooltip(targetElement);
-    this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
-  }
-
-  /**
    * Hide the tooltip
    */
   hide(): void {
@@ -716,6 +670,159 @@ export class Tooltip {
    */
   getCurrentWord(): string | null {
     return this.currentWord;
+  }
+
+  /**
+   * Show loading state in tooltip
+   * 显示翻译加载中状态
+   */
+  showLoading(targetElement: HTMLElement, word?: string): void {
+    if (!this.element) return;
+
+    if (word) {
+      this.currentWord = word;
+    }
+    this.currentTarget = targetElement;
+    this.isPinned = false;
+    this.updatePinButtonState();
+
+    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
+    if (!content) return;
+
+    // 使用 DOM API 构建 loading UI
+    content.innerHTML = '';
+
+    // Header with word (如果提供了word参数)
+    if (word) {
+      const header = document.createElement('div');
+      header.className = `${CSS_CLASSES.TOOLTIP}-header`;
+
+      const wordSpan = document.createElement('span');
+      wordSpan.className = `${CSS_CLASSES.TOOLTIP}-word`;
+      wordSpan.textContent = word;
+      header.appendChild(wordSpan);
+
+      content.appendChild(header);
+    }
+
+    // Loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = `${CSS_CLASSES.TOOLTIP}-loading`;
+
+    const spinner = document.createElement('div');
+    spinner.className = 'not-translator-loading-spinner';
+    loadingDiv.appendChild(spinner);
+
+    const text = document.createElement('span');
+    text.className = 'not-translator-loading-text';
+    text.textContent = '正在翻译...';
+    loadingDiv.appendChild(text);
+
+    content.appendChild(loadingDiv);
+
+    // Position and show
+    this.positionTooltip(targetElement);
+    this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
+  }
+
+  /**
+   * Update tooltip with translation result
+   * 从加载状态更新为翻译结果
+   */
+  updateWithTranslation(data: TranslatedWord): void {
+    if (!this.element || !this.currentWord) return;
+
+    // 重新使用 showWord 的渲染逻辑
+    const targetElement = this.currentTarget;
+    if (!targetElement) return;
+
+    // 隐藏后重新显示完整内容
+    this.showWord(targetElement, data);
+  }
+
+  /**
+   * Show error state in tooltip
+   * 显示翻译错误状态
+   * @overload
+   * @param targetElement 目标元素
+   * @param errorMsg 错误消息
+   */
+  showError(targetElement: HTMLElement, errorMsg: string): void;
+  /**
+   * Show error state in tooltip
+   * 显示翻译错误状态
+   * @param targetElement 目标元素
+   * @param word 单词（可选）
+   * @param errorMsg 错误消息
+   */
+  showError(targetElement: HTMLElement, word: string, errorMsg: string): void;
+  showError(targetElement: HTMLElement, wordOrErrorMsg: string, errorMsg?: string): void {
+    if (!this.element) return;
+
+    // 根据参数数量决定含义
+    const word = errorMsg ? wordOrErrorMsg : undefined;
+    const message = errorMsg || wordOrErrorMsg;
+
+    if (word) {
+      this.currentWord = word;
+    }
+    this.currentTarget = targetElement;
+    this.isPinned = false;
+    this.updatePinButtonState();
+
+    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
+    if (!content) return;
+
+    // 使用 DOM API 构建 error UI
+    content.innerHTML = '';
+
+    // Header with word (如果提供了word)
+    if (word) {
+      const header = document.createElement('div');
+      header.className = `${CSS_CLASSES.TOOLTIP}-header`;
+
+      const wordSpan = document.createElement('span');
+      wordSpan.className = `${CSS_CLASSES.TOOLTIP}-word`;
+      wordSpan.textContent = word;
+      header.appendChild(wordSpan);
+
+      content.appendChild(header);
+    }
+
+    // Error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = `${CSS_CLASSES.TOOLTIP}-error`;
+
+    const icon = document.createElement('span');
+    icon.className = 'not-translator-error-icon';
+    icon.textContent = '⚠️';
+    errorDiv.appendChild(icon);
+
+    const text = document.createElement('span');
+    text.className = 'not-translator-error-text';
+    text.textContent = message;
+    errorDiv.appendChild(text);
+
+    content.appendChild(errorDiv);
+
+    // Retry button
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = `${CSS_CLASSES.TOOLTIP}-actions`;
+
+    const retryBtn = document.createElement('button');
+    retryBtn.className = `${CSS_CLASSES.MARK_BUTTON} retry`;
+    retryBtn.textContent = '重试';
+    retryBtn.addEventListener('click', () => {
+      // 隐藏 tooltip，让调用者可以重新请求翻译
+      this.hide();
+    });
+    actionsDiv.appendChild(retryBtn);
+
+    content.appendChild(actionsDiv);
+
+    // Position and show
+    this.positionTooltip(targetElement);
+    this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
   }
 
   /**
