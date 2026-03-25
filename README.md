@@ -23,7 +23,7 @@
 
 ## 🎬 演示
 
-> 🎥 **演示 GIF 即将添加**
+![NotOnlyTranslator 演示](docs/demo-translation-effect.png)
 
 *看一眼就懂：访问英文网站 → 自动高亮难词 → 点击查看翻译 → 标记学习*
 
