@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 import { logger, useTheme } from '@/shared/utils';
@@ -31,13 +31,13 @@ export default function App() {
   useTheme(settings?.theme ?? 'system');
 
   // 检测是否需要显示欢迎引导
-  const checkWelcomeNeeded = () => {
+  const checkWelcomeNeeded = useCallback(() => {
     if (!settings) return false;
     // 没有配置任何 API 或没有测试通过的配置
     return !settings.apiConfigs?.length ||
            !settings.apiConfigs.some(c => c.tested) ||
            !settings.activeApiConfigId;
-  };
+  }, [settings]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -55,7 +55,7 @@ export default function App() {
     if (!isLoading && settings) {
       setShowWelcomeModal(checkWelcomeNeeded());
     }
-  }, [isLoading, settings]);
+  }, [isLoading, settings, checkWelcomeNeeded]);
 
   // 检查是否应该显示招募 Banner
   const checkBannerVisibility = async () => {

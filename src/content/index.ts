@@ -1484,12 +1484,36 @@ class NotOnlyTranslator {
   }
 
   /**
-   * 处理设置更新（包括翻译模式切换）
+   * 处理设置更新（包括翻译开关和模式切换）
+   * 支持无刷新切换：用户在 popup 中切换设置后立即生效
    */
   private async handleSettingsUpdated(): Promise<void> {
+    const oldEnabled = this.isEnabled;
     const oldMode = this.settings?.translationMode;
+
     await this.loadSettings();
+
+    const newEnabled = this.isEnabled;
     const newMode = this.settings?.translationMode;
+
+    // 处理启用状态变化（无刷新切换）
+    if (oldEnabled !== newEnabled) {
+      logger.info(`NotOnlyTranslator: 启用状态从 ${oldEnabled} 切换为 ${newEnabled}`);
+
+      if (!newEnabled) {
+        // 从启用变为禁用：清除所有翻译
+        this.highlighter.clearAllHighlights();
+        this.tooltip.hide();
+        this.clearAllTranslations();
+        this.viewportObserver?.disable();
+        this.batchManager?.cancelAll();
+      } else {
+        // 从禁用变为启用：重新扫描页面
+        this.viewportObserver?.enable();
+        this.scanPage();
+      }
+      return; // 状态变化时不再处理模式变化
+    }
 
     // 如果翻译模式改变了，使用淡出过渡刷新翻译
     if (oldMode !== newMode && newMode && this.isEnabled) {
