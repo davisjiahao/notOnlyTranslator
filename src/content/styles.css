@@ -360,10 +360,19 @@
   animation: not-translator-spin 0.8s linear infinite;
 }
 
-@keyframes not-translator-spin {
-  to {
-    transform: rotate(360deg);
-  }
+/* Loading spinner and text classes */
+.not-translator-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: not-translator-spin 0.8s linear infinite;
+}
+
+.not-translator-loading-text {
+  font-size: 14px;
+  color: #6b7280;
 }
 
 /* Error state */
@@ -371,6 +380,28 @@
   padding: 12px;
   color: #b91c1c;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.not-translator-error-icon {
+  font-size: 16px;
+}
+
+.not-translator-error-text {
+  font-size: 14px;
+}
+
+/* Retry button */
+.not-translator-tooltip-actions .not-translator-mark-button.retry {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.not-translator-tooltip-actions .not-translator-mark-button.retry:hover {
+  background: #fde68a;
 }
 
 /* Tooltip toolbar (pin + close buttons) */
