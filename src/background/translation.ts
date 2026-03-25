@@ -257,4 +257,54 @@ export class TranslationService {
     // 使用 DeepLTranslationService 的快速翻译（优先 DeepL）
     return DeepLTranslationService.quickTranslate(text);
   }
+
+  /**
+   * 测试 API 连接
+   * 发送一个简单的翻译请求来验证 API Key 是否有效
+   */
+  static async testConnection(
+    provider: import('@/shared/types').ApiProvider,
+    apiKey: string,
+    apiUrl?: string
+  ): Promise<boolean> {
+    try {
+      logger.info('TranslationService: Testing API connection', { provider, hasCustomUrl: !!apiUrl });
+
+      // 构建临时设置对象
+      const tempSettings: UserSettings = {
+        enabled: true,
+        autoHighlight: true,
+        vocabHighlightEnabled: true,
+        phraseTranslationEnabled: true,
+        grammarTranslationEnabled: false,
+        translationMode: 'inline-only',
+        showDifficulty: true,
+        highlightColor: '#ffeb3b',
+        fontSize: 14,
+        apiProvider: provider,
+        customApiUrl: apiUrl,
+        blacklist: [],
+        apiConfigs: [],
+        hoverDelay: 300,
+        theme: 'system',
+      };
+
+      // 使用 TranslationApiService 进行简单的翻译测试
+      const response = await TranslationApiService.callWithSystem(
+        'You are a translation assistant. Translate the given text to Chinese.',
+        'Translate "hello" to Chinese. Only output the Chinese translation.',
+        apiKey,
+        tempSettings,
+        { maxRetries: 1, initialDelay: 1000, backoffMultiplier: 1, maxDelay: 5000 }
+      );
+
+      // 检查响应是否有效
+      const isValid = !!(response && response.trim().length > 0);
+      logger.info('TranslationService: API connection test result', { provider, isValid, response: response?.substring(0, 50) });
+      return isValid;
+    } catch (error) {
+      logger.error('TranslationService: API connection test failed', error);
+      return false;
+    }
+  }
 }

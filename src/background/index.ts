@@ -389,6 +389,23 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
       return { success: true };
     }
 
+    case 'TEST_API_CONNECTION': {
+      try {
+        const { provider, apiKey, apiUrl } = message.payload as {
+          provider: import('@/shared/types').ApiProvider;
+          apiKey: string;
+          apiUrl?: string;
+        };
+
+        // 使用 TranslationService 测试连接
+        const testResult = await TranslationService.testConnection(provider, apiKey, apiUrl);
+        return { success: testResult };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: API 连接测试失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
     case 'GET_VOCABULARY': {
       const profile = await StorageManager.getUserProfile();
       return { success: true, data: profile.unknownWords };

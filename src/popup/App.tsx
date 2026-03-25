@@ -4,6 +4,7 @@ import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 import { logger, useTheme } from '@/shared/utils';
 import ApiSwitcher from './components/ApiSwitcher';
 import RecruitmentBanner from './components/RecruitmentBanner';
+import WelcomeModal from './components/WelcomeModal';
 import { FeedbackButton } from './components/Feedback';
 import MasteryCard from './components/MasteryCard';
 
@@ -24,9 +25,19 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showBanner, setShowBanner] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // 初始化主题
   useTheme(settings?.theme ?? 'system');
+
+  // 检测是否需要显示欢迎引导
+  const checkWelcomeNeeded = () => {
+    if (!settings) return false;
+    // 没有配置任何 API 或没有测试通过的配置
+    return !settings.apiConfigs?.length ||
+           !settings.apiConfigs.some(c => c.tested) ||
+           !settings.activeApiConfigId;
+  };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -38,6 +49,13 @@ export default function App() {
     getCurrentTab();
     checkBannerVisibility();
   }, []);
+
+  // 数据加载完成后检查是否需要欢迎引导
+  useEffect(() => {
+    if (!isLoading && settings) {
+      setShowWelcomeModal(checkWelcomeNeeded());
+    }
+  }, [isLoading, settings]);
 
   // 检查是否应该显示招募 Banner
   const checkBannerVisibility = async () => {
@@ -183,6 +201,18 @@ export default function App() {
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 w-[360px] max-h-[600px] flex flex-col font-sans text-gray-900 dark:text-gray-100 overflow-y-auto custom-scrollbar">
+      {/* 欢迎引导弹窗 */}
+      {showWelcomeModal && (
+        <WelcomeModal
+          settings={settings}
+          onComplete={() => setShowWelcomeModal(false)}
+          onOpenSettings={() => {
+            setShowWelcomeModal(false);
+            openOptions();
+          }}
+        />
+      )}
+
       {/* Toast 提示 */}
       {toast && (
         <div className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium ${
@@ -408,6 +438,7 @@ export default function App() {
           <FeedbackButton variant="minimal" size="sm" />
         </div>
       </main>
-    </div>
+
+      </div>
   );
 }

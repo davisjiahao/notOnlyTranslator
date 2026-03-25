@@ -272,6 +272,7 @@ export type MessageType =
   | 'ADDED_TO_VOCABULARY'
   | 'SETTINGS_UPDATED'
   | 'TOGGLE_ENABLED'
+  | 'TEST_API_CONNECTION'  // 测试 API 连接
   // 掌握度系统消息类型
   | 'GET_MASTERY_OVERVIEW'
   | 'GET_CEFR_LEVEL'
