@@ -1,30 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '@/shared/constants';
 import { getCEFRLevelByVocabulary } from '@/shared/constants/mastery';
 import { logger, useTheme } from '@/shared/utils';
-import LevelSelector from './components/LevelSelector';
-import QuickTest from './components/QuickTest';
-import ApiSettings from './components/ApiSettings';
-import GeneralSettings from './components/GeneralSettings';
-import VocabularySettings from './components/VocabularySettings';
-import MasteryOverview from './components/MasteryOverview';
-import FlashcardReview from './components/FlashcardReview';
-import LearningStatistics from './components/LearningStatistics';
-import VocabularyRecommendation from './components/VocabularyRecommendation';
-import WelcomeModalExperiment from '@/shared/components/WelcomeModalExperiment';
 import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
-import { AchievementGallery } from '@/shared/components/AchievementGallery';
-import ErrorDashboard from './components/ErrorDashboard';
-import TranslationHistory from './components/TranslationHistory';
-import PromptSettings from './components/PromptSettings';
-import DataManager from './components/DataManager';
-import HybridTranslationSettings from './components/HybridTranslationSettings';
-import ShortcutSettings from './components/ShortcutSettings';
-import TranslationStyleSettings from './components/TranslationStyleSettings';
-import ReviewReminderSettings from './components/ReviewReminderSettings';
-import ContextualLearningMode from './components/ContextualLearningMode';
-import CostDashboard from './components/CostDashboard';
+
+// 核心组件 - 同步加载（首屏必需）
+import LevelSelector from './components/LevelSelector';
+
+// 懒加载组件 - 按需加载（代码拆分优化）
+const QuickTest = lazy(() => import('./components/QuickTest'));
+const ApiSettings = lazy(() => import('./components/ApiSettings'));
+const GeneralSettings = lazy(() => import('./components/GeneralSettings'));
+const VocabularySettings = lazy(() => import('./components/VocabularySettings'));
+const MasteryOverview = lazy(() => import('./components/MasteryOverview'));
+const FlashcardReview = lazy(() => import('./components/FlashcardReview'));
+const LearningStatistics = lazy(() => import('./components/LearningStatistics'));
+const VocabularyRecommendation = lazy(() => import('./components/VocabularyRecommendation'));
+const WelcomeModalExperiment = lazy(() => import('@/shared/components/WelcomeModalExperiment'));
+const AchievementGallery = lazy(() => import('@/shared/components/AchievementGallery').then(m => ({ default: m.AchievementGallery })));
+const ErrorDashboard = lazy(() => import('./components/ErrorDashboard'));
+const TranslationHistory = lazy(() => import('./components/TranslationHistory'));
+const PromptSettings = lazy(() => import('./components/PromptSettings'));
+const DataManager = lazy(() => import('./components/DataManager'));
+const HybridTranslationSettings = lazy(() => import('./components/HybridTranslationSettings'));
+const ShortcutSettings = lazy(() => import('./components/ShortcutSettings'));
+const TranslationStyleSettings = lazy(() => import('./components/TranslationStyleSettings'));
+const ReviewReminderSettings = lazy(() => import('./components/ReviewReminderSettings'));
+const ContextualLearningMode = lazy(() => import('./components/ContextualLearningMode'));
+const CostDashboard = lazy(() => import('./components/CostDashboard'));
+
+/** 加载中占位符 */
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center py-12">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+  </div>
+);
 
 type Tab = 'level' | 'test' | 'api' | 'engine' | 'style' | 'shortcuts' | 'vocabulary' | 'mastery' | 'review' | 'contextual' | 'reminder' | 'recommendation' | 'data' | 'statistics' | 'achievements' | 'errors' | 'history' | 'prompt' | 'general' | 'cost';
 
@@ -418,122 +429,180 @@ export default function App() {
             )}
 
             {activeTab === 'test' && (
-              <QuickTest
-                onComplete={handleTestComplete}
-                onCancel={() => setActiveTab('level')}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <QuickTest
+                  onComplete={handleTestComplete}
+                  onCancel={() => setActiveTab('level')}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'api' && (
-              <ApiSettings
-                apiKey={apiKey}
-                provider={settings.apiProvider}
-                customApiUrl={settings.customApiUrl}
-                customModelName={settings.customModelName}
-                apiConfigs={settings.apiConfigs || []}
-                activeApiConfigId={settings.activeApiConfigId}
-                onApiKeyUpdate={handleApiKeyUpdate}
-                onProviderUpdate={(provider) => handleSettingsUpdate({ apiProvider: provider })}
-                onCustomSettingsUpdate={(url, model) =>
-                  handleSettingsUpdate({ customApiUrl: url, customModelName: model })
-                }
-                onApiConfigsUpdate={(configs, activeId) =>
-                  handleSettingsUpdate({ apiConfigs: configs, activeApiConfigId: activeId })
-                }
-                onFullApiConfigUpdate={handleFullApiConfigUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <ApiSettings
+                  apiKey={apiKey}
+                  provider={settings.apiProvider}
+                  customApiUrl={settings.customApiUrl}
+                  customModelName={settings.customModelName}
+                  apiConfigs={settings.apiConfigs || []}
+                  activeApiConfigId={settings.activeApiConfigId}
+                  onApiKeyUpdate={handleApiKeyUpdate}
+                  onProviderUpdate={(provider) => handleSettingsUpdate({ apiProvider: provider })}
+                  onCustomSettingsUpdate={(url, model) =>
+                    handleSettingsUpdate({ customApiUrl: url, customModelName: model })
+                  }
+                  onApiConfigsUpdate={(configs, activeId) =>
+                    handleSettingsUpdate({ apiConfigs: configs, activeApiConfigId: activeId })
+                  }
+                  onFullApiConfigUpdate={handleFullApiConfigUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'engine' && (
-              <HybridTranslationSettings
-                settings={settings}
-                onUpdate={handleSettingsUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <HybridTranslationSettings
+                  settings={settings}
+                  onUpdate={handleSettingsUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'style' && (
-              <TranslationStyleSettings
-                settings={settings}
-                onUpdate={handleSettingsUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <TranslationStyleSettings
+                  settings={settings}
+                  onUpdate={handleSettingsUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'shortcuts' && (
-              <ShortcutSettings
-                settings={settings}
-                onUpdate={handleSettingsUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <ShortcutSettings
+                  settings={settings}
+                  onUpdate={handleSettingsUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'vocabulary' && (
-              <VocabularySettings isSaving={isSaving} />
+              <Suspense fallback={<LoadingFallback />}>
+                <VocabularySettings isSaving={isSaving} />
+              </Suspense>
             )}
 
-            {activeTab === 'mastery' && <MasteryOverview isSaving={isSaving} />}
+            {activeTab === 'mastery' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <MasteryOverview isSaving={isSaving} />
+              </Suspense>
+            )}
 
-            {activeTab === 'review' && <FlashcardReview isSaving={isSaving} />}
+            {activeTab === 'review' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <FlashcardReview isSaving={isSaving} />
+              </Suspense>
+            )}
 
-            {activeTab === 'contextual' && <ContextualLearningMode />}
+            {activeTab === 'contextual' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <ContextualLearningMode />
+              </Suspense>
+            )}
 
             {activeTab === 'reminder' && (
-              <ReviewReminderSettings
-                settings={settings}
-                onUpdate={handleSettingsUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <ReviewReminderSettings
+                  settings={settings}
+                  onUpdate={handleSettingsUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'recommendation' && profile && (
-              <VocabularyRecommendation
-                userLevel={getCEFRLevelByVocabulary(profile.estimatedVocabulary)}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <VocabularyRecommendation
+                  userLevel={getCEFRLevelByVocabulary(profile.estimatedVocabulary)}
+                />
+              </Suspense>
             )}
 
-            {activeTab === 'statistics' && <LearningStatistics isSaving={isSaving} />}
+            {activeTab === 'statistics' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <LearningStatistics isSaving={isSaving} />
+              </Suspense>
+            )}
 
-            {activeTab === 'achievements' && <AchievementGallery onClose={() => setActiveTab('level')} />}
+            {activeTab === 'achievements' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <AchievementGallery onClose={() => setActiveTab('level')} />
+              </Suspense>
+            )}
 
-            {activeTab === 'errors' && <ErrorDashboard />}
+            {activeTab === 'errors' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <ErrorDashboard />
+              </Suspense>
+            )}
 
-            {activeTab === 'history' && <TranslationHistory />}
+            {activeTab === 'history' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <TranslationHistory />
+              </Suspense>
+            )}
 
-            {activeTab === 'cost' && <CostDashboard />}
+            {activeTab === 'cost' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <CostDashboard />
+              </Suspense>
+            )}
 
             {activeTab === 'prompt' && (
-              <PromptSettings
-                settings={settings}
-                onUpdate={handleSettingsUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <PromptSettings
+                  settings={settings}
+                  onUpdate={handleSettingsUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
 
-            {activeTab === 'data' && <DataManager />}
+            {activeTab === 'data' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <DataManager />
+              </Suspense>
+            )}
 
             {activeTab === 'general' && (
-              <GeneralSettings
-                settings={settings}
-                onUpdate={handleSettingsUpdate}
-                isSaving={isSaving}
-              />
+              <Suspense fallback={<LoadingFallback />}>
+                <GeneralSettings
+                  settings={settings}
+                  onUpdate={handleSettingsUpdate}
+                  isSaving={isSaving}
+                />
+              </Suspense>
             )}
           </main>
         </div>
       </div>
 
       {/* 欢迎弹窗实验 */}
-      <WelcomeModalExperiment
-        isOpen={showWelcomeModal}
-        onClose={() => setShowWelcomeModal(false)}
-        onComplete={() => {
-          setShowWelcomeModal(false);
-          // 引导完成后跳转到 API 设置页
-          setActiveTab('api');
-        }}
-      />
+      <Suspense fallback={null}>
+        <WelcomeModalExperiment
+          isOpen={showWelcomeModal}
+          onClose={() => setShowWelcomeModal(false)}
+          onComplete={() => {
+            setShowWelcomeModal(false);
+            // 引导完成后跳转到 API 设置页
+            setActiveTab('api');
+          }}
+        />
+      </Suspense>
     </div>
   );
 }
