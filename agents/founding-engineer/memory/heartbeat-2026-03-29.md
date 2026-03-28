@@ -13,6 +13,7 @@
 | 检查项 | 结果 |
 |--------|------|
 | TypeScript | ✅ 0 错误 |
+| Tests | ✅ 1014/1014 通过 |
 | Git | ✅ 干净 |
 | Paperclip Inbox | ✅ 空 |
 
