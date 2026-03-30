@@ -30,6 +30,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zustand for state management
 - Chrome Extension Manifest V3
 
+## [0.3.0] - 2026-03-30
+
+### Added
+- **首次使用引导** - WelcomeModal 欢迎弹窗引导新用户
+- **API 连接测试** - 设置页面支持测试 API 连接状态
+- **翻译效果演示** - 添加截图脚本和演示图片
+- **营销策略规划** - 明确产品定位和目标用户群体
+
+### Changed
+- **CMP-128 流程优化** - Options 页面代码拆分优化
+- **无刷新模式切换** - 网站切换时无需刷新页面
+- **Tooltip UI 增强** - 优化加载和错误状态显示
+
+### Fixed
+- 修复 Tooltip 重复函数定义问题
+- 修复 ESLint 警告
+
 ## [0.2.0] - 2026-03-21
 
 ### Added
