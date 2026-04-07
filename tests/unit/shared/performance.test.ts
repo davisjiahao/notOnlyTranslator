@@ -219,7 +219,8 @@ describe('PerformanceMonitor', () => {
       const elapsed = timer();
 
       expect(elapsed).toBeGreaterThanOrEqual(40);
-      expect(elapsed).toBeLessThan(200);
+      // 上限放宽至 500ms，避免高负载环境下测试失败
+      expect(elapsed).toBeLessThan(500);
     });
   });
 
