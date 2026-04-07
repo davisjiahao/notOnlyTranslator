@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   calculateVocabularySize,
   updateVocabularyEstimate,
@@ -9,7 +9,6 @@ import {
   debounce,
   throttle,
   formatDate,
-  sleep,
   ApiError,
   defaultShouldRetry,
 } from '@/shared/utils';
@@ -124,7 +123,15 @@ describe('normalizeText', () => {
 });
 
 describe('debounce', () => {
-  it('应该延迟执行函数', async () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('应该延迟执行函数', () => {
     let count = 0;
     const fn = debounce(() => { count++; }, 50);
 
@@ -133,13 +140,21 @@ describe('debounce', () => {
     fn();
 
     expect(count).toBe(0);
-    await sleep(100);
+    vi.advanceTimersByTime(100);
     expect(count).toBe(1);
   });
 });
 
 describe('throttle', () => {
-  it('应该限制函数执行频率', async () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('应该限制函数执行频率', () => {
     let count = 0;
     const fn = throttle(() => { count++; }, 50);
 
@@ -149,7 +164,7 @@ describe('throttle', () => {
 
     expect(count).toBe(1);
 
-    await sleep(60);
+    vi.advanceTimersByTime(60);
     fn(); // 执行
     expect(count).toBe(2);
   });
