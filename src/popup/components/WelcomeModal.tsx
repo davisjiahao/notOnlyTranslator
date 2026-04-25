@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { UserSettings, ApiProvider } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants';
+import { useFocusTrap } from '@/shared/hooks';
 
 interface WelcomeModalProps {
   settings: UserSettings | null;
@@ -26,6 +27,9 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   const needsSetup = !settings?.apiConfigs?.length ||
     !settings.apiConfigs.some(c => c.tested) ||
     !settings.activeApiConfigId;
+
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: needsSetup });
 
   if (!needsSetup) {
     return null;
@@ -94,7 +98,8 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
 
   return (
     // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
+    // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+    <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* 欢迎页 */}
         {step === 'welcome' && (

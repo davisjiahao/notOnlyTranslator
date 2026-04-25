@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Achievement, TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
+import { useFocusTrap } from '@/shared/hooks';
 
 interface AchievementUnlockModalProps {
   achievement: Achievement;
@@ -20,6 +21,9 @@ export function AchievementUnlockModal({
   const colors = TIER_COLORS[achievement.tier];
   const isUnlocked = !!achievement.unlockedAt;
 
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: true });
+
   // 5秒后隐藏 confetti
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 5000);
@@ -27,7 +31,9 @@ export function AchievementUnlockModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
+    // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+    <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="achievement-modal-title">
       {/* Confetti 效果 */}
       {showConfetti && isUnlocked && <ConfettiAnimation />}
 
@@ -65,7 +71,7 @@ export function AchievementUnlockModal({
         )}
 
         {/* 标题 */}
-        <h2 className={`text-2xl font-bold text-center mb-2 ${colors.text}`}>
+        <h2 id="achievement-modal-title" className={`text-2xl font-bold text-center mb-2 ${colors.text}`}>
           {achievement.name}
         </h2>
 

@@ -8,6 +8,7 @@ import {
   getFeedbackHints
 } from '../../../shared/feedback';
 import RatingStars from './RatingStars';
+import { useFocusTrap } from '@/shared/hooks';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -114,11 +115,15 @@ export default function FeedbackModal({
   // 获取当前类别的提示
   const hints = getFeedbackHints(formData.category);
 
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: isOpen });
+
   if (!isOpen) return null;
 
   return (
     // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+    // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+    <div ref={modalRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
       {/* 背景遮罩 */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
