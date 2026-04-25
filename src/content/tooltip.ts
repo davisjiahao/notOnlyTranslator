@@ -64,8 +64,10 @@ export class Tooltip {
     tooltip.id = 'not-translator-tooltip';
     tooltip.className = CSS_CLASSES.TOOLTIP;
     // WCAG 4.1.2: 添加 role 和 aria-live 以支持屏幕阅读器
+    // WCAG 4.1.3: aria-atomic 确保屏幕阅读器播报完整内容
     tooltip.setAttribute('role', 'tooltip');
     tooltip.setAttribute('aria-live', 'polite');
+    tooltip.setAttribute('aria-atomic', 'true');
     tooltip.innerHTML = `
       <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
         <button class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助">⌨️</button>
@@ -792,9 +794,10 @@ export class Tooltip {
       content.appendChild(header);
     }
 
-    // Error message
+    // WCAG 4.1.3: 错误消息使用 role="alert" 确保屏幕阅读器立即通知
     const errorDiv = document.createElement('div');
     errorDiv.className = `${CSS_CLASSES.TOOLTIP}-error`;
+    errorDiv.setAttribute('role', 'alert');
 
     const icon = document.createElement('span');
     icon.className = 'not-translator-error-icon';
@@ -814,6 +817,7 @@ export class Tooltip {
 
     const retryBtn = document.createElement('button');
     retryBtn.className = `${CSS_CLASSES.MARK_BUTTON} retry`;
+    retryBtn.setAttribute('aria-label', '重新翻译');
     retryBtn.textContent = '重试';
     retryBtn.addEventListener('click', () => {
       // 隐藏 tooltip，让调用者可以重新请求翻译

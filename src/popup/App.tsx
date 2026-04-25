@@ -233,10 +233,12 @@ export default function App() {
 
         <button
           onClick={toggleGlobalEnabled}
+          role="switch"
+          aria-checked={settings?.enabled ? 'true' : 'false'}
+          aria-label={settings?.enabled ? '全局翻译已启用' : '全局翻译已暂停'}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             settings?.enabled ? 'bg-primary-600' : 'bg-gray-300'
           }`}
-          title={settings?.enabled ? '全局已启用' : '全局已暂停'}
         >
           <span
             className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
@@ -391,6 +393,9 @@ export default function App() {
                 <button
                   onClick={toggleSiteTranslation}
                   disabled={isRefreshing}
+                  role="switch"
+                  aria-checked={isSiteTranslationEnabled ? 'true' : 'false'}
+                  aria-label={`${currentHostname} 网站翻译`}
                   className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${
                     isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
                   } ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}

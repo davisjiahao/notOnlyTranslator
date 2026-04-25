@@ -93,7 +93,8 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* 欢迎页 */}
         {step === 'welcome' && (
@@ -103,7 +104,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 N
               </div>
             </div>
-            <h2 className="text-xl font-bold text-center text-gray-900 dark:text-gray-100 mb-2">
+            <h2 id="welcome-modal-title" className="text-xl font-bold text-center text-gray-900 dark:text-gray-100 mb-2">
               欢迎使用 NotOnlyTranslator
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
