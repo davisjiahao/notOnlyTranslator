@@ -63,11 +63,14 @@ export class Tooltip {
     const tooltip = document.createElement('div');
     tooltip.id = 'not-translator-tooltip';
     tooltip.className = CSS_CLASSES.TOOLTIP;
+    // WCAG 4.1.2: 添加 role 和 aria-live 以支持屏幕阅读器
+    tooltip.setAttribute('role', 'tooltip');
+    tooltip.setAttribute('aria-live', 'polite');
     tooltip.innerHTML = `
       <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
-        <button class="${CSS_CLASSES.TOOLTIP}-help" title="快捷键帮助">⌨️</button>
-        <button class="${CSS_CLASSES.TOOLTIP}-pin" title="钉住 (P)">📌</button>
-        <button class="${CSS_CLASSES.TOOLTIP}-close" title="关闭 (Esc)">&times;</button>
+        <button class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助">⌨️</button>
+        <button class="${CSS_CLASSES.TOOLTIP}-pin" aria-label="钉住">📌</button>
+        <button class="${CSS_CLASSES.TOOLTIP}-close" aria-label="关闭">&times;</button>
       </div>
       <div class="${CSS_CLASSES.TOOLTIP}-content"></div>
     `;

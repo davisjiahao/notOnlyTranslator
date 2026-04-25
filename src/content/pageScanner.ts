@@ -16,24 +16,96 @@ export interface Paragraph {
 /**
  * 排除元素选择器列表
  * 这些元素的文本内容不应被翻译
+ *
+ * 分类说明：
+ * 1. 基础非内容元素：script, style, noscript 等
+ * 2. 表单和交互元素：input, button, select 等
+ * 3. 导航和布局元素：nav, footer, aside
+ * 4. ARIA 角色元素：通过 role 属性识别的 UI 组件
+ * 5. 语义 UI 类名：导航、菜单、模态框等
+ *
+ * 注意：不包含 header 标签，因为 <article> 内的 <header> 是文章元数据，
+ * 属于应翻译的内容。页面级 header 通过 nav/footer 规则已足够覆盖。
+ * 注意：不包含过于宽泛的类名（如 .header, .footer, .sidebar, .tab），
+ * 这些类名在内容区域中常被复用，会导致误排除。
  */
 export const EXCLUDED_SELECTORS = [
+  // 基础非内容元素
   'script',
   'style',
   'noscript',
   'code',
   'pre',
+  'template',
+
+  // 表单和交互元素
   'input',
   'textarea',
   'select',
   'button',
+  'option',
+  'optgroup',
+  'label',
+
+  // 嵌入内容
   'iframe',
+  'svg',
+  'canvas',
+
+  // 翻译标记
   '[data-notranslate]',
   '.not-only-translator-highlight',
+
+  // 导航和布局元素
   'nav',
-  'header nav',
   'footer',
+  'aside',
+
+  // ARIA 角色元素 - UI 组件
+  '[role="navigation"]',
+  '[role="menu"]',
+  '[role="menubar"]',
+  '[role="dialog"]',
+  '[role="tooltip"]',
+  '[role="alert"]',
+  '[role="status"]',
+  '[role="button"]',
+  '[role="listbox"]',
+  '[role="option"]',
+  '[role="combobox"]',
+  '[role="search"]',
+  '[role="searchbox"]',
+
+  // 语义 UI 类名（仅限明确属于 UI 组件的类名）
+  '.navbar',
+  '.dropdown-menu',
+  '.modal',
+  '.popover',
+  '.pagination',
+  '.language-selector',
+  '.locale-selector',
 ];
+
+/**
+ * 站点特定选择器列表
+ * 用于排除特定网站的 UI 元素，可按需合并到运行时选择器
+ */
+export const SITE_SPECIFIC_SELECTORS: Record<string, string[]> = {
+  github: [
+    '.Header',
+    '.Header-item',
+    '.Header-link',
+    '.header-nav',
+    '.js-header-wrapper',
+    '.js-navigation-item',
+    '.js-menu-target',
+    '.select-menu',
+    '.ActionList',
+    '.ActionList-item',
+    '.UnderlineNav',
+    '.UnderlineNav-item',
+  ],
+};
 
 /**
  * 扫描配置
@@ -71,20 +143,23 @@ function countWords(text: string): number {
 }
 
 /**
+ * 组合排除选择器（用于性能优化）
+ * 将所有选择器合并为一个 CSS 选择器字符串，避免循环调用 matches()
+ */
+const COMBINED_EXCLUDED_SELECTOR = EXCLUDED_SELECTORS.join(',');
+
+/**
  * 检查元素是否匹配排除选择器
+ * 使用组合选择器进行单次匹配，性能优于循环匹配
  */
 function matchesExcludedSelector(element: Element): boolean {
-  for (const selector of EXCLUDED_SELECTORS) {
-    try {
-      if (element.matches(selector)) {
-        return true;
-      }
-    } catch {
-      // 某些选择器可能在某些浏览器中不支持，忽略错误
-      continue;
-    }
+  try {
+    return element.matches(COMBINED_EXCLUDED_SELECTOR);
+  } catch {
+    // 某些选择器可能在某些浏览器中不支持，保守返回 false
+    // 这种情况下，元素会被当作可翻译内容处理
+    return false;
   }
-  return false;
 }
 
 /**
