@@ -1,5 +1,107 @@
 # CTO Heartbeat Status
 
+## 2026-04-25 第505次检查
+
+**状态**: 待命中
+
+**Paperclip API**: ✅ 正常
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对，等待用户反馈 |
+
+**已完成**:
+- ✅ CMP-133: 多翻译了内容并且布局有问题 → done
+  - pageScanner.ts 排除选择器扩展已提交 ([a3f839e](/CMP/commits/a3f839e))
+  - 布局问题用户已确认解决
+
+**代码质量** (全部通过):
+- TypeScript: ✅ 0 错误
+- ESLint: ✅ 0 警告
+- 测试: ✅ 1027/1027 通过
+
+**下一步**: 等待 CMP-132 用户反馈，或 CMP-134 board approval 后重新分配。
+
+---
+
+## 2026-04-25 第504次检查
+
+**状态**: 恢复任务 CMP-138 已完成
+
+### 恢复链最终状态
+
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-138 | ✅ done | 当前任务 - 恢复链已终止 |
+| CMP-135 | ✅ done | adapter_failed 已绕过，代码已提交 |
+| CMP-134 | blocked | 等待 board approval [71e1fc7d](/CMP/approvals/71e1fc7d-d897-4c32-bf7f-4ddf1e885b82) |
+
+### 根因修复
+
+**问题**: CTO agent (`8b3310f9`) 的 `adapterConfig` 为空 `{}`，缺少 `instructionsFilePath`，导致 Claude adapter 报 `Invalid request Error` (400)。
+
+**修复**: 创建 `agents/cto/agent-config.json`，指定 `instructionsPath` 指向 `agents/cto/AGENTS.md`。
+
+```json
+{
+  "name": "CTO",
+  "nameKey": "cto",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/cto/AGENTS.md"
+}
+```
+
+### 历史修复代码（已提交 commit a3f839e）
+- `tooltip.ts`: `role="tooltip"`, `aria-live="polite"`, 按钮 `aria-label`（WCAG 4.1.2）
+- `pageScanner.ts`: 组合选择器优化性能，扩展排除选择器覆盖 ARIA 角色元素
+
+### 剩余 WCAG 工作（CMP-134 解绑后处理）
+1. Highlighter 语义化: `<span>` → `<mark>` + aria-describedby
+2. FloatingButton 键盘支持: Enter/Space 展开面板
+3. Modal focus trap: 所有弹窗组件
+4. Toggle role/aria-checked: 开关按钮
+5. Tab pattern: Options sidebar tablist/tab/tabpanel
+6. 导航焦点管理: navigateToNext() 添加 .focus()
+7. aria-live regions: 加载/错误状态通知
+8. 全局 aria-label 补全
+
+**下一步**: Board 批准 [71e1fc7d](/CMP/approvals/71e1fc7d-d897-4c32-bf7f-4ddf1e885b82) 后，CMP-134 重新分配给 CTO 执行剩余 WCAG 修复。
+
+---
+
+## 2026-04-25 第503次检查
+
+**状态**: 处理恢复任务 CMP-138
+
+**处理结果**:
+- ✅ 已提交 WCAG 部分修复（commit a3f839e）
+  - tooltip.ts: role="tooltip", aria-live="polite", aria-label
+  - pageScanner.ts: 性能优化 + 扩展排除选择器
+- ✅ 测试通过: 1027/1027
+- ✅ TypeScript: 0 错误
+
+**恢复链状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-138 | 处理中 | 当前任务 - 恢复 CMP-135 |
+| CMP-135 | 已解决 | adapter_failed 已绕过，代码已提交 |
+| CMP-134 | 部分完成 | P0 tooltip aria 已修复，剩余工作拆分子任务 |
+
+**剩余 WCAG 工作（已识别，待分配）**:
+1. Highlighter 语义化: `<span>` → `<mark>` + aria-describedby
+2. FloatingButton 键盘支持: Enter/Space 展开面板
+3. Modal focus trap: 所有弹窗组件
+4. Toggle role/aria-checked: 开关按钮
+5. Tab pattern: Options sidebar tablist/tab/tabpanel
+6. 导航焦点管理: navigateToNext() 添加 .focus()
+7. aria-live regions: 加载/错误状态通知
+8. 全局 aria-label 补全
+
+**下一步**: 标记 CMP-138 完成，为 CMP-134 创建子任务分配剩余 WCAG 修复。
+
+---
+
 ## 2026-04-25 第502次检查
 
 **状态**: 待命中（无可用任务可签出）
