@@ -455,9 +455,9 @@ describe('PageScanner', () => {
       const endTime = performance.now();
 
       expect(result.length).toBe(100);
-      // 性能测试：6000ms 阈值，考虑 CI 环境、测试环境初始化开销和系统负载波动
-      // 历史：1000ms → 3000ms → 6000ms (高负载环境下仍会超时)
-      expect(endTime - startTime).toBeLessThan(6000);
+      // 性能测试：1000ms 阈值，考虑 CI 环境、测试环境初始化开销和系统负载波动
+      // 优化后使用组合选择器，单次 matches() 调用替代循环匹配
+      expect(endTime - startTime).toBeLessThan(1000);
     });
 
     it('should cache results to avoid redundant scanning', () => {
