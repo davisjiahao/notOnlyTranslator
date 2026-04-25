@@ -370,6 +370,9 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedEntry(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="翻译详情"
         >
           <div
             className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl"
@@ -460,6 +463,9 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setShowDeleteModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="确认删除"
         >
           <div
             className="bg-white dark:bg-gray-800 rounded-xl max-w-sm w-full p-6 shadow-2xl"

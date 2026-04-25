@@ -5,6 +5,7 @@ import {
 } from '@/shared/analytics/achievements';
 import type { ShareCardData, SharePlatform, ShareResult } from '@/shared/types/achievements';
 import { TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
+import { useFocusTrap } from '@/shared/hooks';
 
 interface ShareCardModalProps {
   achievementId: string;
@@ -21,6 +22,9 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
   const [sharing, setSharing] = useState(false);
   const [shareResult, setShareResult] = useState<ShareResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: !loading && !!shareData });
 
   const loadShareData = useCallback(async () => {
     try {
@@ -72,7 +76,7 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-label="加载分享卡片">
         <div className="bg-white rounded-xl p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
         </div>
@@ -82,7 +86,7 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
 
   if (!shareData) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-label="分享卡片错误">
         <div className="bg-white rounded-xl p-6 max-w-sm w-full">
           <p className="text-center text-gray-600">无法生成分享卡片</p>
           <button
@@ -100,12 +104,14 @@ export function ShareCardModal({ achievementId, onClose }: ShareCardModalProps) 
   const colors = TIER_COLORS[achievement.tier as keyof typeof TIER_COLORS];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
+    // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+    <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
         {/* 头部 */}
         <div className={`${colors.bg} px-6 py-4`}>
           <div className="flex items-center justify-between">
-            <h3 className={`font-bold ${colors.text}`}>分享成就</h3>
+            <h3 id="share-modal-title" className={`font-bold ${colors.text}`}>分享成就</h3>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 transition-colors"

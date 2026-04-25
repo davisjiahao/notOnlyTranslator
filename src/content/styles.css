@@ -1,5 +1,13 @@
 /* NotOnlyTranslator Content Script Styles */
 
+/* WCAG 1.3.1: 重置 <mark> 浏览器默认样式，由类选择器控制外观 */
+mark.not-translator-highlight,
+mark.not-translator-highlighted-translation,
+mark.not-translator-highlighted-word,
+mark.not-translator-vocab-highlight {
+  background-color: transparent;
+}
+
 /* 高亮词汇 - 简洁下划线风格 */
 .not-translator-highlight {
   background-color: transparent;

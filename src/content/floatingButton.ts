@@ -91,6 +91,11 @@ export class FloatingButton {
     this.container = document.createElement('div');
     this.container.id = 'not-translator-floating-btn';
     this.container.className = 'not-translator-floating-btn';
+    // WCAG 2.1.1: 添加 tabindex 和 role 使按钮可键盘访问
+    this.container.setAttribute('tabindex', '0');
+    this.container.setAttribute('role', 'button');
+    this.container.setAttribute('aria-label', '翻译模式切换');
+    this.container.setAttribute('aria-expanded', 'false');
 
     // 设置位置
     const position = this.getSavedPosition();
@@ -222,6 +227,18 @@ export class FloatingButton {
       }
     });
 
+    // WCAG 2.1.1: Enter/Space 键盘操作支持
+    this.container.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.togglePanel();
+      }
+      if (e.key === 'Escape' && this.isExpanded) {
+        e.preventDefault();
+        this.collapse();
+      }
+    });
+
     // 拖拽功能
     this.setupDrag();
 
@@ -314,6 +331,8 @@ export class FloatingButton {
 
     this.panel.style.display = 'block';
     this.isExpanded = true;
+    // WCAG 4.1.2: 更新 aria-expanded 状态
+    this.container?.setAttribute('aria-expanded', 'true');
 
     // 调整面板位置，确保在视口内
     this.adjustPanelPosition();
@@ -327,6 +346,8 @@ export class FloatingButton {
 
     this.panel.style.display = 'none';
     this.isExpanded = false;
+    // WCAG 4.1.2: 更新 aria-expanded 状态
+    this.container?.setAttribute('aria-expanded', 'false');
   }
 
   /**

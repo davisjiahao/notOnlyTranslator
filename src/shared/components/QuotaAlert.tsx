@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { type QuotaAlert } from '@/shared/types/quota';
+import { useFocusTrap } from '@/shared/hooks';
 
 interface QuotaAlertBannerProps {
   alert: QuotaAlert;
@@ -168,17 +169,22 @@ export function QuotaExhaustedModal({
   onConfigureApi,
   onInviteFriends,
 }: QuotaExhaustedModalProps) {
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: isOpen });
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
+    // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+    <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="quota-exhausted-title">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in">
         {/* 图标 */}
         <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-100 to-orange-100 rounded-full flex items-center justify-center mb-4">
           <span className="text-4xl">⚡</span>
         </div>
 
-        <h2 className="text-xl font-bold text-center text-gray-800 mb-2">
+        <h2 id="quota-exhausted-title" className="text-xl font-bold text-center text-gray-800 mb-2">
           免费额度已用完
         </h2>
 

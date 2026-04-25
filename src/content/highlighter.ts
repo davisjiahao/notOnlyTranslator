@@ -146,23 +146,23 @@ export class Highlighter {
         );
       }
 
-      // Create highlighted span
-      const span = document.createElement('span');
-      span.className = CSS_CLASSES.HIGHLIGHT;
-      span.textContent = match.word.original;
-      span.dataset.word = match.word.original;
-      span.dataset.translation = match.word.translation;
-      span.dataset.difficulty = String(match.word.difficulty);
-      span.dataset.isPhrase = String(match.word.isPhrase);
+      // WCAG 1.3.1: 使用 <mark> 语义元素替代 <span> 表示高亮内容
+      const mark = document.createElement('mark');
+      mark.className = CSS_CLASSES.HIGHLIGHT;
+      mark.textContent = match.word.original;
+      mark.dataset.word = match.word.original;
+      mark.dataset.translation = match.word.translation;
+      mark.dataset.difficulty = String(match.word.difficulty);
+      mark.dataset.isPhrase = String(match.word.isPhrase);
 
-      fragment.appendChild(span);
+      fragment.appendChild(mark);
 
       // Track highlighted elements
       const key = match.word.original.toLowerCase();
       if (!this.highlightedElements.has(key)) {
         this.highlightedElements.set(key, []);
       }
-      this.highlightedElements.get(key)!.push(span);
+      this.highlightedElements.get(key)!.push(mark);
 
       currentIndex = match.end;
     }

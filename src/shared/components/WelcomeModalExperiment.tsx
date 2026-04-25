@@ -6,6 +6,7 @@ import {
   type ExperimentStep,
 } from './welcomeModalUtils';
 import type { ApiProvider } from '@/shared/types';
+import { useFocusTrap } from '@/shared/hooks';
 
 /** 从欢迎模态框返回的API配置 */
 export interface WelcomeModalConfig {
@@ -33,6 +34,9 @@ export default function WelcomeModalExperiment({
   // 用户选择
   const [selectedLevel, setSelectedLevel] = useState<string>('');
   const [selectedProvider, setSelectedProvider] = useState<string>('openai');
+
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: isOpen });
 
   useEffect(() => {
     if (isOpen) {
@@ -119,7 +123,9 @@ export default function WelcomeModalExperiment({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
+    // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+    <div ref={modalRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="欢迎使用 NotOnlyTranslator">
       <div
         className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden transition-all duration-300 ${
           isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'

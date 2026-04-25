@@ -232,17 +232,17 @@ export class TranslationDisplay {
       const matched = currentText.slice(pos, pos + highlight.translation.length);
       const after = currentText.slice(pos + highlight.translation.length);
 
-      // 创建高亮 span
-      const highlightSpan = document.createElement('span');
-      highlightSpan.className = 'not-translator-highlighted-translation';
-      highlightSpan.dataset.index = String(highlight.index);
-      highlightSpan.dataset.word = highlight.word;
-      highlightSpan.textContent = matched;
+      // WCAG 1.3.1: 使用 <mark> 语义元素表示高亮译文
+      const highlightMark = document.createElement('mark');
+      highlightMark.className = 'not-translator-highlighted-translation';
+      highlightMark.dataset.index = String(highlight.index);
+      highlightMark.dataset.word = highlight.word;
+      highlightMark.textContent = matched;
 
       // 构建片段（从后往前，所以先添加 after）
       const fragment = document.createDocumentFragment();
       if (after) fragment.appendChild(document.createTextNode(after));
-      fragment.appendChild(highlightSpan);
+      fragment.appendChild(highlightMark);
       if (before) fragment.appendChild(document.createTextNode(before));
 
       // 更新当前文本为片段内容（需要临时容器）
@@ -287,13 +287,13 @@ export class TranslationDisplay {
         fragment.appendChild(document.createTextNode(fullText.slice(currentPos, pos)));
       }
 
-      // 添加高亮 span
-      const highlightSpan = document.createElement('span');
-      highlightSpan.className = 'not-translator-highlighted-translation';
-      highlightSpan.dataset.index = String(highlight.index);
-      highlightSpan.dataset.word = highlight.word;
-      highlightSpan.textContent = highlight.translation;
-      fragment.appendChild(highlightSpan);
+      // WCAG 1.3.1: 使用 <mark> 语义元素表示高亮译文
+      const highlightMark2 = document.createElement('mark');
+      highlightMark2.className = 'not-translator-highlighted-translation';
+      highlightMark2.dataset.index = String(highlight.index);
+      highlightMark2.dataset.word = highlight.word;
+      highlightMark2.textContent = highlight.translation;
+      fragment.appendChild(highlightMark2);
 
       currentPos = pos + highlight.translation.length;
     }
@@ -664,27 +664,27 @@ export class TranslationDisplay {
           const matchedText = nodeText.slice(index, index + targetText.length);
           const afterText = nodeText.slice(index + targetText.length);
 
-          // 创建高亮 span
-          const highlightSpan = document.createElement('span');
-          highlightSpan.className = CSS_CLASSES.HIGHLIGHT;
-          highlightSpan.setAttribute('data-difficulty', String(word.difficulty));
-          highlightSpan.setAttribute('data-translation', word.translation);
-          highlightSpan.setAttribute('data-word', word.original);
+          // WCAG 1.3.1: 使用 <mark> 语义元素表示高亮内容
+          const highlightMark = document.createElement('mark');
+          highlightMark.className = CSS_CLASSES.HIGHLIGHT;
+          highlightMark.setAttribute('data-difficulty', String(word.difficulty));
+          highlightMark.setAttribute('data-translation', word.translation);
+          highlightMark.setAttribute('data-word', word.original);
           if (word.isPhrase) {
-            highlightSpan.setAttribute('data-is-phrase', 'true');
+            highlightMark.setAttribute('data-is-phrase', 'true');
           }
           if (dataIndex !== undefined) {
-            highlightSpan.setAttribute('data-index', String(dataIndex));
-            highlightSpan.classList.add('not-translator-highlighted-word');
+            highlightMark.setAttribute('data-index', String(dataIndex));
+            highlightMark.classList.add('not-translator-highlighted-word');
           }
-          highlightSpan.textContent = matchedText;
+          highlightMark.textContent = matchedText;
 
           // 如果需要显示行内译文
           if (showInlineTranslation) {
             const translationSpan = document.createElement('span');
             translationSpan.className = 'not-translator-inline-translation';
             translationSpan.textContent = word.translation;
-            highlightSpan.appendChild(translationSpan);
+            highlightMark.appendChild(translationSpan);
           }
 
           // 替换原文本节点
@@ -692,7 +692,7 @@ export class TranslationDisplay {
           if (beforeText) {
             fragment.appendChild(document.createTextNode(beforeText));
           }
-          fragment.appendChild(highlightSpan);
+          fragment.appendChild(highlightMark);
           if (afterText) {
             fragment.appendChild(document.createTextNode(afterText));
           }

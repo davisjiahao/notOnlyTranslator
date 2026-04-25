@@ -348,30 +348,31 @@ export class VocabularyHighlighter {
   /**
    * 创建高亮元素
    */
+  // WCAG 1.3.1: 使用 <mark> 语义元素替代 <span> 表示高亮内容
   private createHighlightElement(
     wordData: WordDifficultyResult,
     originalText: string
-  ): HTMLSpanElement {
-    const span = document.createElement('span');
-    span.className = 'not-translator-vocab-highlight';
-    span.textContent = originalText;
+  ): HTMLElement {
+    const mark = document.createElement('mark');
+    mark.className = 'not-translator-vocab-highlight';
+    mark.textContent = originalText;
 
     // 添加数据属性
-    span.dataset.word = wordData.word;
-    span.dataset.level = wordData.level;
-    span.dataset.difficulty = String(wordData.difficulty);
-    span.dataset.confidence = String(wordData.confidence);
+    mark.dataset.word = wordData.word;
+    mark.dataset.level = wordData.level;
+    mark.dataset.difficulty = String(wordData.difficulty);
+    mark.dataset.confidence = String(wordData.confidence);
 
     // 应用样式类
-    this.applyHighlightStyles(span, wordData);
+    this.applyHighlightStyles(mark, wordData);
 
-    return span;
+    return mark;
   }
 
   /**
    * 应用高亮样式
    */
-  private applyHighlightStyles(element: HTMLSpanElement, wordData: WordDifficultyResult): void {
+  private applyHighlightStyles(element: HTMLElement, wordData: WordDifficultyResult): void {
     const { highlightStyle, showDifficultyIndicator } = this.config;
 
     // 基础样式类
