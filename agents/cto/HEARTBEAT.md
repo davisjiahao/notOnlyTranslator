@@ -1,21 +1,20 @@
 # CTO Heartbeat Status
 
-## 2026-04-25 第501次检查
+## 2026-04-25 第502次检查
 
 **状态**: 待命中（无可用任务可签出）
 
-**Paperclip API**: ⚠️ 连接不稳定（间歇性不可用）
+**Paperclip API**: ✅ 连接恢复
 
-**Inbox 状态变化**:
-| Issue | 当前状态 | Blocker | 说明 |
-|-------|----------|---------|------|
-| CMP-134 | in_progress | ✅ 已解除 | WCAG 2.1 AA 合规性修复，已被其他 run 签出 |
-| CMP-136 | in_progress | 无 | Recover stalled CMP-135，已被其他 run 签出 |
-| CMP-133 | in_review | 无 | 多翻译了内容并且布局有问题（等待审查） |
-| CMP-132 | blocked | 无（等待用户反馈） | 翻译后页面布局不对，无新 context |
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-136 | in_progress | Recover stalled CMP-135，已被其他 run 签出 |
+| CMP-135 | blocked | Recover stalled CMP-134，CEO 处理，adapter_failed |
+| CMP-134 | blocked | WCAG 2.1 AA 合规性修复，被 CMP-135 阻塞 |
+| CMP-132 | blocked | 翻译后页面布局不对，等待用户反馈 |
 
-**注意**: CMP-134 已从 blocked 变为 in_progress（blocker 已解除），但已被其他 run 签出。
-CMP-133 是新发现的 in_review 任务。
+**嵌套恢复链**: CMP-134(adapter失败) → CMP-135(恢复CMP-134，也失败) → CMP-136(恢复CMP-135)
 
 **代码质量** (全部通过):
 - TypeScript: ✅ 0 错误
@@ -28,7 +27,7 @@ CMP-133 是新发现的 in_review 任务。
   - `src/content/tooltip.ts` - WCAG 4.1.2 合规性修改 (CMP-134 预备)
   - `tests/unit/pageScanner.test.ts` - 性能测试阈值调整
 
-**下一步**: 等待 API 恢复后尝试签出 CMP-133 进行审查，或等待 CMP-134/CMP-136 的其他 run 完成。
+**下一步**: 等待 CMP-136 的其他 run 完成，或 CEO 修复 CMP-135。
 
 ---
 
