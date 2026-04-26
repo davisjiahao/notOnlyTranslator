@@ -16,7 +16,7 @@ import { TranslationDisplay } from './translationDisplay';
 import { ViewportObserver, VisibleParagraph } from './viewportObserver';
 import { BatchTranslationManager } from './batchTranslationManager';
 import { FloatingButton } from './floatingButton';
-import { NavigationManager, PageScanner, HoverManager } from './core';
+import { NavigationManager, PageScanner, HoverManager, isInExcludedArea } from './core';
 import { VocabularyHighlighter } from './vocabularyHighlighter';
 
 /**
@@ -474,9 +474,10 @@ class NotOnlyTranslator {
     window.__EXTENSION_LOADED__ = true;
     window.__NOT_ONLY_TRANSLATOR__ = this;
 
-    // 调试：确认全局变量已设置
-    console.log('[NotOnlyTranslator] Global set: __NOT_ONLY_TRANSLATOR__ =', typeof window.__NOT_ONLY_TRANSLATOR__);
-    console.log('[NotOnlyTranslator] Global set: __EXTENSION_LOADED__ =', window.__EXTENSION_LOADED__);
+    logger.debug('全局变量已设置', {
+      __NOT_ONLY_TRANSLATOR__: typeof window.__NOT_ONLY_TRANSLATOR__,
+      __EXTENSION_LOADED__: window.__EXTENSION_LOADED__,
+    });
   }
 
   /**
@@ -818,9 +819,9 @@ class NotOnlyTranslator {
    */
   private async loadSettings(): Promise<void> {
     try {
-      console.log('[NotOnlyTranslator] Loading settings...');
+      logger.debug('加载设置...');
       const response = await this.sendMessage({ type: 'GET_SETTINGS' });
-      console.log('[NotOnlyTranslator] Settings response:', response);
+      logger.debug('设置响应:', response);
       if (response.success && response.data) {
         this.settings = response.data as UserSettings;
         this.isEnabled = this.settings.enabled;
@@ -1151,6 +1152,8 @@ class NotOnlyTranslator {
 
             paragraphs.forEach((p) => {
               if (p.textContent && p.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
+                // 跳过排除区域内的元素（导航、页脚等）
+                if (isInExcludedArea(p)) return;
                 newElements.push(p);
               }
             });
@@ -1159,6 +1162,8 @@ class NotOnlyTranslator {
             if (el.textContent && el.textContent.trim().length >= TIMING.MIN_PARAGRAPH_LENGTH) {
               const tagName = el.tagName.toLowerCase();
               if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'blockquote', 'figcaption'].includes(tagName)) {
+                // 跳过排除区域内的元素（导航、页脚等）
+                if (isInExcludedArea(el)) return;
                 newElements.push(el);
               }
             }
@@ -1715,16 +1720,16 @@ class NotOnlyTranslator {
             timeoutId = null;
           }
           if (chrome.runtime.lastError) {
-            console.log('[NotOnlyTranslator] sendMessage lastError:', chrome.runtime.lastError.message);
+            logger.debug('sendMessage lastError:', chrome.runtime.lastError.message);
             resolve({
               success: false,
               error: chrome.runtime.lastError.message,
             });
           } else if (!response) {
-            console.log('[NotOnlyTranslator] sendMessage no response received');
+            logger.debug('sendMessage no response received');
             resolve(response || { success: false, error: 'No response' });
           } else {
-            console.log('[NotOnlyTranslator] sendMessage response:', response);
+            logger.debug('sendMessage response:', response);
             resolve(response);
           }
         });
@@ -1732,7 +1737,7 @@ class NotOnlyTranslator {
       new Promise<MessageResponse>((resolve) => {
         timeoutId = setTimeout(() => {
           timeoutId = null;
-          console.log('[NotOnlyTranslator] sendMessage timeout');
+          logger.debug('sendMessage timeout');
           resolve({ success: false, error: '请求超时，请重试' });
         }, timeout);
       }),

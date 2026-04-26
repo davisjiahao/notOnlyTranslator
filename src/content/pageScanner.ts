@@ -179,6 +179,14 @@ function hasExcludedAncestor(element: Element): boolean {
 }
 
 /**
+ * 检查元素是否位于排除区域内（公开 API）
+ * 供其他模块（ViewportObserver、MutationObserver）复用排除逻辑
+ */
+export function isInExcludedArea(element: Element): boolean {
+  return matchesExcludedSelector(element) || hasExcludedAncestor(element);
+}
+
+/**
  * PageScanner 类
  * 负责扫描页面 DOM 并提取可翻译的文本段落
  */

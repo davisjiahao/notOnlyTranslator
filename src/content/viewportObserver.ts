@@ -1,5 +1,6 @@
 import { DEFAULT_BATCH_CONFIG } from '@/shared/constants';
 import { debounce, logger } from '@/shared/utils';
+import { isInExcludedArea } from './pageScanner';
 
 /**
  * 可视区域段落信息
@@ -129,6 +130,11 @@ export class ViewportObserver {
 
     // 过滤掉已处理的段落
     if (element.classList.contains('not-translator-processed')) {
+      return null;
+    }
+
+    // 过滤掉位于排除区域的段落（导航、页脚等 UI 元素）
+    if (isInExcludedArea(element)) {
       return null;
     }
 

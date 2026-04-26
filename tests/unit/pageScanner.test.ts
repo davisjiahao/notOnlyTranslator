@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { PageScanner, type Paragraph, EXCLUDED_SELECTORS, SITE_SPECIFIC_SELECTORS } from '@/content/pageScanner';
+import { PageScanner, type Paragraph, EXCLUDED_SELECTORS, SITE_SPECIFIC_SELECTORS, isInExcludedArea } from '@/content/pageScanner';
 
 describe('PageScanner', () => {
   let scanner: PageScanner;
@@ -622,6 +622,74 @@ describe('PageScanner', () => {
       expect(result.length).toBe(1);
       expect(result[0].text).toContain('Regular paragraph');
     });
+  });
+});
+
+describe('isInExcludedArea', () => {
+  it('should return true for elements matching excluded selectors', () => {
+    const nav = document.createElement('nav');
+    nav.innerHTML = '<p>Navigation link here</p>';
+    expect(isInExcludedArea(nav)).toBe(true);
+  });
+
+  it('should return true for elements inside excluded ancestors', () => {
+    const footer = document.createElement('footer');
+    const p = document.createElement('p');
+    p.textContent = 'Footer paragraph text with enough words.';
+    footer.appendChild(p);
+    document.body.appendChild(footer);
+
+    expect(isInExcludedArea(p)).toBe(true);
+
+    footer.remove();
+  });
+
+  it('should return false for normal content', () => {
+    const container = document.createElement('div');
+    container.id = 'main-content';
+    const p = document.createElement('p');
+    p.textContent = 'Normal paragraph content to translate.';
+    container.appendChild(p);
+    document.body.appendChild(container);
+
+    expect(isInExcludedArea(p)).toBe(false);
+    expect(isInExcludedArea(container)).toBe(false);
+
+    container.remove();
+  });
+
+  it('should return true for ARIA role elements', () => {
+    const menu = document.createElement('div');
+    menu.setAttribute('role', 'navigation');
+    const p = document.createElement('p');
+    p.textContent = 'Menu item text content.';
+    menu.appendChild(p);
+    document.body.appendChild(menu);
+
+    expect(isInExcludedArea(p)).toBe(true);
+
+    menu.remove();
+  });
+
+  it('should return true for common UI class elements', () => {
+    const navbar = document.createElement('div');
+    navbar.className = 'navbar';
+    const p = document.createElement('p');
+    p.textContent = 'Navigation bar text.';
+    navbar.appendChild(p);
+    document.body.appendChild(navbar);
+
+    expect(isInExcludedArea(p)).toBe(true);
+
+    navbar.remove();
+  });
+});
+
+describe('SITE_SPECIFIC_SELECTORS', () => {
+  it('should contain github selectors', () => {
+    expect(SITE_SPECIFIC_SELECTORS.github).toContain('.Header');
+    expect(SITE_SPECIFIC_SELECTORS.github).toContain('.ActionList');
+    expect(SITE_SPECIFIC_SELECTORS.github).toContain('.UnderlineNav');
   });
 });
 
