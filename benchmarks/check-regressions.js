@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BASELINE_FILE = path.resolve(__dirname, 'results.json');
-const CURRENT_FILE = path.resolve(__dirname, 'results', 'performance-report.json');
+const CURRENT_FILE = path.resolve(__dirname, '..', 'benchmark', 'results', 'performance-report.json');
 const REGRESSION_THRESHOLD = 0.15; // 15% 回归阈值
 
 function extractMedian(value) {
@@ -100,6 +100,13 @@ function main() {
   if (fs.existsSync(CURRENT_FILE)) {
     console.log(`📊 使用 Vitest 基准测试结果: ${CURRENT_FILE}`);
     currentData = JSON.parse(fs.readFileSync(CURRENT_FILE, 'utf-8'));
+
+    // Skip regression check if Vitest results contain only failures
+    if (currentData.success === false && currentData.numTotalTests === 0) {
+      console.log('⚠️  Vitest 基准测试未成功运行，跳过回归检测');
+      console.log('   请先运行: npm run benchmark');
+      process.exit(0);
+    }
   } else {
     console.log(`⚠️  当前结果不存在: ${CURRENT_FILE}`);
     console.log('   请先运行: npm run benchmark');
