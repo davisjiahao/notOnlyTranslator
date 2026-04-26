@@ -313,12 +313,12 @@ export default function ApiSettings({
           </div>
 
           {testedConfigs.length > 0 ? (
-            <div className="space-y-3">
+            <ul className="space-y-3 list-none">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                 点击选择要使用的 API 配置（仅显示测试通过的配置）
               </p>
               {testedConfigs.map((config) => (
-                <div
+                <li
                   key={config.id}
                   className={`group p-4 border rounded-xl transition-all ${
                     activeApiConfigId === config.id
@@ -353,8 +353,8 @@ export default function ApiSettings({
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => startEditConfig(config)}
+                        aria-label={`编辑配置：${config.name}`}
                         className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-                        title="编辑"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -362,8 +362,8 @@ export default function ApiSettings({
                       </button>
                       <button
                         onClick={() => deleteConfig(config.id)}
+                        aria-label={`删除配置：${config.name}`}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="删除"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -371,9 +371,9 @@ export default function ApiSettings({
                       </button>
                     </div>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <div className="text-center py-12">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
@@ -467,6 +467,7 @@ export default function ApiSettings({
             resetConfigForm();
             setEditMode('list');
           }}
+          aria-label="返回配置列表"
           className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -480,14 +481,16 @@ export default function ApiSettings({
 
       {/* 配置名称 */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          配置名称 <span className="text-red-500">*</span>
+        <label htmlFor="config-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          配置名称 <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
+          id="config-name"
           type="text"
           value={configName}
           onChange={(e) => setConfigName(e.target.value)}
           placeholder="如：我的 OpenAI"
+          aria-required="true"
           className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white ${
             configTestResult === 'success' && !configName.trim()
               ? 'border-red-300 bg-red-50 dark:bg-red-900/20'
@@ -501,11 +504,12 @@ export default function ApiSettings({
 
       {/* Provider selection - 分组下拉框 */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label htmlFor="config-provider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           选择 API 服务商
         </label>
         <div className="relative">
           <select
+            id="config-provider"
             value={configProvider}
             onChange={(e) => {
               setConfigProvider(e.target.value as ApiProvider);
@@ -541,14 +545,16 @@ export default function ApiSettings({
       {/* Custom API URL */}
       {configProvider === 'custom' && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            API 端点 URL <span className="text-red-500">*</span>
+          <label htmlFor="config-api-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            API 端点 URL <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
+            id="config-api-url"
             type="text"
             value={configApiUrl}
             onChange={(e) => setConfigApiUrl(e.target.value)}
             placeholder="https://your-api.com/v1/chat/completions"
+            aria-required="true"
             className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
         </div>
@@ -557,10 +563,11 @@ export default function ApiSettings({
       {/* API URL for non-custom (optional) */}
       {configProvider !== 'custom' && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="config-api-url-optional" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API 端点 URL (可选，覆盖默认)
           </label>
           <input
+            id="config-api-url-optional"
             type="text"
             value={configApiUrl}
             onChange={(e) => setConfigApiUrl(e.target.value)}
@@ -575,11 +582,12 @@ export default function ApiSettings({
 
       {/* API Key input */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          API 密钥 <span className="text-red-500">*</span>
+        <label htmlFor="config-api-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          API 密钥 <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <div className="relative">
           <input
+            id="config-api-key"
             type={showConfigKey ? 'text' : 'password'}
             value={configApiKey}
             onChange={(e) => {
@@ -587,11 +595,14 @@ export default function ApiSettings({
               setConfigTestResult(null);
             }}
             placeholder={currentProviderConfig.apiKeyPlaceholder}
+            aria-required="true"
             className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
           <button
             type="button"
             onClick={() => setShowConfigKey(!showConfigKey)}
+            aria-label={showConfigKey ? '隐藏 API 密钥' : '显示 API 密钥'}
+            aria-pressed={showConfigKey}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             {showConfigKey ? (
@@ -624,11 +635,12 @@ export default function ApiSettings({
       {/* Secondary Key (百度需要) */}
       {requiresSecondaryKey(configProvider) && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Secret Key <span className="text-red-500">*</span>
+          <label htmlFor="config-secondary-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Secret Key <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <div className="relative">
             <input
+              id="config-secondary-key"
               type={showSecondaryKey ? 'text' : 'password'}
               value={configSecondaryKey}
               onChange={(e) => {
@@ -636,11 +648,14 @@ export default function ApiSettings({
                 setConfigTestResult(null);
               }}
               placeholder="输入 Secret Key"
+              aria-required="true"
               className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
             />
             <button
               type="button"
               onClick={() => setShowSecondaryKey(!showSecondaryKey)}
+              aria-label={showSecondaryKey ? '隐藏 Secret Key' : '显示 Secret Key'}
+              aria-pressed={showSecondaryKey}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               {showSecondaryKey ? (
@@ -664,7 +679,7 @@ export default function ApiSettings({
       {/* Model selection */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="config-model" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             模型
           </label>
           <div className="flex items-center gap-2">
@@ -697,6 +712,7 @@ export default function ApiSettings({
 
         {useCustomModel ? (
           <input
+            id="config-model"
             type="text"
             value={configModelName}
             onChange={(e) => setConfigModelName(e.target.value)}
@@ -706,6 +722,7 @@ export default function ApiSettings({
         ) : (
           <div className="relative">
             <select
+              id="config-model"
               value={configModelName}
               onChange={(e) => setConfigModelName(e.target.value)}
               disabled={isLoadingModels}
@@ -740,9 +757,9 @@ export default function ApiSettings({
         </p>
       </div>
 
-      {/* Test result */}
+      {/* Test result — WCAG 4.1.3: aria-live 让屏幕阅读器播报测试结果 */}
       {configTestResult && (
-        <div className={`mb-6 p-4 rounded-lg ${
+        <div role="status" aria-live="polite" className={`mb-6 p-4 rounded-lg ${
           configTestResult === 'success' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
         }`}>
           <div className={`flex items-center gap-2 text-sm ${
