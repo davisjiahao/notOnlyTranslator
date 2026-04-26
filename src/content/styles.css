@@ -340,10 +340,16 @@ mark.not-translator-vocab-highlight {
   background: #bfdbfe;
 }
 
-/* Shortcut hints */
+/* WCAG 2.4.7: 键盘焦点可见样式 */
+.not-translator-mark-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Shortcut hints - 与帮助面板 kbd 保持一致的风格 */
 .shortcut-hint {
   font-size: 10px;
-  opacity: 0.7;
+  opacity: 0.8;
   margin-left: 2px;
   font-weight: normal;
 }
