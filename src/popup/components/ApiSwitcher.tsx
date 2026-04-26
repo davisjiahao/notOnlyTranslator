@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { UserSettings, ApiProvider } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
 
@@ -16,14 +16,80 @@ const getProviderDisplayName = (provider?: ApiProvider): string => {
 
 export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions }: ApiSwitcherProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const activeConfig = settings.apiConfigs?.find(c => c.id === settings.activeApiConfigId)
     || settings.apiConfigs?.[0];
 
-  const handleSelectConfig = async (configId: string) => {
+  const handleSelectConfig = useCallback(async (configId: string) => {
     await onUpdateSettings({ activeApiConfigId: configId });
     setIsDropdownOpen(false);
-  };
+    setFocusedIndex(-1);
+    triggerRef.current?.focus();
+  }, [onUpdateSettings]);
+
+  // WCAG 2.1.1 / 2.4.3: 键盘导航支持 — ArrowDown/ArrowUp 遍历，Enter 选择，Escape 关闭
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!isDropdownOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsDropdownOpen(true);
+        setFocusedIndex(0);
+      }
+      return;
+    }
+
+    const configs = settings.apiConfigs || [];
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedIndex(prev => (prev + 1) % configs.length);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedIndex(prev => (prev - 1 + configs.length) % configs.length);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < configs.length) {
+          handleSelectConfig(configs[focusedIndex].id);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsDropdownOpen(false);
+        setFocusedIndex(-1);
+        triggerRef.current?.focus();
+        break;
+    }
+  }, [isDropdownOpen, focusedIndex, settings.apiConfigs, handleSelectConfig]);
+
+  // 自动聚焦当前高亮选项
+  useEffect(() => {
+    if (isDropdownOpen && focusedIndex >= 0) {
+      const items = listRef.current?.querySelectorAll('[role="option"]');
+      items?.[focusedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [focusedIndex, isDropdownOpen]);
+
+  // 点击外部关闭
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        listRef.current && !listRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+        setFocusedIndex(-1);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDropdownOpen]);
 
   return (
     <div>
@@ -38,8 +104,16 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
       </div>
 
       <div className="relative">
+        {/* WCAG 4.1.2: 下拉触发按钮 — 添加 aria-haspopup 和 aria-expanded */}
         <button
+          ref={triggerRef}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          onKeyDown={handleKeyDown}
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={isDropdownOpen}
+          aria-controls="api-config-listbox"
+          aria-label="选择翻译服务配置"
           className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-md px-3 py-2 transition-colors"
         >
           <div className="flex items-center gap-2 overflow-hidden">
@@ -72,14 +146,40 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
               className="fixed inset-0 z-10"
               onClick={() => setIsDropdownOpen(false)}
             />
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-20 max-h-48 overflow-y-auto">
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setIsDropdownOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setIsDropdownOpen(false);
+                  setFocusedIndex(-1);
+                  triggerRef.current?.focus();
+                }
+              }}
+            />
+            <div
+              ref={listRef}
+              id="api-config-listbox"
+              role="listbox"
+              aria-label="翻译服务配置列表"
+              className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-20 max-h-48 overflow-y-auto"
+            >
               {settings.apiConfigs?.length > 0 ? (
-                settings.apiConfigs.map((config) => (
+                settings.apiConfigs.map((config, index) => (
                   <button
                     key={config.id}
+                    role="option"
+                    aria-selected={config.id === settings.activeApiConfigId}
                     onClick={() => handleSelectConfig(config.id)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between ${
-                      config.id === settings.activeApiConfigId ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-700 dark:text-gray-300'
+                    className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
+                      config.id === settings.activeApiConfigId
+                        ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium'
+                        : 'text-gray-700 dark:text-gray-300'
+                    } ${
+                      focusedIndex === index
+                        ? 'bg-gray-100 dark:bg-gray-700 outline outline-2 outline-primary-500 outline-offset-[-2px]'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <div className="flex flex-col min-w-0">
