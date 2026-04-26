@@ -266,6 +266,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
         </div>
         <button
           onClick={onCancel}
+          aria-label="退出测评"
           className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -274,8 +275,15 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
         </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-8">
+      {/* Progress bar — WCAG 4.1.2: 进度条添加 role 和值属性 */}
+      <div
+        className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-8"
+        role="progressbar"
+        aria-valuenow={currentIndex + 1}
+        aria-valuemin={1}
+        aria-valuemax={questions.length}
+        aria-label={`测评进度：第 ${currentIndex + 1} / ${questions.length} 题`}
+      >
         <div
           className="h-full bg-primary-500 rounded-full transition-all duration-300"
           style={{ width: `${progress}%` }}
@@ -327,10 +335,10 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
         })}
       </div>
 
-      {/* Difficulty indicator */}
+      {/* Difficulty indicator — WCAG 1.3.1: 用 aria-label 描述难度等级 */}
       <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-gray-500">
         <span>难度:</span>
-        <div className="flex gap-0.5">
+        <div className="flex gap-0.5" role="img" aria-label={`难度等级：${currentQuestion.difficulty}/10`}>
           {Array.from({ length: 10 }).map((_, i) => (
             <div
               key={i}
