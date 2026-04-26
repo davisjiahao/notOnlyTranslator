@@ -348,10 +348,20 @@ mark.not-translator-vocab-highlight {
 
 /* Shortcut hints - 与帮助面板 kbd 保持一致的风格 */
 .shortcut-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 10px;
-  opacity: 0.8;
-  margin-left: 2px;
-  font-weight: normal;
+  font-weight: 500;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
 /* Loading state */
@@ -438,12 +448,17 @@ mark.not-translator-vocab-highlight {
   justify-content: center;
   background: none;
   border: none;
-  font-size: 12px;
   color: #9ca3af;
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 4px;
   opacity: 0.6;
+  padding: 0;
+  line-height: 1;
+}
+
+.not-translator-tooltip-pin svg {
+  display: block;
 }
 
 .not-translator-tooltip-pin:hover {
@@ -471,11 +486,74 @@ mark.not-translator-vocab-highlight {
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 4px;
+  line-height: 1;
 }
 
 .not-translator-tooltip-close:hover {
   color: #4b5563;
   background: rgba(0, 0, 0, 0.05);
+}
+
+/* WCAG 2.4.7: 工具栏按钮键盘焦点样式 */
+.not-translator-tooltip-close:focus-visible,
+.not-translator-tooltip-pin:focus-visible,
+.not-translator-tooltip-help:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+/* Help button */
+.not-translator-tooltip-help {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  opacity: 0.6;
+  padding: 0;
+  line-height: 1;
+}
+
+.not-translator-tooltip-help svg {
+  display: block;
+}
+
+.not-translator-tooltip-help:hover {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 1;
+}
+
+/* Help button - SVG 图标居中 */
+.not-translator-tooltip-help {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  opacity: 0.6;
+  padding: 0;
+  line-height: 1;
+}
+
+.not-translator-tooltip-help svg {
+  display: block;
+}
+
+.not-translator-tooltip-help:hover {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 1;
 }
 
 /* Dark mode support */
@@ -513,12 +591,14 @@ mark.not-translator-vocab-highlight {
   }
 
   .not-translator-tooltip-pin,
-  .not-translator-tooltip-close {
+  .not-translator-tooltip-close,
+  .not-translator-tooltip-help {
     color: #6b7280;
   }
 
   .not-translator-tooltip-pin:hover,
-  .not-translator-tooltip-close:hover {
+  .not-translator-tooltip-close:hover,
+  .not-translator-tooltip-help:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #d1d5db;
   }
@@ -526,6 +606,13 @@ mark.not-translator-vocab-highlight {
   .not-translator-tooltip-pin.pinned {
     color: #60a5fa;
     background: rgba(96, 165, 250, 0.2);
+  }
+
+  /* 暗色模式下 shortcut-hint kbd 样式 */
+  .shortcut-hint {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: inherit;
   }
 }
 

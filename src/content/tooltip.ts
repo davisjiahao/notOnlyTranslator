@@ -70,8 +70,8 @@ export class Tooltip {
     tooltip.setAttribute('aria-atomic', 'true');
     tooltip.innerHTML = `
       <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
-        <button class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助">⌨️</button>
-        <button class="${CSS_CLASSES.TOOLTIP}-pin" aria-label="钉住">📌</button>
+        <button class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.01"/><line x1="10" y1="10" x2="10" y2="10.01"/><line x1="14" y1="10" x2="14" y2="10.01"/><line x1="18" y1="10" x2="18" y2="10.01"/><line x1="8" y1="14" x2="16" y2="14"/></svg></button>
+        <button class="${CSS_CLASSES.TOOLTIP}-pin" aria-label="钉住"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg></button>
         <button class="${CSS_CLASSES.TOOLTIP}-close" aria-label="关闭">&times;</button>
       </div>
       <div class="${CSS_CLASSES.TOOLTIP}-content"></div>
@@ -300,11 +300,11 @@ export class Tooltip {
     if (pinBtn) {
       if (this.isPinned) {
         pinBtn.classList.add('pinned');
-        pinBtn.textContent = '📍'; // 改变图标表示已钉住
+        pinBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg>';
         pinBtn.title = '取消钉住 (P)';
       } else {
         pinBtn.classList.remove('pinned');
-        pinBtn.textContent = '📌';
+        pinBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg>';
         pinBtn.title = '钉住 (P)';
       }
     }
@@ -429,21 +429,21 @@ export class Tooltip {
     knownBtn.className = `${CSS_CLASSES.MARK_BUTTON} known`;
     knownBtn.dataset.action = 'known';
     knownBtn.title = '快捷键: K';
-    knownBtn.innerHTML = '<span>认识</span> <span class="shortcut-hint">(K)</span>';
+    knownBtn.innerHTML = '<span>认识</span> <kbd class="shortcut-hint">K</kbd>';
     actionsDiv.appendChild(knownBtn);
 
     const unknownBtn = document.createElement('button');
     unknownBtn.className = `${CSS_CLASSES.MARK_BUTTON} unknown`;
     unknownBtn.dataset.action = 'unknown';
     unknownBtn.title = '快捷键: U';
-    unknownBtn.innerHTML = '<span>不认识</span> <span class="shortcut-hint">(U)</span>';
+    unknownBtn.innerHTML = '<span>不认识</span> <kbd class="shortcut-hint">U</kbd>';
     actionsDiv.appendChild(unknownBtn);
 
     const addBtn = document.createElement('button');
     addBtn.className = `${CSS_CLASSES.MARK_BUTTON} add`;
     addBtn.dataset.action = 'add';
     addBtn.title = '快捷键: A';
-    addBtn.innerHTML = '<span>加入生词本</span> <span class="shortcut-hint">(A)</span>';
+    addBtn.innerHTML = '<span>加入生词本</span> <kbd class="shortcut-hint">A</kbd>';
     actionsDiv.appendChild(addBtn);
 
     content.appendChild(actionsDiv);
