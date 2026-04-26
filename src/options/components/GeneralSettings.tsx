@@ -140,6 +140,9 @@ export default function GeneralSettings({
             <button
               onClick={() => onUpdate({ enabled: !settings.enabled })}
               disabled={isSaving}
+              role="switch"
+              aria-checked={settings.enabled}
+              aria-label="启用翻译"
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                 settings.enabled ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
@@ -163,6 +166,9 @@ export default function GeneralSettings({
             <button
               onClick={() => onUpdate({ autoHighlight: !settings.autoHighlight })}
               disabled={isSaving}
+              role="switch"
+              aria-checked={settings.autoHighlight}
+              aria-label="自动高亮"
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                 settings.autoHighlight ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
@@ -186,6 +192,9 @@ export default function GeneralSettings({
             <button
               onClick={() => onUpdate({ phraseTranslationEnabled: !settings.phraseTranslationEnabled })}
               disabled={isSaving}
+              role="switch"
+              aria-checked={settings.phraseTranslationEnabled}
+              aria-label="词组翻译"
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                 settings.phraseTranslationEnabled ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
@@ -209,6 +218,9 @@ export default function GeneralSettings({
             <button
               onClick={() => onUpdate({ grammarTranslationEnabled: !settings.grammarTranslationEnabled })}
               disabled={isSaving}
+              role="switch"
+              aria-checked={settings.grammarTranslationEnabled}
+              aria-label="语法翻译"
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                 settings.grammarTranslationEnabled ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
@@ -232,6 +244,9 @@ export default function GeneralSettings({
             <button
               onClick={() => onUpdate({ showDifficulty: !settings.showDifficulty })}
               disabled={isSaving}
+              role="switch"
+              aria-checked={settings.showDifficulty}
+              aria-label="显示难度等级"
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                 settings.showDifficulty ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
@@ -361,9 +376,10 @@ export default function GeneralSettings({
 
           {/* 字体大小 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">字体大小</label>
+            <label htmlFor="font-size-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">字体大小</label>
             <div className="flex items-center gap-4">
               <input
+                id="font-size-slider"
                 type="range"
                 min="12"
                 max="18"
@@ -371,6 +387,9 @@ export default function GeneralSettings({
                 value={settings.fontSize}
                 onChange={(e) => onUpdate({ fontSize: Number(e.target.value) })}
                 disabled={isSaving}
+                aria-valuemin={12}
+                aria-valuemax={18}
+                aria-valuenow={settings.fontSize}
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
               />
               <div className="w-16 text-center">
@@ -389,12 +408,13 @@ export default function GeneralSettings({
 
           {/* 悬停触发延迟 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">悬停触发延迟</label>
+            <label htmlFor="hover-delay-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">悬停触发延迟</label>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
               鼠标悬停在生词上多久后自动显示翻译。设为 0 毫秒可关闭悬停触发。
             </p>
             <div className="flex items-center gap-4">
               <input
+                id="hover-delay-slider"
                 type="range"
                 min="0"
                 max="1000"
@@ -402,6 +422,9 @@ export default function GeneralSettings({
                 value={settings.hoverDelay}
                 onChange={(e) => onUpdate({ hoverDelay: Number(e.target.value) })}
                 disabled={isSaving}
+                aria-valuemin={0}
+                aria-valuemax={1000}
+                aria-valuenow={settings.hoverDelay}
                 className="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
               />
               <div className="w-24 text-center">
@@ -465,7 +488,9 @@ export default function GeneralSettings({
 
         {/* 手动添加 */}
         <div className="flex gap-2 mb-4">
+          <label htmlFor="blacklist-input" className="sr-only">添加网站到黑名单</label>
           <input
+            id="blacklist-input"
             type="text"
             value={newBlacklistItem}
             onChange={(e) => setNewBlacklistItem(e.target.value)}
@@ -498,9 +523,10 @@ export default function GeneralSettings({
                 <button
                   onClick={() => removeFromBlacklist(item)}
                   disabled={isSaving}
+                  aria-label={`从黑名单移除：${item}`}
                   className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -542,7 +568,7 @@ export default function GeneralSettings({
             className="w-full py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <div className="flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               <span>导出数据</span>
@@ -595,7 +621,7 @@ export default function GeneralSettings({
             className="w-full py-3 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
           >
             <div className="flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
               <span>清除所有数据</span>

@@ -255,6 +255,9 @@ export default function ShortcutSettings({
               <button
                 onClick={() => toggleShortcut(shortcut.action)}
                 disabled={isSaving}
+                role="switch"
+                aria-checked={shortcut.enabled}
+                aria-label={`${shortcut.description} — ${shortcut.enabled ? '已启用' : '已禁用'}`}
                 className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                   shortcut.enabled ? 'bg-primary-600' : 'bg-gray-300'
                 } disabled:opacity-50`}

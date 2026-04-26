@@ -224,11 +224,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">学习统计仪表盘</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">追踪你的学习进度和成就</p>
         </div>
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg" role="group" aria-label="时间范围">
           {[7, 30, 90, 365].map((days) => (
             <button
               key={days}
               onClick={() => setTimeRange(days as TimeRange)}
+              aria-pressed={timeRange === days}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 timeRange === days
                   ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
@@ -306,7 +307,13 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               </span>
             ))}
           </div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={cefrLevel ? CEFR_LEVELS.findIndex(l => l.level === cefrLevel) + 1 : 0}
+            aria-valuemin={0}
+            aria-valuemax={CEFR_LEVELS.length}
+            aria-label={`CEFR 等级进度：${currentLevelInfo?.label || '未知'}`}
+          >
             <div
               className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-purple-600 rounded-full transition-all duration-700"
               style={{ width: `${((CEFR_LEVELS.findIndex((l) => l.level === cefrLevel) + 1) / CEFR_LEVELS.length) * 100}%` }}
@@ -344,21 +351,27 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
       {/* 图表标签页 */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
         {/* 标签页头部 */}
-        <div className="border-b border-gray-200 dark:border-gray-700">
+        <div className="border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="统计图表">
           <div className="flex">
             <ChartTabButton
+              id="tab-vocabulary"
+              controls="panel-vocabulary"
               active={activeTab === 'vocabulary'}
               onClick={() => setActiveTab('vocabulary')}
               icon="📈"
               label="词汇趋势"
             />
             <ChartTabButton
+              id="tab-activity"
+              controls="panel-activity"
               active={activeTab === 'activity'}
               onClick={() => setActiveTab('activity')}
               icon="📊"
               label="学习活动"
             />
             <ChartTabButton
+              id="tab-progress"
+              controls="panel-progress"
               active={activeTab === 'progress'}
               onClick={() => setActiveTab('progress')}
               icon="🎯"
@@ -371,7 +384,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
         <div className="p-6">
           {/* 词汇趋势图 */}
           {activeTab === 'vocabulary' && (
-            <div>
+            <div
+              id="panel-vocabulary"
+              role="tabpanel"
+              aria-labelledby="tab-vocabulary"
+              tabIndex={0}
+            >
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                 词汇量增长趋势（{timeRange}天）
               </h3>
@@ -427,7 +445,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
 
           {/* 学习活动图 */}
           {activeTab === 'activity' && (
-            <div>
+            <div
+              id="panel-activity"
+              role="tabpanel"
+              aria-labelledby="tab-activity"
+              tabIndex={0}
+            >
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                 每日学习活动（{timeRange}天）
               </h3>
@@ -469,7 +492,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
 
           {/* 等级进度图 */}
           {activeTab === 'progress' && (
-            <div>
+            <div
+              id="panel-progress"
+              role="tabpanel"
+              aria-labelledby="tab-progress"
+              tabIndex={0}
+            >
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                 CEFR 等级变化曲线（{timeRange}天）
               </h3>
@@ -600,7 +628,7 @@ function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
           <p className="text-2xl font-bold mt-1">{value}</p>
           <p className="text-xs opacity-70 mt-1">{subtitle}</p>
         </div>
-        <span className="text-2xl">{icon}</span>
+        <span className="text-2xl" role="img" aria-label={title}>{icon}</span>
       </div>
     </div>
   );
@@ -610,15 +638,22 @@ function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
  * 图表标签页按钮
  */
 interface ChartTabButtonProps {
+  id: string;
+  controls: string;
   active: boolean;
   onClick: () => void;
   icon: string;
   label: string;
 }
 
-function ChartTabButton({ active, onClick, icon, label }: ChartTabButtonProps) {
+function ChartTabButton({ id, controls, active, onClick, icon, label }: ChartTabButtonProps) {
   return (
     <button
+      id={id}
+      role="tab"
+      aria-selected={active}
+      aria-controls={controls}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
         active
@@ -626,7 +661,7 @@ function ChartTabButton({ active, onClick, icon, label }: ChartTabButtonProps) {
           : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
       }`}
     >
-      <span>{icon}</span>
+      <span aria-hidden="true">{icon}</span>
       <span>{label}</span>
     </button>
   );
