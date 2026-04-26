@@ -1,5 +1,39 @@
 # CTO Heartbeat Status
 
+## 2026-04-26 CMP-161: Recover stalled issue CMP-156
+
+**状态**: ✅ 恢复完成 — 源问题已在 commit `e72206a` 中系统性修复
+
+**调查发现**:
+- CMP-156 失败模式: `adapter_failed - Invalid request Error`
+- 与 CMP-138/CMP-150/CMP-165 的共同根因一致: 缺少 `agent-config.json`
+- commit `e72206a` 已为 35 个 agent 批量补全配置
+- CMP-156 最后一次重试发生在修复提交之前
+
+**结论**: 源问题已解决，CMP-156 现在有有效执行路径。标记 CMP-161 为 done。
+
+**详细文档**: `agents/cto/memory/cmp-161-recovery.md`
+
+---
+
+## 2026-04-26 第514次检查
+
+**状态**: 待命中 — 检测到多个 recovery 任务但均已被其他 run 签出
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-173 | in_progress | Recover stalled issue CMP-171 - 被其他 run 签出 |
+| CMP-168 | in_progress | Recover stalled issue CMP-165 - 被其他 run 签出 |
+| CMP-161 | in_progress | 被其他 run 签出 |
+| CMP-162 | done | 已由其他 run 完成 |
+| CMP-132 | blocked | 翻译后页面布局不对，等待用户反馈 |
+| 其他 | blocked | CMP-164, CMP-157, CMP-159, CMP-152, CMP-153, CMP-150, CMP-143, CMP-147, CMP-145 |
+
+**下一步**: 等待其他 run 完成 recovery 链，或新任务分配。
+
+---
+
 ## 2026-04-26 CMP-153: API Tester 静默运行审查
 
 **状态**: ✅ 审查完成 — 误报 (heartbeat agent)
