@@ -90,9 +90,12 @@ export default function MasteryCard() {
 
       {/* 统计概览 */}
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <div
+        {/* WCAG 4.1.2: 可点击区域使用 button 元素，而非 div + onClick */}
+        <button
           onClick={() => setShowReviews(!showReviews)}
-          className={`cursor-pointer rounded-lg p-2 text-center transition-colors ${
+          aria-expanded={showReviews}
+          aria-label={`待复习单词：${dueCount} 个`}
+          className={`cursor-pointer rounded-lg p-2 text-center transition-colors border-0 bg-inherit ${
             dueCount > 0
               ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
               : 'bg-gray-50 dark:bg-gray-700/50'
@@ -106,7 +109,7 @@ export default function MasteryCard() {
             {dueCount}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">待复习</div>
-        </div>
+        </button>
 
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
           <div className="text-lg font-bold text-green-600">{masteredCount}</div>
@@ -182,6 +185,8 @@ export default function MasteryCard() {
                           : 'bg-green-500 dark:bg-green-600'
                 }`}
                 title={`${day.date}: ${day.count} 个单词`}
+                role="img"
+                aria-label={`${day.date}: ${day.count} 个单词`}
               />
             ))}
           </div>

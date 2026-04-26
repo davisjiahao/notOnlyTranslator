@@ -213,11 +213,15 @@ export default function App() {
         />
       )}
 
-      {/* Toast 提示 */}
+      {/* Toast 提示 — WCAG 4.1.3: aria-live 让屏幕阅读器自动播报状态变更 */}
       {toast && (
-        <div className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium ${
-          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`}>
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}
+        >
           {toast.message}
         </div>
       )}
@@ -315,9 +319,12 @@ export default function App() {
             {/* 模式选择器 */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">翻译模式</label>
-              <div className="grid grid-cols-3 gap-1.5 bg-gray-50 dark:bg-gray-700/50 p-1 rounded-lg">
+              {/* WCAG 4.1.2: 翻译模式按钮组 — 使用 radiogroup 角色，让屏幕阅读器识别当前选中项 */}
+              <div className="grid grid-cols-3 gap-1.5 bg-gray-50 dark:bg-gray-700/50 p-1 rounded-lg" role="radiogroup" aria-label="翻译模式">
                 <button
                   onClick={() => updateSettings({ translationMode: 'inline-only' })}
+                  role="radio"
+                  aria-checked={settings.translationMode === 'inline-only'}
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
                     settings.translationMode === 'inline-only'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
@@ -332,6 +339,8 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => updateSettings({ translationMode: 'bilingual' })}
+                  role="radio"
+                  aria-checked={settings.translationMode === 'bilingual'}
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
                     settings.translationMode === 'bilingual'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
@@ -345,6 +354,8 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => updateSettings({ translationMode: 'full-translate' })}
+                  role="radio"
+                  aria-checked={settings.translationMode === 'full-translate'}
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
                     settings.translationMode === 'full-translate'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'

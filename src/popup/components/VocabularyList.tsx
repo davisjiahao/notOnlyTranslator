@@ -45,7 +45,9 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
       {/* Search and sort */}
       <div className="flex gap-2 mb-3">
         <div className="flex-1 relative">
+          <label htmlFor="vocabulary-search" className="sr-only">搜索生词本</label>
           <input
+            id="vocabulary-search"
             type="text"
             placeholder="搜索..."
             value={searchTerm}
@@ -61,7 +63,9 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
+        <label htmlFor="vocabulary-sort" className="sr-only">排序方式</label>
         <select
+          id="vocabulary-sort"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'recent' | 'alpha')}
           className="px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"

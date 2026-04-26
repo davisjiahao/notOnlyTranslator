@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense, lazy } from 'react';
+import { useEffect, useState, useRef, useCallback, Suspense, lazy } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '@/shared/constants';
 import { getCEFRLevelByVocabulary } from '@/shared/constants/mastery';
@@ -202,6 +202,38 @@ export default function App() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
+  // WCAG 2.1.1 / 2.4.3: Tab 列表 ref，用于键盘导航后恢复焦点
+  const tablistRef = useRef<HTMLUListElement>(null);
+
+  // WCAG 2.1.1 / 2.4.3: 键盘导航 — ArrowUp/Down 循环切换，Home/End 跳转首尾
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, currentIndex: number) => {
+    let nextIndex = currentIndex;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        nextIndex = (currentIndex + 1) % tabs.length;
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        break;
+      case 'Home':
+        e.preventDefault();
+        nextIndex = 0;
+        break;
+      case 'End':
+        e.preventDefault();
+        nextIndex = tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+    setActiveTab(tabs[nextIndex].id);
+    // 切换焦点到新激活的 tab
+    const buttons = tablistRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons?.[nextIndex]?.focus();
+  }, []);
+
   // 初始化主题
   useTheme(settings.theme);
 
@@ -388,22 +420,37 @@ export default function App() {
         </div>
       </header>
 
-      {/* 保存成功提示 */}
+      {/* 保存成功提示 — WCAG 4.1.3: aria-live 让屏幕阅读器播报状态变更 */}
       {saveMessage && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in"
+        >
           {saveMessage}
         </div>
       )}
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex gap-6">
-          {/* Sidebar */}
-          <nav className="w-48 flex-shrink-0">
-            <ul className="space-y-1">
-              {tabs.map((tab) => (
-                <li key={tab.id}>
+          {/* Sidebar — WCAG 4.1.2 + 2.1.1: 完整 WAI-ARIA Tabs 模式（tablist/tab/tabpanel + 键盘导航） */}
+          <nav className="w-48 flex-shrink-0" aria-label="设置导航">
+            <ul
+              ref={tablistRef}
+              role="tablist"
+              aria-orientation="vertical"
+              className="space-y-1"
+            >
+              {tabs.map((tab, index) => (
+                <li key={tab.id} role="presentation">
                   <button
+                    role="tab"
+                    id={`tab-${tab.id}`}
+                    aria-selected={activeTab === tab.id}
+                    aria-controls={`tabpanel-${tab.id}`}
+                    tabIndex={activeTab === tab.id ? 0 : -1}
                     onClick={() => setActiveTab(tab.id)}
+                    onKeyDown={(e) => handleTabKeyDown(e, index)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2.5 ${
                       activeTab === tab.id
                         ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 shadow-sm'
@@ -418,8 +465,14 @@ export default function App() {
             </ul>
           </nav>
 
-          {/* 主内容区 */}
-          <main className="flex-1 min-w-0">
+          {/* 主内容区 — WCAG 4.1.2: tabpanel 角色 + aria-labelledby 关联到当前 tab */}
+          <main
+            className="flex-1 min-w-0"
+            role="tabpanel"
+            id={`tabpanel-${activeTab}`}
+            aria-labelledby={`tab-${activeTab}`}
+            tabIndex={0}
+          >
             {activeTab === 'level' && profile && (
               <LevelSelector
                 profile={profile}
