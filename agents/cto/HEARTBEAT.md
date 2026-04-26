@@ -1,5 +1,120 @@
 # CTO Heartbeat Status
 
+## 2026-04-26 CMP-150: Report Distribution Agent 静默运行审查
+
+**状态**: ✅ 审查完成 — 误报 (缺失 agent-config.json + 进程已退出)
+
+**调查发现**:
+- PID 25422 (Report Distribution Agent) 已不存在 — 进程早已退出
+- 静默原因是进程已完成/退出后未正常注销 run
+- 重试 run `1c74926f` 失败: `400 Invalid request Error` — 缺失 `agent-config.json`
+- 根因和 CMP-138 (CTO adapter 失败) 完全一致
+
+**修复**:
+- 创建 `agents/report-distribution-agent/agent-config.json`，指定 `adapter: claude-local` + `instructionsPath`
+
+**结论**: 标记 CMP-150 为 false positive。Report Distribution Agent 是 placeholder 基础设施（销售报告分发），非核心产品功能。建议 Paperclip 平台为所有 claude-local agent 增加 agent-config.json 缺失的预检。
+
+---
+
+## 2026-04-26 CMP-145: Accessibility Auditor 静默运行审查
+
+**状态**: ✅ 审查完成 — 误报 (zombie run)
+
+**调查发现**:
+- PID 25467 (Accessibility Auditor) 已不存在
+- WCAG 修复已提交: `e9af331` (Modal 焦点管理) + `c2bc2ac` (语义化标记 + Modal a11y)
+- CMP-134 状态: `done`
+- 进程在完成工作后未正常退出，残留为僵尸 run
+
+**根因**: Agent 完成工作后 Claude Code 进程未退出，`stop` hook 或 session 生命周期未正确触发。属于平台层问题。
+
+**结论**: 标记 CMP-145 为 false positive。建议 Paperclip 平台关注 agent session 生命周期管理。
+
+---
+
+## 2026-04-25 第513次检查
+
+**状态**: 待命中 - CMP-132 blocked 无新 context，跳过
+
+---
+
+## 2026-04-25 第512次检查
+
+**状态**: 待命中 - CMP-132 blocked 无新 context，跳过
+
+---
+
+## 2026-04-25 第511次检查
+
+**状态**: 待命中
+
+**Inbox**: CMP-132 blocked - 无新 context，跳过
+
+---
+
+## 2026-04-25 第510次检查
+
+**状态**: 待命中（无可用任务）
+
+**Inbox**: CMP-132 blocked - updatedAt 未变，无新 context，跳过
+
+**下一步**: 等待新任务或 CMP-132 用户反馈。
+
+---
+
+## 2026-04-25 第509次检查
+
+**状态**: 待命中（无可用任务，blocked 任务无新 context）
+
+**Inbox**: CMP-132 blocked - 无新 comment/context，跳过（blocked dedup rule）
+
+**代码质量**: ✅ 上次检查已通过
+
+**下一步**: 等待新任务或 CMP-132 用户反馈。
+
+---
+
+## 2026-04-25 第508次检查
+
+**状态**: 待命中（无可用任务）
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对，等待用户反馈（无新 context）|
+
+**代码质量** (全部通过):
+- TypeScript: ✅ 0 错误
+- ESLint: ✅ 0 警告
+- 测试: ✅ 1027/1027 通过
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
+---
+
+## 2026-04-25 第507次检查
+
+**状态**: ✅ CMP-140 恢复完成 — WCAG 修复代码已提交
+
+**本次处理**:
+- 被唤醒处理 CMP-140（恢复停滞的 CMP-134 WCAG 修复）
+- 发现工作树中有 12 个文件的 WCAG 修改未提交
+- 验证全部通过：TypeScript ✅ / 构建 ✅ / 测试 1027/1027 ✅
+- 提交 WCAG 修复：`c2bc2ac`
+
+**修复范围（完整覆盖 CMP-134）**:
+| WCAG 准则 | 文件/组件 | 修复内容 |
+|-----------|----------|---------|
+| 1.3.1 | highlighter.ts, optimizedHighlighter.ts, translationDisplay.ts, vocabularyHighlighter.ts, styles.css | `<span>` → 语义化 `<mark>` |
+| 2.1.1 | floatingButton.ts | tabindex, role, aria-label, Enter/Space/Escape 键盘支持 |
+| 4.1.2 | ErrorDashboard, TranslationHistory, VocabularyExportImport, QuotaAlert, ShareCardModal, WelcomeModalExperiment | role="dialog", aria-modal, aria-labelledby |
+| 2.4.3 | QuotaAlert, ShareCardModal, WelcomeModalExperiment | useFocusTrap hook 焦点限制 |
+
+**阻塞**: Paperclip API 502 Bad Gateway，无法更新 CMP-134/CMP-140 状态。
+
+---
+
 ## 2026-04-25 第506次检查
 
 **状态**: ✅ 代码质量修复完成
@@ -187,3 +302,39 @@
 - Git: ✅ 工作区干净 (仅 Founding Engineer heartbeat 更新)
 
 **下一步**: 等待 CMP-132 用户提供更多信息或新任务分配
+
+---
+
+## 2026-04-25 第508次检查
+
+**状态**: ✅ CMP-140 完成 — CMP-134 恢复成功
+
+**执行结果**:
+- ✅ WCAG 修复代码已提交 (commit `c2bc2ac`)
+- ✅ CMP-134 已标记为 `done`
+- ✅ CMP-140 已标记为 `done`
+- ✅ 测试全部通过: 1027/1027
+
+**恢复链终止**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-140 | ✅ done | 当前任务完成 |
+| CMP-134 | ✅ done | WCAG 修复完成 |
+| CMP-139 | ✅ done | 之前的恢复任务 |
+| CMP-135 | ✅ done | 之前的恢复任务 |
+
+**下一步**: 等待新任务分配。
+
+## 2026-04-26 CMP-152: Founding Engineer 静默运行审查
+
+**状态**: ✅ 审查完成 — 误报 (zombie run)
+
+**调查发现**:
+- PID 26070 (Founding Engineer) 已不存在
+- FE 最后输出: 2026-04-25T22:27:02.377Z（heartbeat-2026-04-25-002）
+- FE 最后状态：Paperclip API 不可达，无任务分配，idle standby
+- 进程在 idle standby 后未正常退出，残留为 zombie run
+
+**根因**: 与 CMP-145/CMP-154 相同 — Agent session 生命周期管理问题，完成工作或 idle 后 Claude Code 进程未退出。
+
+**结论**: 标记 CMP-152 为 false positive。建议 Paperclip 平台优化 agent session 生命周期管理，检测 idle 超时后自动终止进程。

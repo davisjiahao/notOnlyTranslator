@@ -1,0 +1,6 @@
+{
+  "name": "Report Distribution Agent",
+  "nameKey": "report-distribution-agent",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/report-distribution-agent/AGENTS.md"
+}
