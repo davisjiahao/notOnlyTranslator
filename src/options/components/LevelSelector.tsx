@@ -57,14 +57,20 @@ export default function LevelSelector({
 
         {/* 考试类型选择 */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          <label id="exam-type-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             选择考试类型
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div
+            className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+            role="radiogroup"
+            aria-labelledby="exam-type-label"
+          >
             {examTypes.map((type) => (
               <button
                 key={type}
                 onClick={() => handleExamTypeChange(type)}
+                role="radio"
+                aria-checked={examType === type}
                 className={`px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
                   examType === type
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
@@ -80,17 +86,21 @@ export default function LevelSelector({
         {/* 分数输入 */}
         {examType !== 'custom' && (
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label htmlFor="exam-score-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               考试分数
             </label>
             <div className="flex items-center gap-4">
               <input
+                id="exam-score-slider"
                 type="range"
                 min={scoreRange.min}
                 max={scoreRange.max}
                 step={scoreRange.step}
                 value={examScore || scoreRange.min}
                 onChange={(e) => setExamScore(Number(e.target.value))}
+                aria-valuemin={scoreRange.min}
+                aria-valuemax={scoreRange.max}
+                aria-valuenow={examScore || scoreRange.min}
                 className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary-600"
               />
               <input
@@ -100,6 +110,7 @@ export default function LevelSelector({
                 step={scoreRange.step}
                 value={examScore || scoreRange.min}
                 onChange={(e) => setExamScore(Number(e.target.value))}
+                aria-label="考试分数数值"
                 className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
               />
             </div>
@@ -113,10 +124,11 @@ export default function LevelSelector({
         {/* 自定义词汇量输入 */}
         {examType === 'custom' && (
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label htmlFor="custom-vocab-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               估计词汇量
             </label>
             <input
+              id="custom-vocab-input"
               type="number"
               min={1000}
               max={20000}
@@ -144,7 +156,7 @@ export default function LevelSelector({
           )}
         </div>
 
-        {/* 词汇水平进度条 */}
+        {/* 词汇水平进度条 — WCAG 4.1.2: 添加 role="progressbar" + aria-valuenow/min/max */}
         <div className="mb-6">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
             <span>初级</span>
@@ -152,7 +164,14 @@ export default function LevelSelector({
             <span>高级</span>
             <span>专家</span>
           </div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={estimatedVocab}
+            aria-valuemin={0}
+            aria-valuemax={15000}
+            aria-label={`词汇水平：${estimatedVocab.toLocaleString()} / 15000`}
+          >
             <div
               className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-400 rounded-full transition-all duration-300"
               style={{ width: `${Math.min(100, (estimatedVocab / 15000) * 100)}%` }}

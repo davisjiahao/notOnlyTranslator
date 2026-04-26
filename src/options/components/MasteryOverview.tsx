@@ -206,7 +206,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </span>
             </div>
 
-            {/* 置信度 */}
+            {/* 置信度 — WCAG 4.1.2: 进度条添加 role + aria 值 */}
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm text-gray-600 dark:text-gray-400">置信度:</span>
               <div className="flex-1 max-w-[150px] h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -231,7 +231,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
           </div>
         </div>
 
-        {/* CEFR 进度条 */}
+        {/* CEFR 进度条 — WCAG 4.1.2: 添加 role="progressbar" + aria 值 */}
         <div className="relative pt-2">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
             {CEFR_LEVELS.map((l) => (
@@ -243,7 +243,14 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </span>
             ))}
           </div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={cefrLevel ? CEFR_LEVELS.findIndex(l => l.level === cefrLevel) + 1 : 0}
+            aria-valuemin={0}
+            aria-valuemax={CEFR_LEVELS.length}
+            aria-label={`CEFR 等级：${currentLevelInfo?.label || '未知'}`}
+          >
             <div
               className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-purple-600 rounded-full transition-all duration-700"
               style={{ width: getProgressWidth(cefrLevel) }}
@@ -258,11 +265,12 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
           {/* 时间范围选择器 */}
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">学习统计</h3>
-            <div className="flex gap-1">
+            <div className="flex gap-1" role="group" aria-label="时间范围">
               {[7, 30, 90].map((days) => (
                 <button
                   key={days}
                   onClick={() => setTimeRange(days as TimeRange)}
+                  aria-pressed={timeRange === days}
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                     timeRange === days
                       ? 'bg-primary-600 text-white'
