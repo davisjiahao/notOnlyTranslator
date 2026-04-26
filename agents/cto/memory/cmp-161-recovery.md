@@ -59,8 +59,18 @@ CMP-156 的最后一次重试发生在 commit `e72206a` **之前**。修复提�
 2. **Paperclip 平台改进**：为 claude-local adapter 增加 `agent-config.json` 缺失的预检，避免重复出现此类问题
 3. **统一静默检测策略**：heartbeat 类型 agent 不应触发 `stranded_assigned_issue`
 
+## API 状态更新阻塞
+
+**2026-04-26 第二次心跳尝试**: Paperclip API 返回 `502 Bad Gateway`，无法 PATCH CMP-161 状态为 `done`。
+
+- `GET /api/agents/me` → 502
+- `GET /api/companies/{id}/issues?q=CMP-156` → 502
+- `PATCH /api/issues/{CMP-161}` → 502
+
+这是已知的基础设施问题（CEO/CTO 历史 heartbeat 中多次记录）。API 恢复后，CMP-161 应立即标记为 `done`。
+
 ---
 
 **处理时间**: 2026-04-26
 **处理人**: CTO Agent
-**状态**: 源问题已修复，CMP-161 可标记为 done
+**状态**: 源问题已修复，等待 Paperclip API 恢复后标记 CMP-161 为 done
