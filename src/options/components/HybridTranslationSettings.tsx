@@ -112,6 +112,9 @@ export default function HybridTranslationSettings({
           <button
             onClick={() => updateHybridConfig({ enabled: !hybridConfig.enabled })}
             disabled={isSaving}
+            role="switch"
+            aria-checked={hybridConfig.enabled}
+            aria-label="启用混合翻译"
             className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
               hybridConfig.enabled ? 'bg-primary-600' : 'bg-gray-300'
             } disabled:opacity-50`}
@@ -220,11 +223,12 @@ export default function HybridTranslationSettings({
 
                 {/* API Key 配置 */}
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="traditional-api-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {PROVIDER_CONFIGS[hybridConfig.traditionalProvider]?.name || '传统翻译'} API 密钥
                   </label>
                   <div className="relative">
                     <input
+                      id="traditional-api-key"
                       type={showApiKey ? 'text' : 'password'}
                       value={hybridConfig.traditionalApiKey || ''}
                       onChange={(e) => updateHybridConfig({ traditionalApiKey: e.target.value })}
@@ -234,6 +238,8 @@ export default function HybridTranslationSettings({
                     <button
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
+                      aria-label={showApiKey ? '隐藏 API 密钥' : '显示 API 密钥'}
+                      aria-pressed={showApiKey}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       {showApiKey ? (
@@ -293,6 +299,9 @@ export default function HybridTranslationSettings({
                   <button
                     onClick={() => updateHybridConfig({ enableSmartRouting: !hybridConfig.enableSmartRouting })}
                     disabled={isSaving}
+                    role="switch"
+                    aria-checked={hybridConfig.enableSmartRouting}
+                    aria-label="智能路由"
                     className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
                       hybridConfig.enableSmartRouting ? 'bg-primary-600' : 'bg-gray-300'
                     } disabled:opacity-50`}
@@ -307,7 +316,7 @@ export default function HybridTranslationSettings({
 
                 {/* 简单文本阈值 */}
                 <div className="px-6 py-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="threshold-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     简单文本阈值
                   </label>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
@@ -315,6 +324,7 @@ export default function HybridTranslationSettings({
                   </p>
                   <div className="flex items-center gap-4">
                     <input
+                      id="threshold-slider"
                       type="range"
                       min="5"
                       max="50"
@@ -322,6 +332,9 @@ export default function HybridTranslationSettings({
                       value={hybridConfig.simpleTextThreshold}
                       onChange={(e) => updateHybridConfig({ simpleTextThreshold: Number(e.target.value) })}
                       disabled={isSaving}
+                      aria-valuemin={5}
+                      aria-valuemax={50}
+                      aria-valuenow={hybridConfig.simpleTextThreshold}
                       className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
                     />
                     <div className="w-20 text-center">

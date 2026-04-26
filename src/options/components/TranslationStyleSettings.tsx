@@ -125,7 +125,7 @@ export default function TranslationStyleSettings({
 
         {/* 高亮透明度 */}
         <div className="px-6 py-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="highlight-opacity-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             高亮透明度
           </label>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
@@ -133,6 +133,7 @@ export default function TranslationStyleSettings({
           </p>
           <div className="flex items-center gap-4">
             <input
+              id="highlight-opacity-slider"
               type="range"
               min="20"
               max="100"
@@ -140,6 +141,9 @@ export default function TranslationStyleSettings({
               value={styleConfig.highlightOpacity}
               onChange={(e) => updateStyleConfig({ highlightOpacity: Number(e.target.value) })}
               disabled={isSaving}
+              aria-valuemin={20}
+              aria-valuemax={100}
+              aria-valuenow={styleConfig.highlightOpacity}
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
             />
             <div className="w-16 text-center">
@@ -152,7 +156,7 @@ export default function TranslationStyleSettings({
 
         {/* 译文行透明度 */}
         <div className="px-6 py-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="translation-opacity-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             译文行透明度
           </label>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
@@ -160,6 +164,7 @@ export default function TranslationStyleSettings({
           </p>
           <div className="flex items-center gap-4">
             <input
+              id="translation-opacity-slider"
               type="range"
               min="0"
               max="100"
@@ -167,6 +172,9 @@ export default function TranslationStyleSettings({
               value={styleConfig.translationLineOpacity}
               onChange={(e) => updateStyleConfig({ translationLineOpacity: Number(e.target.value) })}
               disabled={isSaving}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={styleConfig.translationLineOpacity}
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
             />
             <div className="w-16 text-center">
@@ -179,7 +187,7 @@ export default function TranslationStyleSettings({
 
         {/* 译文行缩进 */}
         <div className="px-6 py-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="translation-indent-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             译文行缩进
           </label>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
@@ -187,6 +195,7 @@ export default function TranslationStyleSettings({
           </p>
           <div className="flex items-center gap-4">
             <input
+              id="translation-indent-slider"
               type="range"
               min="0"
               max="48"
@@ -194,6 +203,9 @@ export default function TranslationStyleSettings({
               value={styleConfig.translationLineIndent}
               onChange={(e) => updateStyleConfig({ translationLineIndent: Number(e.target.value) })}
               disabled={isSaving}
+              aria-valuemin={0}
+              aria-valuemax={48}
+              aria-valuenow={styleConfig.translationLineIndent}
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50"
             />
             <div className="w-20 text-center">
@@ -206,10 +218,11 @@ export default function TranslationStyleSettings({
 
         {/* 译文字体 */}
         <div className="px-6 py-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="translation-font-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             译文字体
           </label>
           <select
+            id="translation-font-select"
             value={styleConfig.translationFontFamily || ''}
             onChange={(e) => updateStyleConfig({ translationFontFamily: e.target.value || undefined })}
             disabled={isSaving}
@@ -234,6 +247,9 @@ export default function TranslationStyleSettings({
           <button
             onClick={() => updateStyleConfig({ showOriginalAnnotation: !styleConfig.showOriginalAnnotation })}
             disabled={isSaving}
+            role="switch"
+            aria-checked={styleConfig.showOriginalAnnotation}
+            aria-label="显示原文标注"
             className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
               styleConfig.showOriginalAnnotation ? 'bg-primary-600' : 'bg-gray-300'
             } disabled:opacity-50`}
@@ -250,7 +266,7 @@ export default function TranslationStyleSettings({
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="font-medium text-gray-900 dark:text-white">自定义 CSS</div>
+              <label htmlFor="custom-css-input" className="font-medium text-gray-900 dark:text-white">自定义 CSS</label>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 使用自定义 CSS 实现高级样式定制
               </div>
@@ -266,6 +282,7 @@ export default function TranslationStyleSettings({
           {showCustomCss && (
             <div className="space-y-3">
               <textarea
+                id="custom-css-input"
                 value={styleConfig.customCss || ''}
                 onChange={(e) => updateStyleConfig({ customCss: e.target.value || undefined })}
                 disabled={isSaving}

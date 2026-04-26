@@ -62,12 +62,13 @@ export default function ReviewReminderSettings({
           </p>
         </div>
         {/* 启用开关 */}
-        <label className="relative inline-flex items-center cursor-pointer">
+        <label className="relative inline-flex items-center cursor-pointer" id="review-enabled-label">
           <input
             type="checkbox"
             checked={localConfig.enabled}
             onChange={e => updateLocal('enabled', e.target.checked)}
             className="sr-only peer"
+            aria-labelledby="review-enabled-label"
           />
           <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
         </label>
@@ -81,7 +82,9 @@ export default function ReviewReminderSettings({
               提醒时间
             </h4>
             <div className="flex items-center gap-2">
+              <label htmlFor="reminder-hour" className="sr-only">小时</label>
               <select
+                id="reminder-hour"
                 value={localConfig.reminderHour}
                 onChange={e => updateLocal('reminderHour', parseInt(e.target.value, 10))}
                 className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -93,7 +96,9 @@ export default function ReviewReminderSettings({
                 ))}
               </select>
               <span className="text-gray-500">:</span>
+              <label htmlFor="reminder-minute" className="sr-only">分钟</label>
               <select
+                id="reminder-minute"
                 value={localConfig.reminderMinute}
                 onChange={e => updateLocal('reminderMinute', parseInt(e.target.value, 10))}
                 className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -127,11 +132,13 @@ export default function ReviewReminderSettings({
                 </p>
               </div>
               <input
+                id="daily-review-limit"
                 type="number"
                 min={5}
                 max={100}
                 value={localConfig.dailyReviewLimit}
                 onChange={e => updateLocal('dailyReviewLimit', parseInt(e.target.value, 10) || 20)}
+                aria-label="每日复习上限"
                 className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -147,11 +154,13 @@ export default function ReviewReminderSettings({
                 </p>
               </div>
               <input
+                id="min-words-reminder"
                 type="number"
                 min={1}
                 max={20}
                 value={localConfig.minWordsForReminder}
                 onChange={e => updateLocal('minWordsForReminder', parseInt(e.target.value, 10) || 5)}
+                aria-label="最小提醒词汇数"
                 className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -167,11 +176,13 @@ export default function ReviewReminderSettings({
                 </p>
               </div>
               <input
+                id="mastered-threshold"
                 type="number"
                 min={2}
                 max={10}
                 value={localConfig.masteredThreshold}
                 onChange={e => updateLocal('masteredThreshold', parseInt(e.target.value, 10) || 3)}
+                aria-label="掌握阈值"
                 className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -188,12 +199,13 @@ export default function ReviewReminderSettings({
                   显示桌面通知提醒你复习
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer" id="notification-toggle-label">
                 <input
                   type="checkbox"
                   checked={localConfig.enableNotifications}
                   onChange={e => updateLocal('enableNotifications', e.target.checked)}
                   className="sr-only peer"
+                  aria-labelledby="notification-toggle-label"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
               </label>
