@@ -1,0 +1,6 @@
+{
+  "name": "Private Domain Operator",
+  "nameKey": "private-domain-operator",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/private-domain-operator/AGENTS.md"
+}

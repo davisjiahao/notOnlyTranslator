@@ -1,0 +1,6 @@
+{
+  "name": "Bilibili Content Strategist",
+  "nameKey": "bilibili-content-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/bilibili-content-strategist/AGENTS.md"
+}

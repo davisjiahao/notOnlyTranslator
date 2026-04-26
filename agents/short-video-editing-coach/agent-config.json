@@ -1,0 +1,6 @@
+{
+  "name": "Short-Video Editing Coach",
+  "nameKey": "short-video-editing-coach",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/short-video-editing-coach/AGENTS.md"
+}

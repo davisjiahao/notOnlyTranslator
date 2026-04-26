@@ -1,0 +1,6 @@
+{
+  "name": "Growth Hacker",
+  "nameKey": "growth-hacker",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/growth-hacker/AGENTS.md"
+}

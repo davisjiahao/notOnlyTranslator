@@ -1,0 +1,6 @@
+{
+  "name": "UX Architect",
+  "nameKey": "ux-architect",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/ux-architect/AGENTS.md"
+}

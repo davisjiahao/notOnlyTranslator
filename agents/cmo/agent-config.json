@@ -1,0 +1,6 @@
+{
+  "name": "cmo",
+  "nameKey": "cmo",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/cmo/AGENTS.md"
+}

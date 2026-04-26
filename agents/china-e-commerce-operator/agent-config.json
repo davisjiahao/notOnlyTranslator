@@ -1,0 +1,6 @@
+{
+  "name": "China E-Commerce Operator",
+  "nameKey": "china-e-commerce-operator",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/china-e-commerce-operator/AGENTS.md"
+}

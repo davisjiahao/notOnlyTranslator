@@ -1,0 +1,6 @@
+{
+  "name": "Reddit Community Builder",
+  "nameKey": "reddit-community-builder",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/reddit-community-builder/AGENTS.md"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "SEO Specialist",
+  "nameKey": "seo-specialist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/seo-specialist/AGENTS.md"
+}

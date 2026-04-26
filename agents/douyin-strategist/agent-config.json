@@ -1,0 +1,6 @@
+{
+  "name": "Douyin Strategist",
+  "nameKey": "douyin-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/douyin-strategist/AGENTS.md"
+}

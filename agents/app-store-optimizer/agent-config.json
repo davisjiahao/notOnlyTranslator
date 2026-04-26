@@ -1,0 +1,6 @@
+{
+  "name": "App Store Optimizer",
+  "nameKey": "app-store-optimizer",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/app-store-optimizer/AGENTS.md"
+}

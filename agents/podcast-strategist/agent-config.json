@@ -1,0 +1,6 @@
+{
+  "name": "Podcast Strategist",
+  "nameKey": "podcast-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/podcast-strategist/AGENTS.md"
+}

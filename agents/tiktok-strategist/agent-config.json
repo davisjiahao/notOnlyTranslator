@@ -1,0 +1,6 @@
+{
+  "name": "TikTok Strategist",
+  "nameKey": "tiktok-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/tiktok-strategist/AGENTS.md"
+}

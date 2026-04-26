@@ -1,0 +1,6 @@
+{
+  "name": "Xiaohongshu Specialist",
+  "nameKey": "xiaohongshu-specialist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/xiaohongshu-specialist/AGENTS.md"
+}

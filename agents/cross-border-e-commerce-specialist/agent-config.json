@@ -1,0 +1,6 @@
+{
+  "name": "Cross-Border E-Commerce Specialist",
+  "nameKey": "cross-border-e-commerce-specialist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/cross-border-e-commerce-specialist/AGENTS.md"
+}

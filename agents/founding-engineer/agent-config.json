@@ -1,0 +1,6 @@
+{
+  "name": "founding-engineer",
+  "nameKey": "founding-engineer",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/founding-engineer/AGENTS.md"
+}

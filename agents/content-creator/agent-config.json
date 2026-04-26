@@ -1,0 +1,6 @@
+{
+  "name": "Content Creator",
+  "nameKey": "content-creator",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/content-creator/AGENTS.md"
+}

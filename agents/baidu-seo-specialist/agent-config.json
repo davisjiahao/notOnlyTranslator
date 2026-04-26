@@ -1,0 +1,6 @@
+{
+  "name": "Baidu SEO Specialist",
+  "nameKey": "baidu-seo-specialist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/baidu-seo-specialist/AGENTS.md"
+}

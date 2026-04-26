@@ -1,0 +1,6 @@
+{
+  "name": "Weibo Strategist",
+  "nameKey": "weibo-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/weibo-strategist/AGENTS.md"
+}

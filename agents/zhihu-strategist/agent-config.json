@@ -1,0 +1,6 @@
+{
+  "name": "Zhihu Strategist",
+  "nameKey": "zhihu-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/zhihu-strategist/AGENTS.md"
+}

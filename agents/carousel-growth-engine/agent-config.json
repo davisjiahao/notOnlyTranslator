@@ -1,0 +1,6 @@
+{
+  "name": "Carousel Growth Engine",
+  "nameKey": "carousel-growth-engine",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/carousel-growth-engine/AGENTS.md"
+}

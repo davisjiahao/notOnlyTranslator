@@ -1,0 +1,6 @@
+{
+  "name": "WeChat Official Account Manager",
+  "nameKey": "wechat-official-account-manager",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/wechat-official-account-manager/AGENTS.md"
+}

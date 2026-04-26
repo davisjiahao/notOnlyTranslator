@@ -1,0 +1,6 @@
+{
+  "name": "ceo",
+  "nameKey": "ceo",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/ceo/AGENTS.md"
+}

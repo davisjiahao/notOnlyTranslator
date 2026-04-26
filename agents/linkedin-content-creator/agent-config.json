@@ -1,0 +1,6 @@
+{
+  "name": "LinkedIn Content Creator",
+  "nameKey": "linkedin-content-creator",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/linkedin-content-creator/AGENTS.md"
+}

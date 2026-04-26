@@ -1,0 +1,6 @@
+{
+  "name": "Brand Guardian",
+  "nameKey": "brand-guardian",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/brand-guardian/AGENTS.md"
+}

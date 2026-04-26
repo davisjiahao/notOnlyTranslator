@@ -1,0 +1,6 @@
+{
+  "name": "Social Media Strategist",
+  "nameKey": "social-media-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/social-media-strategist/AGENTS.md"
+}

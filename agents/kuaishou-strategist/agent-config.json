@@ -1,0 +1,6 @@
+{
+  "name": "Kuaishou Strategist",
+  "nameKey": "kuaishou-strategist",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/kuaishou-strategist/AGENTS.md"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Twitter Engager",
+  "nameKey": "twitter-engager",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/twitter-engager/AGENTS.md"
+}

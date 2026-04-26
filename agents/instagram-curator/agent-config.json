@@ -1,0 +1,6 @@
+{
+  "name": "Instagram Curator",
+  "nameKey": "instagram-curator",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/instagram-curator/AGENTS.md"
+}

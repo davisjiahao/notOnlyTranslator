@@ -1,0 +1,6 @@
+{
+  "name": "Book Co-Author",
+  "nameKey": "book-co-author",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/book-co-author/AGENTS.md"
+}

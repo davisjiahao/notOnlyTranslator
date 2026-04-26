@@ -1,0 +1,6 @@
+{
+  "name": "Data Consolidation",
+  "nameKey": "data-consolidation-agent",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/data-consolidation-agent/AGENTS.md"
+}

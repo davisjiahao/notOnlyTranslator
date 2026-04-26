@@ -1,0 +1,6 @@
+{
+  "name": "Livestream Commerce Coach",
+  "nameKey": "livestream-commerce-coach",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/livestream-commerce-coach/AGENTS.md"
+}
