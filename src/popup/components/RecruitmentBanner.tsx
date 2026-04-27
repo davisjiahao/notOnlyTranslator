@@ -77,7 +77,7 @@ export default function RecruitmentBanner({ onDismiss }: RecruitmentBannerProps)
         className="absolute top-2 right-2 p-1 text-white/70 hover:text-white transition-colors rounded focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
         aria-label="关闭"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
@@ -86,7 +86,7 @@ export default function RecruitmentBanner({ onDismiss }: RecruitmentBannerProps)
       <div className="flex items-start gap-3">
         {/* 图标 */}
         <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

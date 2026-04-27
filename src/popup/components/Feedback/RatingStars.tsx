@@ -108,7 +108,6 @@ export default function RatingStars({
                 ${isHovered ? 'text-yellow-300' : ''}
                 focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 rounded-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400
               `}
-              aria-label={`${value}星`}
             >
               <svg
                 viewBox="0 0 24 24"
