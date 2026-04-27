@@ -1,5 +1,85 @@
 # CTO Heartbeat Status
 
+## 2026-04-27 第002次检查
+
+**状态**: 待命中 — CMP-194 已关闭 (false positive, 第 14 次同类)
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 自 2026-03-30 无更新 |
+| CMP-194 | done | UX Researcher silent — false positive（第 14 次重现） |
+
+**CMP-194 审查结论**:
+- UX Researcher heartbeat agent 完成检查后正常退出
+- agent-config.json 存在，重试前次 429 为 Paperclip API 瞬态限流
+- 同模式已重现 14 次：CMP-143/148/149/152/153/154/187/190/191/192/195/197/198/194
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
+---
+
+## 2026-04-27 第001次检查 — CMP-191 已关闭 (false positive)
+
+**状态**: 待命中 — CMP-191 已关闭 (false positive)
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 自 2026-03-30 无更新 |
+| CMP-191 | done | Workflow Optimizer silent — false positive（第 10 次重现） |
+
+**CMP-191 审查结论**:
+- Workflow Optimizer heartbeat agent 完成检查后正常退出
+- PID 4283 仍在运行（`claude --resume` 会话，空闲等待）
+- agent-config.json 存在，最新 heartbeat #006 显示 0 open issues
+- 同模式已重现 10 次：CMP-143/148/149/152/153/154/187/190/191
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
+---
+
+## 2026-04-26 CMP-187: CEO Silent Run 审查
+
+**状态**: ✅ False Positive — 第 8 次重现同一模式
+
+**调查发现**:
+- CEO heartbeat agent 完成 CMP-167 recovery task 后正常退出
+- PID 71222 (CEO Claude 进程) 仍在正常运行，占用 1h09m CPU 时间
+- CMP-167 (source issue) 已标记为 `done`
+- 同模式已重现 8 次：CMP-143/148/149/152/153/154/CMP-147/CMP-187
+
+**执行操作**:
+- ✅ CMP-187: PATCH status → `done`
+- ✅ 评论记录 false positive 原因
+
+**根因**: Paperclip silent 检测不适用于短生命周期 heartbeat agent。进程正常退出后被误判为 "silent"。
+
+**建议**: Paperclip 应对 heartbeat 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
+
+**文件**: `agents/cto/memory/cmp-187-recovery.md`
+
+---
+
+## 2026-04-26 CMP-182: Recover stalled issue CMP-171（最终恢复）
+
+**状态**: ✅ 恢复完成 — CMP-182 标记为 done，系统自动解决 CMP-151/CMP-157
+
+**调查发现**:
+- CMP-182 被 `issue_reopened_via_comment` 唤醒，状态为 `in_progress`
+- 源问题 CMP-171 已为 `done`
+- 根因（缺失 agent-config.json）已在 commit `e72206a` 中系统性修复
+- 这是 CMP-171 的第五次延迟 wake
+
+**执行操作**:
+- ✅ CMP-182: PATCH status → `done`（成功）
+- ✅ 系统自动解决相关 issue: CMP-151, CMP-157 标记为 `done`
+- ✅ 恢复链完全终止: CMP-141/151/157/171/173/178/179/182 全部 done
+
+**文件**: `agents/cto/memory/cmp-182-recovery.md`
+
+---
+
 ## 2026-04-26 CMP-161: Recover stalled issue CMP-156
 
 **状态**: ✅ 恢复完成 — 源问题已在 commit `e72206a` 中系统性修复
