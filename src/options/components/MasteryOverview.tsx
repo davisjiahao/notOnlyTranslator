@@ -175,7 +175,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12" role="status" aria-label="加载掌握度数据">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
       </div>
     );
@@ -213,6 +213,11 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                 <div
                   className="h-full bg-primary-500 rounded-full transition-all duration-500"
                   style={{ width: `${(confidence * 100).toFixed(0)}%` }}
+                  role="progressbar"
+                  aria-valuenow={Math.round(confidence * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="掌握度置信度"
                 />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -411,7 +416,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500">
+            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500" role="status" aria-live="polite">
               暂无数据
             </div>
           )}
@@ -462,7 +467,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </div>
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500">
+            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500" role="status" aria-live="polite">
               暂无数据
             </div>
           )}
