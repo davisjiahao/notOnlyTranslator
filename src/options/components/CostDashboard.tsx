@@ -98,7 +98,9 @@ export default function CostDashboard() {
       {/* 标题和时间范围选择器 */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">成本监控</h2>
+        <label htmlFor="cost-period" className="sr-only">时间范围</label>
         <select
+          id="cost-period"
           value={periodDays}
           onChange={(e) => setPeriodDays(Number(e.target.value))}
           className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -317,17 +319,19 @@ function BudgetSection({
 
       <div className="flex items-end gap-4">
         <div className="flex-1">
-          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+          <label htmlFor="monthly-budget" className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
             月度预算 (美元)
           </label>
           <div className="flex items-center gap-2">
             <span className="text-gray-500 dark:text-gray-400">$</span>
             <input
+              id="monthly-budget"
               type="number"
               value={monthlyBudget}
               onChange={(e) => onBudgetChange(Number(e.target.value))}
               min={0}
               step={1}
+              aria-label="月度预算金额"
               className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="0 表示不限制"
             />
@@ -350,7 +354,14 @@ function BudgetSection({
               ${budget.used.toFixed(4)} / ${budget.monthlyBudget}
             </span>
           </div>
-          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={budget.used}
+            aria-valuemin={0}
+            aria-valuemax={budget.monthlyBudget}
+            aria-label={`月度预算使用：$${budget.used.toFixed(4)} / $${budget.monthlyBudget}`}
+          >
             <div
               className={`h-full rounded-full transition-all ${
                 budget.isOverBudget

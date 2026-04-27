@@ -213,14 +213,21 @@ export default function DataManager() {
               ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200'
               : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
           }`}
+          role="status"
+          aria-live="polite"
         >
           {message.text}
         </div>
       )}
 
       {/* 标签页导航 */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist" aria-label="数据管理">
         <button
+          role="tab"
+          aria-selected={activeTab === 'export'}
+          aria-controls="panel-data-export"
+          tabIndex={activeTab === 'export' ? 0 : -1}
+          id="tab-data-export"
           onClick={() => setActiveTab('export')}
           className={`px-4 py-2 font-medium transition-colors ${
             activeTab === 'export'
@@ -231,6 +238,11 @@ export default function DataManager() {
           导出数据
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'import'}
+          aria-controls="panel-data-import"
+          tabIndex={activeTab === 'import' ? 0 : -1}
+          id="tab-data-import"
           onClick={() => setActiveTab('import')}
           className={`px-4 py-2 font-medium transition-colors ${
             activeTab === 'import'
@@ -241,6 +253,11 @@ export default function DataManager() {
           导入数据
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'advanced'}
+          aria-controls="panel-data-advanced"
+          tabIndex={activeTab === 'advanced' ? 0 : -1}
+          id="tab-data-advanced"
           onClick={() => {
             setActiveTab('advanced');
             handleGetStats();
@@ -257,7 +274,7 @@ export default function DataManager() {
 
       {/* 导出标签页 */}
       {activeTab === 'export' && (
-        <div className="space-y-6">
+        <div id="panel-data-export" role="tabpanel" aria-labelledby="tab-data-export" tabIndex={0} className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
               导出备份
@@ -297,7 +314,7 @@ export default function DataManager() {
 
       {/* 导入标签页 */}
       {activeTab === 'import' && (
-        <div className="space-y-6">
+        <div id="panel-data-import" role="tabpanel" aria-labelledby="tab-data-import" tabIndex={0} className="space-y-6">
           {/* 导入选项 */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
@@ -425,7 +442,7 @@ export default function DataManager() {
 
       {/* 高级选项标签页 */}
       {activeTab === 'advanced' && (
-        <div className="space-y-6">
+        <div id="panel-data-advanced" role="tabpanel" aria-labelledby="tab-data-advanced" tabIndex={0} className="space-y-6">
           {/* 存储统计 */}
           {storageStats && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
@@ -440,7 +457,14 @@ export default function DataManager() {
                       {formatBytes(storageStats.syncUsed)} / {formatBytes(storageStats.syncQuota)}
                     </span>
                   </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={storageStats.syncUsed}
+                    aria-valuemin={0}
+                    aria-valuemax={storageStats.syncQuota}
+                    aria-label={`同步存储使用：${formatBytes(storageStats.syncUsed)} / ${formatBytes(storageStats.syncQuota)}`}
+                  >
                     <div
                       className="h-full bg-blue-500 rounded-full"
                       style={{ width: `${(storageStats.syncUsed / storageStats.syncQuota) * 100}%` }}
@@ -454,7 +478,14 @@ export default function DataManager() {
                       {formatBytes(storageStats.localUsed)} / {formatBytes(storageStats.localQuota)}
                     </span>
                   </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={storageStats.localUsed}
+                    aria-valuemin={0}
+                    aria-valuemax={storageStats.localQuota}
+                    aria-label={`本地存储使用：${formatBytes(storageStats.localUsed)} / ${formatBytes(storageStats.localQuota)}`}
+                  >
                     <div
                       className="h-full bg-green-500 rounded-full"
                       style={{ width: `${(storageStats.localUsed / storageStats.localQuota) * 100}%` }}

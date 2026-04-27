@@ -184,6 +184,8 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
           className={`fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
             toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}
+          role="status"
+          aria-live="polite"
         >
           {toast.message}
         </div>
@@ -256,7 +258,9 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
       {/* Search */}
       <div className="flex gap-2">
         <div className="flex-1 relative">
+          <label htmlFor="history-search" className="sr-only">搜索翻译历史</label>
           <input
+            id="history-search"
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -342,7 +346,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                       setShowDeleteModal(true);
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 transition-all"
-                    title="删除"
+                    aria-label={`删除翻译记录：${truncateText(entry.originalText, 30)}`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-2-2L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -390,6 +394,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                 </div>
                 <button
                   onClick={() => setSelectedEntry(null)}
+                  aria-label="关闭详情"
                   className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

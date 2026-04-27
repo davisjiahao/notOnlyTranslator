@@ -62,6 +62,7 @@ const ErrorDetailModal: React.FC<{
             </div>
             <button
               onClick={onClose}
+              aria-label="关闭错误详情"
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -419,7 +420,9 @@ export const ErrorDashboard: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">过滤条件</h3>
         <div className="flex flex-wrap gap-3">
+          <label htmlFor="error-category-filter" className="sr-only">错误分类过滤</label>
           <select
+            id="error-category-filter"
             value={filters.category}
             onChange={e => setFilters(f => ({ ...f, category: e.target.value as ErrorCategory | '' }))}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
@@ -429,7 +432,9 @@ export const ErrorDashboard: React.FC = () => {
               <option key={cat} value={cat}>{ERROR_CATEGORIES[cat].label}</option>
             ))}
           </select>
+          <label htmlFor="error-severity-filter" className="sr-only">错误严重程度过滤</label>
           <select
+            id="error-severity-filter"
             value={filters.severity}
             onChange={e => setFilters(f => ({ ...f, severity: e.target.value as ErrorSeverity | '' }))}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
@@ -439,7 +444,9 @@ export const ErrorDashboard: React.FC = () => {
             <option value="error">错误</option>
             <option value="warning">警告</option>
           </select>
+          <label htmlFor="error-reported-filter" className="sr-only">错误上报状态过滤</label>
           <select
+            id="error-reported-filter"
             value={filters.reported === '' ? '' : filters.reported ? 'true' : 'false'}
             onChange={e => {
               const value = e.target.value;
