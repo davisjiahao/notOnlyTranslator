@@ -75,7 +75,7 @@ export default function CostDashboard() {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">成本监控</h2>
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-12" role="status" aria-label="加载中">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function CostDashboard() {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">成本监控</h2>
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400" role="status">
           暂无数据
         </div>
       </div>
@@ -181,7 +181,7 @@ function WarningsSection({
           }`}
         >
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -224,7 +224,7 @@ function SummaryCards({ summary, budget }: { summary: CostSummary; budget: Budge
       value: formatCost(summary.totalCost),
       subValue: `LLM: ${formatCost(summary.llmCost)} | 翻译: ${formatCost(summary.translationCost)}`,
       icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -235,7 +235,7 @@ function SummaryCards({ summary, budget }: { summary: CostSummary; budget: Budge
       value: budget.monthlyBudget > 0 ? `${budget.usagePercent.toFixed(1)}%` : '未设置',
       subValue: budget.monthlyBudget > 0 ? `已使用 ${formatCost(budget.used)} / $${budget.monthlyBudget}` : undefined,
       icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
@@ -246,7 +246,7 @@ function SummaryCards({ summary, budget }: { summary: CostSummary; budget: Budge
       value: `${formatNumber(summary.totalInputTokens + summary.totalOutputTokens)}`,
       subValue: `输入: ${formatNumber(summary.totalInputTokens)} | 输出: ${formatNumber(summary.totalOutputTokens)}`,
       icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
         </svg>
       ),
@@ -257,7 +257,7 @@ function SummaryCards({ summary, budget }: { summary: CostSummary; budget: Budge
       value: formatNumber(summary.successRequests + summary.failedRequests),
       subValue: `成功: ${summary.successRequests} | 失败: ${summary.failedRequests}`,
       icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       ),
@@ -392,7 +392,7 @@ function ProviderDetailsSection({ details }: { details: ProviderCostDetail[] }) 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">各提供商成本详情</h3>
-        <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+        <p className="text-gray-500 dark:text-gray-400 text-center py-8" role="status">
           暂无使用记录
         </p>
       </div>

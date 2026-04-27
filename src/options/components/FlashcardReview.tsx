@@ -219,7 +219,11 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
   if (reviewWords.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 text-center px-4">
-        <div className="text-6xl mb-4">🎉</div>
+        <div className="w-16 h-16 mb-4 text-green-500">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        </div>
         <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
           没有需要复习的单词
         </h3>
@@ -234,7 +238,11 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
     return (
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🎊</div>
+          <div className="w-16 h-16 mx-auto mb-4 text-green-500">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
           <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
             复习完成！
           </h3>
@@ -356,8 +364,17 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
       {/* 闪卡 */}
       <div
         ref={cardRef}
-        className="relative h-80 mb-6 cursor-pointer select-none"
+        className="relative h-80 mb-6 cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2 rounded-2xl"
         onClick={() => !isFlipped && setIsFlipped(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (!isFlipped) setIsFlipped(true);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={isFlipped ? '查看释义' : '点击或按空格查看释义'}
       >
         <div
           className={`absolute inset-0 transition-all duration-500 transform-gpu preserve-3d ${
@@ -471,7 +488,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                   onClick={() => handleRating(rating)}
                   disabled={isSubmitting}
                   className="flex flex-col items-center p-3 rounded-lg border-2 transition-all
-                             hover:scale-105 active:scale-95 disabled:opacity-50"
+                             hover:scale-105 active:scale-95 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                   style={{
                     borderColor: color,
                     backgroundColor: `${color}10`,

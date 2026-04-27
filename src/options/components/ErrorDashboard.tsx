@@ -65,7 +65,7 @@ const ErrorDetailModal: React.FC<{
               aria-label="关闭错误详情"
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -317,7 +317,7 @@ export const ErrorDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-label="加载中">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -476,8 +476,8 @@ export const ErrorDashboard: React.FC = () => {
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {errors.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400" role="status">
+              <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p>暂无错误记录</p>
