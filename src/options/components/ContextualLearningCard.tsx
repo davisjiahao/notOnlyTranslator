@@ -99,7 +99,7 @@ export default function ContextualLearningCard({
       {currentContext.source && (
         <div className="bg-gray-50 dark:bg-gray-700 px-4 py-2 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
             {currentContext.source}
@@ -148,7 +148,7 @@ export default function ContextualLearningCard({
                   rel="noopener noreferrer"
                   className="text-sm text-blue-500 hover:text-blue-600 flex items-center gap-1"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                   查看原文
@@ -165,7 +165,7 @@ export default function ContextualLearningCard({
           <button
             onClick={handlePrevContext}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="上一个语境"
+            aria-label="上一个语境"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -176,6 +176,8 @@ export default function ContextualLearningCard({
               <button
                 key={index}
                 onClick={() => setCurrentContextIndex(index)}
+                aria-label={`切换到第 ${index + 1} 个语境`}
+                aria-current={index === currentContextIndex ? 'step' : undefined}
                 className={`w-2 h-2 rounded-full transition-colors ${
                   index === currentContextIndex
                     ? 'bg-blue-500'
@@ -187,7 +189,7 @@ export default function ContextualLearningCard({
           <button
             onClick={handleNextContext}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="下一个语境"
+            aria-label="下一个语境"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -209,7 +211,7 @@ export default function ContextualLearningCard({
                 onClick={() => onRate(rating)}
                 disabled={isSubmitting}
                 className={`${color} text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center min-w-[60px]`}
-                title={description}
+                aria-label={`${rating} - ${label}：${description}`}
               >
                 <span>{label}</span>
                 <span className="text-xs opacity-80">{rating}</span>

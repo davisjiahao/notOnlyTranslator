@@ -152,7 +152,7 @@ export default function CacheStatsPanel() {
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-center py-8">
+        <div className="flex items-center justify-center py-8" role="status" aria-label="加载缓存统计中">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function CacheStatsPanel() {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">缓存统计</h2>
           {message && (
-            <span className="text-sm text-green-600 dark:text-green-400 animate-fade-in">
+            <span role="status" aria-live="polite" className="text-sm text-green-600 dark:text-green-400 animate-fade-in">
               {message}
             </span>
           )}

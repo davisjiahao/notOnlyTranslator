@@ -54,11 +54,13 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
           </p>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4" role="radiogroup" aria-label="提示词版本选择">
           {availableVersions.map(({ version, template }) => (
             <button
               key={version}
               onClick={() => handleVersionChange(version)}
+              role="radio"
+              aria-checked={selectedVersion === version}
               disabled={isSaving}
               className={`w-full p-4 border rounded-lg text-left transition-colors ${
                 selectedVersion === version

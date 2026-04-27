@@ -409,12 +409,13 @@ export default function VocabularyExportImport({
 
             {/* 格式选择 */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span id="export-format-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 导出格式
-              </label>
-              <div className="flex gap-2">
+              </span>
+              <div className="flex gap-2" role="group" aria-labelledby="export-format-label">
                 <button
                   onClick={() => setExportOptions({ ...exportOptions, format: 'json' })}
+                  aria-pressed={exportOptions.format === 'json'}
                   className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
                     exportOptions.format === 'json'
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
@@ -425,6 +426,7 @@ export default function VocabularyExportImport({
                 </button>
                 <button
                   onClick={() => setExportOptions({ ...exportOptions, format: 'csv' })}
+                  aria-pressed={exportOptions.format === 'csv'}
                   className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
                     exportOptions.format === 'csv'
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
@@ -438,10 +440,11 @@ export default function VocabularyExportImport({
 
             {/* 筛选条件 */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="export-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 筛选条件
               </label>
               <select
+                id="export-filter"
                 value={exportOptions.filter}
                 onChange={(e) =>
                   setExportOptions({
@@ -461,10 +464,11 @@ export default function VocabularyExportImport({
             {exportOptions.filter === 'date' && (
               <div className="mb-4 space-y-2">
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="export-start-date" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     开始日期
                   </label>
                   <input
+                    id="export-start-date"
                     type="date"
                     value={exportOptions.startDate || ''}
                     onChange={(e) =>
@@ -474,10 +478,11 @@ export default function VocabularyExportImport({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="export-end-date" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     结束日期
                   </label>
                   <input
+                    id="export-end-date"
                     type="date"
                     value={exportOptions.endDate || ''}
                     onChange={(e) =>
@@ -493,10 +498,11 @@ export default function VocabularyExportImport({
             {exportOptions.filter === 'mastery' && (
               <div className="mb-4 space-y-2">
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="min-mastery-range" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     最小掌握度: {Math.round((exportOptions.minMasteryLevel || 0) * 100)}%
                   </label>
                   <input
+                    id="min-mastery-range"
                     type="range"
                     min="0"
                     max="100"
@@ -508,13 +514,17 @@ export default function VocabularyExportImport({
                       })
                     }
                     className="w-full"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round((exportOptions.minMasteryLevel || 0) * 100)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="max-mastery-range" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     最大掌握度: {Math.round((exportOptions.maxMasteryLevel || 1) * 100)}%
                   </label>
                   <input
+                    id="max-mastery-range"
                     type="range"
                     min="0"
                     max="100"
@@ -526,6 +536,9 @@ export default function VocabularyExportImport({
                       })
                     }
                     className="w-full"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round((exportOptions.maxMasteryLevel || 1) * 100)}
                   />
                 </div>
               </div>
@@ -572,6 +585,7 @@ export default function VocabularyExportImport({
               accept=".json,.csv"
               onChange={handleFileSelect}
               disabled={isImporting}
+              aria-label="选择要导入的 JSON 或 CSV 文件"
               className="w-full mb-4 text-gray-700 dark:text-gray-300 disabled:opacity-50"
             />
 
@@ -583,13 +597,13 @@ export default function VocabularyExportImport({
             )}
 
             {importError && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm">
+              <div role="status" className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm">
                 {importError}
               </div>
             )}
 
             {importSuccess && (
-              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-sm">
+              <div role="status" className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-sm">
                 {importSuccess}
               </div>
             )}

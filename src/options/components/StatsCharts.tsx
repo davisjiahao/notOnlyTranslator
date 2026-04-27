@@ -65,8 +65,8 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
     <div className="space-y-4">
       {/* 雷达图：能力模型 */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">能力模型</h3>
-        <div className="h-64 w-full">
+        <h3 id="radar-chart-label" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">能力模型</h3>
+        <div className="h-64 w-full" role="img" aria-labelledby="radar-chart-label">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
               <PolarGrid stroke={gridColor} />
@@ -90,8 +90,8 @@ export const StatsCharts: React.FC<StatsChartsProps> = ({
 
       {/* 面积图：增长趋势 */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">词汇量增长趋势</h3>
-        <div className="h-32 w-full">
+        <h3 id="area-chart-label" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">词汇量增长趋势</h3>
+        <div className="h-32 w-full" role="img" aria-labelledby="area-chart-label">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={growthData}>
               <defs>
