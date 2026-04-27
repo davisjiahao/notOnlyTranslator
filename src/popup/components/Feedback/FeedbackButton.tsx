@@ -53,6 +53,7 @@ export default function FeedbackButton({
   // 图标
   const FeedbackIcon = (
     <svg
+      aria-hidden="true"
       className={iconSizes[size]}
       fill="none"
       viewBox="0 0 24 24"
