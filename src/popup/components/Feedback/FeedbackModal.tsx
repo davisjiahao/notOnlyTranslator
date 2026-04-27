@@ -144,7 +144,7 @@ export default function FeedbackModal({
             aria-label="关闭"
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors disabled:opacity-50"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -152,9 +152,9 @@ export default function FeedbackModal({
 
         {/* 提交成功状态 */}
         {submitResult?.success ? (
-          <div className="px-6 py-12 text-center">
+          <div className="px-6 py-12 text-center" role="status" aria-live="polite">
             <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-hidden="true" className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -186,11 +186,13 @@ export default function FeedbackModal({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   反馈类型 <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="反馈类型">
                   {(Object.keys(FEEDBACK_CATEGORIES) as FeedbackCategory[]).map(category => (
                     <button
                       key={category}
                       type="button"
+                      role="radio"
+                      aria-checked={formData.category === category}
                       onClick={() => handleInputChange('category', category)}
                       className={`
                         px-3 py-2 text-sm rounded-lg border transition-all text-left
@@ -255,7 +257,7 @@ export default function FeedbackModal({
 
               {/* 错误提示 */}
               {errors.length > 0 && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <ul className="text-sm text-red-600 dark:text-red-400 space-y-1">
                     {errors.map((error, index) => (
                       <li key={index}>{error}</li>
@@ -266,7 +268,7 @@ export default function FeedbackModal({
 
               {/* 提交错误 */}
               {submitResult?.success === false && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-600 dark:text-red-400">
                     {submitResult.message}
                   </p>
@@ -290,7 +292,7 @@ export default function FeedbackModal({
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle
                         className="opacity-25"
                         cx="12"

@@ -131,6 +131,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
             </div>
           </div>
           <svg
+            aria-hidden="true"
             className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform flex-shrink-0 ml-2 ${isDropdownOpen ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -190,7 +191,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                       </span>
                     </div>
                     {config.id === settings.activeApiConfigId && (
-                      <svg className="w-4 h-4 text-primary-600 flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg aria-hidden="true" className="w-4 h-4 text-primary-600 flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}

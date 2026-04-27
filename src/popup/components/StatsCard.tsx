@@ -68,6 +68,13 @@ export default function StatsCard({ stats }: StatsCardProps) {
         <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-green-500 rounded-full transition-all duration-300"
+            role="progressbar"
+            aria-valuenow={stats.knownWordsCount + stats.unknownWordsCount > 0
+              ? Math.round((stats.knownWordsCount / (stats.knownWordsCount + stats.unknownWordsCount)) * 100)
+              : 0}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="学习进度"
             style={{
               width: `${
                 stats.knownWordsCount + stats.unknownWordsCount > 0

@@ -61,7 +61,7 @@ export default function MasteryCard() {
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-center py-4">
+        <div className="flex items-center justify-center py-4" role="status" aria-label="加载掌握度数据">
           <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-600 border-t-transparent"></div>
         </div>
       </div>
@@ -199,7 +199,7 @@ export default function MasteryCard() {
           onClick={() => setShowReviews(true)}
           className="mt-3 w-full py-2 px-3 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
