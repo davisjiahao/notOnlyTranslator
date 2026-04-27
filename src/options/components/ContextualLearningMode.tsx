@@ -208,6 +208,7 @@ export default function ContextualLearningMode() {
         <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
           <button
             onClick={() => setMode('contextual')}
+            aria-pressed={mode === 'contextual'}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               mode === 'contextual'
                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -218,6 +219,7 @@ export default function ContextualLearningMode() {
           </button>
           <button
             onClick={() => setMode('flashcard')}
+            aria-pressed={mode === 'flashcard'}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               mode === 'flashcard'
                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -242,6 +244,9 @@ export default function ContextualLearningMode() {
       ) : (
         <div
           onClick={handleFlip}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFlip(); } }}
+          role="button"
+          tabIndex={0}
           className="cursor-pointer select-none"
         >
           {/* 简化的闪卡模式 */}

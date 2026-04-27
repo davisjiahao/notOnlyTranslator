@@ -174,8 +174,13 @@ export default function VocabularyRecommendation({
   return (
     <div className="max-w-4xl mx-auto">
       {/* 标签页导航 */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist" aria-label="学习模式">
         <button
+          role="tab"
+          aria-selected={viewMode === 'recommendations'}
+          aria-controls="panel-recommendations"
+          id="tab-recommendations"
+          tabIndex={viewMode === 'recommendations' ? 0 : -1}
           onClick={() => setViewMode('recommendations')}
           className={`px-4 py-2 font-medium transition-colors ${
             viewMode === 'recommendations'
@@ -186,6 +191,11 @@ export default function VocabularyRecommendation({
           推荐词汇
         </button>
         <button
+          role="tab"
+          aria-selected={viewMode === 'daily'}
+          aria-controls="panel-daily"
+          id="tab-daily"
+          tabIndex={viewMode === 'daily' ? 0 : -1}
           onClick={() => setViewMode('daily')}
           className={`px-4 py-2 font-medium transition-colors ${
             viewMode === 'daily'
@@ -196,6 +206,11 @@ export default function VocabularyRecommendation({
           今日计划
         </button>
         <button
+          role="tab"
+          aria-selected={viewMode === 'settings'}
+          aria-controls="panel-settings"
+          id="tab-settings"
+          tabIndex={viewMode === 'settings' ? 0 : -1}
           onClick={() => setViewMode('settings')}
           className={`px-4 py-2 font-medium transition-colors ${
             viewMode === 'settings'
@@ -209,7 +224,12 @@ export default function VocabularyRecommendation({
 
       {/* 推荐词汇视图 */}
       {viewMode === 'recommendations' && (
-        <div>
+        <div
+          role="tabpanel"
+          id="panel-recommendations"
+          aria-labelledby="tab-recommendations"
+          tabIndex={0}
+        >
           {/* 策略选择 */}
           <div className="flex flex-wrap gap-2 mb-4">
             {Object.values(RecommendationStrategy).map((s) => (
@@ -252,7 +272,12 @@ export default function VocabularyRecommendation({
 
       {/* 今日计划视图 */}
       {viewMode === 'daily' && (
-        <div>
+        <div
+          role="tabpanel"
+          id="panel-daily"
+          aria-labelledby="tab-daily"
+          tabIndex={0}
+        >
           {dailyPlan ? (
             <>
               {/* 计划概览 */}
@@ -328,7 +353,13 @@ export default function VocabularyRecommendation({
 
       {/* 设置视图 */}
       {viewMode === 'settings' && (
-        <div className="space-y-6">
+        <div
+          role="tabpanel"
+          id="panel-settings"
+          aria-labelledby="tab-settings"
+          tabIndex={0}
+          className="space-y-6"
+        >
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
               推荐设置
@@ -351,10 +382,11 @@ export default function VocabularyRecommendation({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="strategy-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     推荐策略
                   </label>
                   <select
+                    id="strategy-select"
                     value={strategy}
                     onChange={(e) => setStrategy(e.target.value as RecommendationStrategy)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
@@ -445,6 +477,11 @@ function WordCard({ recommendation, isSelected, onClick, compact = false }: Word
                     width: `${recommendation.difficulty * 10}%`,
                     backgroundColor: levelColor,
                   }}
+                  role="progressbar"
+                  aria-valuenow={recommendation.difficulty}
+                  aria-valuemin={0}
+                  aria-valuemax={10}
+                  aria-label={`难度：${recommendation.difficulty}/10`}
                 />
               </div>
             </div>

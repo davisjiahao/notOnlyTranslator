@@ -344,6 +344,11 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
           <div
             className="h-full bg-blue-600 rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
+            role="progressbar"
+            aria-valuenow={currentIndex + 1}
+            aria-valuemin={1}
+            aria-valuemax={reviewWords.length}
+            aria-label={`复习进度：${currentIndex + 1} / ${reviewWords.length}`}
           />
         </div>
       </div>
@@ -384,6 +389,11 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                   <div
                     className="h-full bg-blue-500 rounded-full"
                     style={{ width: `${currentWord.masteryLevel * 100}%` }}
+                    role="progressbar"
+                    aria-valuenow={Math.round(currentWord.masteryLevel * 100)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`单词掌握度：${Math.round(currentWord.masteryLevel * 100)}%`}
                   />
                 </div>
                 <span>{Math.round(currentWord.masteryLevel * 100)}%</span>
@@ -466,7 +476,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                     borderColor: color,
                     backgroundColor: `${color}10`,
                   }}
-                  title={label}
+                  aria-label={`${rating} - ${label}：${RATING_LABELS[rating].description}`}
                 >
                   <span
                     className="text-lg font-bold"

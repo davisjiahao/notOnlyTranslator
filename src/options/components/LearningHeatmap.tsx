@@ -98,12 +98,13 @@ export default function LearningHeatmap({ data, weeks = 26 }: LearningHeatmapPro
                   {week.map((day, dayIndex) => (
                     <div
                       key={dayIndex}
+                      role="img"
+                      aria-label={`${day.date}: ${day.count} 个单词 (${getActivityTypeLabel(day.type)})`}
                       className={`
                         w-3 h-3 rounded-sm ${INTENSITY_COLORS[day.intensity as keyof typeof INTENSITY_COLORS]}
                         ${TYPE_INDICATORS[day.type]}
                         cursor-pointer hover:ring-2 hover:ring-gray-400 transition-all
                       `}
-                      title={`${day.date}: ${day.count} 个单词 (${getActivityTypeLabel(day.type)})`}
                     />
                   ))}
                 </div>
