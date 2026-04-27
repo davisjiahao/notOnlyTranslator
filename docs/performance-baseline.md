@@ -47,6 +47,8 @@
 - **lru-cache.bench.ts** — LRU 缓存的 O(1) 操作、批量查询、淘汰
 - **algorithms.bench.ts** — Diff 算法、字符串操作
 
+> **配置说明（2026-04-27 修复）**：Vitest 配置使用 `outputJson` 选项直接输出结构化 JSON 到 `benchmark/results/performance-report.json`，包含 `files[].groups[].benchmarks[]` 层级结构，每条基准测试有 `hz`（ops/sec，越大越好）和 `period`（ms，越小越好）两个指标。回归检测脚本 `check-regressions.js` 已更新为同时支持旧格式（Node.js 模拟）和新格式（Vitest JSON）。
+
 ### Vitest 基准测试结果摘要
 
 | 测试套件 | 最快操作 (mean) | 最慢操作 (mean) |

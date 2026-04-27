@@ -7,18 +7,12 @@ export default defineConfig({
     exclude: ['node_modules', 'dist'],
     globals: true,
     environment: 'node',
-    // 性能测试特定配置
     benchmark: {
-      // 最小样本数
       minSamples: 10,
-      // 最大运行时间（毫秒）
       maxTime: 5000,
+      outputJson: 'benchmark/results/performance-report.json',
     },
-    // 报告器配置
-    reporters: ['verbose', 'json'],
-    outputFile: {
-      json: './benchmark/results/performance-report.json',
-    },
+    reporters: ['verbose'],
   },
   resolve: {
     alias: {

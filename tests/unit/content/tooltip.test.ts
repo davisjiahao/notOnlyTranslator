@@ -334,7 +334,7 @@ describe('Tooltip', () => {
 
       const pinBtn = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-pin`) as HTMLElement;
       expect(pinBtn?.classList.contains('pinned')).toBe(true);
-      expect(pinBtn?.textContent).toContain('📍');
+      expect(pinBtn?.querySelector('svg')).not.toBeNull();
     });
 
     it('should reset pin state when showing new word', () => {
