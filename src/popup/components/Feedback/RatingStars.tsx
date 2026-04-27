@@ -52,10 +52,37 @@ export default function RatingStars({
     setHoverRating(0);
   };
 
+  // WCAG 2.1.1 / 2.4.3: 键盘导航 — ArrowLeft/ArrowRight 调整评分
+  const handleKeyDown = (e: React.KeyboardEvent, value: number) => {
+    if (disabled) return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowUp':
+        e.preventDefault();
+        if (value < RATING_CONFIG.max) onChange(value + 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        e.preventDefault();
+        if (value > 1) onChange(value - 1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        onChange(1);
+        break;
+      case 'End':
+        e.preventDefault();
+        onChange(RATING_CONFIG.max);
+        break;
+    }
+  };
+
   return (
     <div className="flex flex-col items-center gap-2">
       <div
         className={`flex ${containerClasses[size]}`}
+        role="group"
+        aria-label="评分"
         onMouseLeave={handleMouseLeave}
       >
         {Array.from({ length: RATING_CONFIG.max }, (_, index) => {
@@ -69,14 +96,17 @@ export default function RatingStars({
               type="button"
               onClick={() => handleClick(value)}
               onMouseEnter={() => handleMouseEnter(value)}
+              onKeyDown={(e) => handleKeyDown(e, value)}
               disabled={disabled}
+              aria-label={`${value}星`}
+              aria-pressed={rating === value}
               className={`
                 ${sizeClasses[size]}
                 transition-all duration-200 ease-out
                 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110'}
                 ${isFilled ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}
                 ${isHovered ? 'text-yellow-300' : ''}
-                focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 rounded-sm
+                focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 rounded-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400
               `}
               aria-label={`${value}星`}
             >

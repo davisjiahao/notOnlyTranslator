@@ -74,7 +74,7 @@ export default function RecruitmentBanner({ onDismiss }: RecruitmentBannerProps)
       {/* 关闭按钮 */}
       <button
         onClick={handleClose}
-        className="absolute top-2 right-2 p-1 text-white/70 hover:text-white transition-colors"
+        className="absolute top-2 right-2 p-1 text-white/70 hover:text-white transition-colors rounded focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
         aria-label="关闭"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -107,13 +107,13 @@ export default function RecruitmentBanner({ onDismiss }: RecruitmentBannerProps)
           <div className="flex items-center gap-2">
             <button
               onClick={handleParticipate}
-              className="flex-1 bg-white text-primary-600 text-xs font-medium py-1.5 px-3 rounded-md hover:bg-white/90 transition-colors"
+              className="flex-1 bg-white text-primary-600 text-xs font-medium py-1.5 px-3 rounded-md hover:bg-white/90 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
             >
               立即报名
             </button>
             <button
               onClick={handleClose}
-              className="text-xs text-white/80 hover:text-white px-2 py-1.5 transition-colors"
+              className="text-xs text-white/80 hover:text-white px-2 py-1.5 transition-colors rounded focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
             >
               暂不参与
             </button>
