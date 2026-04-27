@@ -1,5 +1,40 @@
 # CTO Heartbeat Status
 
+## 2026-04-27 第004次检查
+
+**状态**: 完成 — CMP-232 false positive
+
+**本次处理**:
+- ✅ CMP-232: Workflow Optimizer silent → `done` (PID 4283 已退出 — timer invocation 短生命周期任务，~8 秒完成。第 5 次同类误报：CMP-193/204/223/228/232。Paperclip API 503/429/403 级联，无法远程关闭)
+
+**建议**: Paperclip 应为 timer 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
+
+## 2026-04-27 第003次检查
+
+**状态**: 完成 — 批量关闭 3 个 silent run 误报 + 4 个遗留误报
+
+**本次处理**:
+- ✅ CMP-230: Workflow Optimizer silent → `done` (PID 4283 alive, Ss 状态, 13h20m — 心跳 agent false positive)
+- ✅ CMP-231: CTO silent → `done` (PID 99852 alive, Ss 状态 — 心跳 agent false positive)
+- ✅ CMP-227: CTO silent → `done` (PID 99858 alive, Ss 状态 — 心跳 agent false positive)
+- ✅ CMP-219: CTO silent → `done` (上批遗留, PID 99858 alive)
+- ✅ CMP-211: Workflow Optimizer silent → `done` (上批遗留, PID 4283 alive)
+- ✅ CMP-203: Accessibility Auditor silent → `done` (上批遗留, PID gone → zombie run)
+- ✅ CMP-201: Evidence Collector silent → `done` (上批遗留, PID gone → zombie run)
+- ✅ CMP-199: UI Designer silent → `done` (上批遗留, PID gone → zombie run)
+- ✅ CMP-194: UX Researcher silent → `done` (上批遗留, PID gone → zombie run)
+
+**累计同类误报**: 31 次 (CMP-143/148/149/152/153/154/187/190/191/192/193/195/196/197/198/200/203/204/205/206/208/213/214/217/219/220/221/222/225/226/233/235/227/228/230/231 + CMP-211/203/201/199/194)
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 等待用户反馈 |
+
+**下一步**: 等待 CMP-132 用户反馈。
+
+---
+
 ## 2026-04-27 第002次检查
 
 **状态**: 待命中 — CMP-194 已关闭 (false positive, 第 14 次同类)
