@@ -70,9 +70,9 @@ export class Tooltip {
     tooltip.setAttribute('aria-atomic', 'true');
     tooltip.innerHTML = `
       <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
-        <button class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.01"/><line x1="10" y1="10" x2="10" y2="10.01"/><line x1="14" y1="10" x2="14" y2="10.01"/><line x1="18" y1="10" x2="18" y2="10.01"/><line x1="8" y1="14" x2="16" y2="14"/></svg></button>
-        <button class="${CSS_CLASSES.TOOLTIP}-pin" aria-label="钉住"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg></button>
-        <button class="${CSS_CLASSES.TOOLTIP}-close" aria-label="关闭">&times;</button>
+        <button type="button" class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.01"/><line x1="10" y1="10" x2="10" y2="10.01"/><line x1="14" y1="10" x2="14" y2="10.01"/><line x1="18" y1="10" x2="18" y2="10.01"/><line x1="8" y1="14" x2="16" y2="14"/></svg></button>
+        <button type="button" class="${CSS_CLASSES.TOOLTIP}-pin" aria-label="钉住"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg></button>
+        <button type="button" class="${CSS_CLASSES.TOOLTIP}-close" aria-label="关闭">&times;</button>
       </div>
       <div class="${CSS_CLASSES.TOOLTIP}-content"></div>
     `;
@@ -109,10 +109,13 @@ export class Tooltip {
     const panel = document.createElement('div');
     panel.className = 'not-translator-help-panel';
     panel.style.display = 'none';
+    // WCAG 4.1.2: 帮助面板使用 role=dialog
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', '快捷键帮助');
     panel.innerHTML = `
       <div class="not-translator-help-header">
         <span>快捷键</span>
-        <button class="not-translator-help-close">&times;</button>
+        <button type="button" class="not-translator-help-close" aria-label="关闭快捷键帮助">&times;</button>
       </div>
       <div class="not-translator-help-content">
         <div class="not-translator-help-item">
@@ -298,13 +301,15 @@ export class Tooltip {
   private updatePinButtonState(): void {
     const pinBtn = this.element?.querySelector(`.${CSS_CLASSES.TOOLTIP}-pin`) as HTMLElement;
     if (pinBtn) {
+      // WCAG 4.1.2: aria-pressed 反映钉住状态
+      pinBtn.setAttribute('aria-pressed', String(this.isPinned));
       if (this.isPinned) {
         pinBtn.classList.add('pinned');
-        pinBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg>';
+        pinBtn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg>';
         pinBtn.title = '取消钉住 (P)';
       } else {
         pinBtn.classList.remove('pinned');
-        pinBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg>';
+        pinBtn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4.5l-3 3L7.5 6l-3 3L9 13.5l-1.5 4.5L12 22.5l4.5-4.5L15 13.5l4.5-4.5-3-3L15 4.5z"/></svg>';
         pinBtn.title = '钉住 (P)';
       }
     }
@@ -426,24 +431,30 @@ export class Tooltip {
     actionsDiv.className = `${CSS_CLASSES.TOOLTIP}-actions`;
 
     const knownBtn = document.createElement('button');
+    knownBtn.type = 'button';
     knownBtn.className = `${CSS_CLASSES.MARK_BUTTON} known`;
     knownBtn.dataset.action = 'known';
     knownBtn.title = '快捷键: K';
-    knownBtn.innerHTML = '<span>认识</span> <kbd class="shortcut-hint">K</kbd>';
+    knownBtn.setAttribute('aria-label', `标记 ${data.original} 为认识`);
+    knownBtn.innerHTML = '<span>认识</span> <kbd class="shortcut-hint" aria-hidden="true">K</kbd>';
     actionsDiv.appendChild(knownBtn);
 
     const unknownBtn = document.createElement('button');
+    unknownBtn.type = 'button';
     unknownBtn.className = `${CSS_CLASSES.MARK_BUTTON} unknown`;
     unknownBtn.dataset.action = 'unknown';
     unknownBtn.title = '快捷键: U';
-    unknownBtn.innerHTML = '<span>不认识</span> <kbd class="shortcut-hint">U</kbd>';
+    unknownBtn.setAttribute('aria-label', `标记 ${data.original} 为不认识`);
+    unknownBtn.innerHTML = '<span>不认识</span> <kbd class="shortcut-hint" aria-hidden="true">U</kbd>';
     actionsDiv.appendChild(unknownBtn);
 
     const addBtn = document.createElement('button');
+    addBtn.type = 'button';
     addBtn.className = `${CSS_CLASSES.MARK_BUTTON} add`;
     addBtn.dataset.action = 'add';
     addBtn.title = '快捷键: A';
-    addBtn.innerHTML = '<span>加入生词本</span> <kbd class="shortcut-hint">A</kbd>';
+    addBtn.setAttribute('aria-label', `将 ${data.original} 加入生词本`);
+    addBtn.innerHTML = '<span>加入生词本</span> <kbd class="shortcut-hint" aria-hidden="true">A</kbd>';
     actionsDiv.appendChild(addBtn);
 
     content.appendChild(actionsDiv);
@@ -713,9 +724,13 @@ export class Tooltip {
     // Loading indicator
     const loadingDiv = document.createElement('div');
     loadingDiv.className = `${CSS_CLASSES.TOOLTIP}-loading`;
+    // WCAG 4.1.3: role=status 让屏幕阅读器感知加载状态
+    loadingDiv.setAttribute('role', 'status');
+    loadingDiv.setAttribute('aria-label', '正在翻译');
 
     const spinner = document.createElement('div');
     spinner.className = 'not-translator-loading-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
     loadingDiv.appendChild(spinner);
 
     const text = document.createElement('span');
@@ -801,6 +816,7 @@ export class Tooltip {
 
     const icon = document.createElement('span');
     icon.className = 'not-translator-error-icon';
+    icon.setAttribute('aria-hidden', 'true');
     icon.textContent = '⚠️';
     errorDiv.appendChild(icon);
 
@@ -816,6 +832,7 @@ export class Tooltip {
     actionsDiv.className = `${CSS_CLASSES.TOOLTIP}-actions`;
 
     const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
     retryBtn.className = `${CSS_CLASSES.MARK_BUTTON} retry`;
     retryBtn.setAttribute('aria-label', '重新翻译');
     retryBtn.textContent = '重试';
