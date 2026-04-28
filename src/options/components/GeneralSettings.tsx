@@ -143,7 +143,7 @@ export default function GeneralSettings({
               role="switch"
               aria-checked={settings.enabled}
               aria-label="启用翻译"
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 settings.enabled ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
             >
@@ -169,7 +169,7 @@ export default function GeneralSettings({
               role="switch"
               aria-checked={settings.autoHighlight}
               aria-label="自动高亮"
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 settings.autoHighlight ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
             >
@@ -195,7 +195,7 @@ export default function GeneralSettings({
               role="switch"
               aria-checked={settings.phraseTranslationEnabled}
               aria-label="词组翻译"
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 settings.phraseTranslationEnabled ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
             >
@@ -221,7 +221,7 @@ export default function GeneralSettings({
               role="switch"
               aria-checked={settings.grammarTranslationEnabled}
               aria-label="语法翻译"
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 settings.grammarTranslationEnabled ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
             >
@@ -247,7 +247,7 @@ export default function GeneralSettings({
               role="switch"
               aria-checked={settings.showDifficulty}
               aria-label="显示难度等级"
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 settings.showDifficulty ? 'bg-primary-600' : 'bg-gray-300'
               } disabled:opacity-50`}
             >
@@ -277,7 +277,7 @@ export default function GeneralSettings({
                   key={mode.value}
                   onClick={() => onUpdate({ theme: mode.value })}
                   disabled={isSaving}
-                  className={`p-4 border rounded-lg text-center transition-all ${
+                  className={`p-4 border rounded-lg text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     settings.theme === mode.value
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 ring-2 ring-primary-200 dark:ring-primary-800'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -317,7 +317,7 @@ export default function GeneralSettings({
                   key={mode.value}
                   onClick={() => onUpdate({ translationMode: mode.value })}
                   disabled={isSaving}
-                  className={`w-full p-4 border rounded-lg text-left transition-colors ${
+                  className={`w-full p-4 border rounded-lg text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     settings.translationMode === mode.value
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -350,7 +350,7 @@ export default function GeneralSettings({
                   key={color.value}
                   onClick={() => onUpdate({ highlightColor: color.value })}
                   disabled={isSaving}
-                  className={`p-3 border rounded-lg transition-all ${
+                  className={`p-3 border rounded-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     settings.highlightColor === color.value
                       ? 'border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -469,7 +469,7 @@ export default function GeneralSettings({
                 <button
                   onClick={() => removeFromBlacklist(currentTabUrl)}
                   disabled={isSaving}
-                  className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50"
                 >
                   从黑名单移除
                 </button>
@@ -477,7 +477,7 @@ export default function GeneralSettings({
                 <button
                   onClick={() => addToBlacklist(currentTabUrl)}
                   disabled={isSaving}
-                  className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50"
                 >
                   加入黑名单
                 </button>
@@ -505,7 +505,7 @@ export default function GeneralSettings({
           <button
             onClick={() => addToBlacklist(newBlacklistItem)}
             disabled={isSaving || !newBlacklistItem.trim()}
-            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             添加
           </button>
@@ -524,7 +524,7 @@ export default function GeneralSettings({
                   onClick={() => removeFromBlacklist(item)}
                   disabled={isSaving}
                   aria-label={`从黑名单移除：${item}`}
-                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50"
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -565,7 +565,7 @@ export default function GeneralSettings({
               a.click();
               URL.revokeObjectURL(url);
             }}
-            className="w-full py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="w-full py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -618,7 +618,7 @@ export default function GeneralSettings({
               alert('所有数据已清除，页面即将刷新');
               window.location.reload();
             }}
-            className="w-full py-3 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+            className="w-full py-3 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
