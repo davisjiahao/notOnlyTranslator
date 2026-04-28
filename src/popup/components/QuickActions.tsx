@@ -1,16 +1,16 @@
 
 interface QuickActionsProps {
-  onOpenOptions: () => void;
+  onOpenTab: (tab: 'level' | 'test' | 'api') => void;
 }
 
-export default function QuickActions({ onOpenOptions }: QuickActionsProps) {
+export default function QuickActions({ onOpenTab }: QuickActionsProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">快捷操作</h2>
 
       <div className="space-y-2">
         <button
-          onClick={onOpenOptions}
+          onClick={() => onOpenTab('level')}
           className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <div className="flex-shrink-0 w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
@@ -28,7 +28,7 @@ export default function QuickActions({ onOpenOptions }: QuickActionsProps) {
         </button>
 
         <button
-          onClick={onOpenOptions}
+          onClick={() => onOpenTab('test')}
           className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <div className="flex-shrink-0 w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
@@ -46,7 +46,7 @@ export default function QuickActions({ onOpenOptions }: QuickActionsProps) {
         </button>
 
         <button
-          onClick={onOpenOptions}
+          onClick={() => onOpenTab('api')}
           className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <div className="flex-shrink-0 w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
