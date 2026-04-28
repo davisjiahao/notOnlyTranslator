@@ -71,7 +71,7 @@ export default function LevelSelector({
                 onClick={() => handleExamTypeChange(type)}
                 role="radio"
                 aria-checked={examType === type}
-                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                   examType === type
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
                     : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
