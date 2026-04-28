@@ -164,8 +164,8 @@ export default function VocabularyRecommendation({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4" />
+      <div className="flex flex-col items-center justify-center h-64" role="status">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
         <p className="text-gray-500 dark:text-gray-400">加载推荐词汇...</p>
       </div>
     );
@@ -249,8 +249,8 @@ export default function VocabularyRecommendation({
 
           {/* 推荐列表 */}
           {recommendations.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4">📚</div>
+            <div className="text-center py-12" role="status">
+              <div className="text-4xl mb-4" aria-hidden="true">📚</div>
               <p className="text-gray-500 dark:text-gray-400">
                 暂无推荐词汇。继续浏览英文内容，系统会自动为你推荐适合的词汇。
               </p>
@@ -341,8 +341,8 @@ export default function VocabularyRecommendation({
               )}
             </>
           ) : (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4">📅</div>
+            <div className="text-center py-12" role="status">
+              <div className="text-4xl mb-4" aria-hidden="true">📅</div>
               <p className="text-gray-500 dark:text-gray-400">
                 加载今日计划中...
               </p>

@@ -119,14 +119,15 @@ export default function LearningHeatmap({ data, weeks = 26 }: LearningHeatmapPro
               <div
                 key={level}
                 className={`w-3 h-3 rounded-sm ${INTENSITY_COLORS[level as keyof typeof INTENSITY_COLORS]}`}
+                aria-hidden="true"
               />
             ))}
             <span>多</span>
 
             <div className="ml-4 flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-300 border-l-4 border-l-blue-400 rounded-sm" />
+              <div className="w-3 h-3 bg-green-300 border-l-4 border-l-blue-400 rounded-sm" aria-hidden="true" />
               <span>新词</span>
-              <div className="w-3 h-3 bg-green-300 border-l-4 border-l-amber-400 rounded-sm ml-2" />
+              <div className="w-3 h-3 bg-green-300 border-l-4 border-l-amber-400 rounded-sm ml-2" aria-hidden="true" />
               <span>复习</span>
             </div>
           </div>

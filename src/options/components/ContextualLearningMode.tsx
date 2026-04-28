@@ -121,8 +121,8 @@ export default function ContextualLearningMode() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" />
+      <div className="flex flex-col items-center justify-center h-96" role="status">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
         <p className="text-gray-500 dark:text-gray-400">加载语境词汇...</p>
       </div>
     );
@@ -130,8 +130,8 @@ export default function ContextualLearningMode() {
 
   if (words.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-center px-4">
-        <div className="text-6xl mb-4">📖</div>
+      <div className="flex flex-col items-center justify-center h-96 text-center px-4" role="status">
+        <div className="text-6xl mb-4" aria-hidden="true">📖</div>
         <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
           暂无语境词汇
         </h3>
