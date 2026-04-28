@@ -2098,6 +2098,12 @@ a .not-translator-inline-translation,
   color: #374151;
 }
 
+/* WCAG 2.4.7: 键盘焦点可见性 */
+.not-translator-error-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* 暗色模式 */
 @media (prefers-color-scheme: dark) {
   .not-translator-error-notification {
