@@ -205,7 +205,7 @@ export default function ContextualLearningMode() {
             进度: {currentIndex + 1} / {words.length}
           </span>
         </div>
-        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1" role="radiogroup" aria-label="学习模式">
           <button
             onClick={() => setMode('contextual')}
             aria-pressed={mode === 'contextual'}
