@@ -82,7 +82,7 @@ export default function MasteryCard() {
         </h3>
         <button
           onClick={() => openOptions('vocabulary')}
-          className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
         >
           查看全部
         </button>
@@ -95,7 +95,7 @@ export default function MasteryCard() {
           onClick={() => setShowReviews(!showReviews)}
           aria-expanded={showReviews}
           aria-label={`待复习单词：${dueCount} 个`}
-          className={`cursor-pointer rounded-lg p-2 text-center transition-colors border-0 bg-inherit ${
+          className={`cursor-pointer rounded-lg p-2 text-center transition-colors border-0 bg-inherit focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
             dueCount > 0
               ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
               : 'bg-gray-50 dark:bg-gray-700/50'
@@ -164,7 +164,7 @@ export default function MasteryCard() {
             </span>
             <button
               onClick={() => openOptions('mastery')}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             >
               详情
             </button>
@@ -197,7 +197,7 @@ export default function MasteryCard() {
       {dueCount > 0 && !showReviews && (
         <button
           onClick={() => setShowReviews(true)}
-          className="mt-3 w-full py-2 px-3 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          className="mt-3 w-full py-2 px-3 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
         >
           <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path

@@ -97,7 +97,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
         <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400">翻译服务</h2>
         <button
           onClick={onOpenOptions}
-          className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
+          className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
         >
           管理
         </button>
@@ -114,7 +114,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
           aria-expanded={isDropdownOpen}
           aria-controls="api-config-listbox"
           aria-label="选择翻译服务配置"
-          className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-md px-3 py-2 transition-colors"
+          className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-md px-3 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeConfig?.tested ? 'bg-green-500' : 'bg-gray-400'}`} />
@@ -204,7 +204,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                   </div>
                   <button
                     onClick={onOpenOptions}
-                    className="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    className="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
                   >
                     立即配置
                   </button>

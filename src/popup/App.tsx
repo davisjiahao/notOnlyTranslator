@@ -240,7 +240,7 @@ export default function App() {
           role="switch"
           aria-checked={settings?.enabled ? 'true' : 'false'}
           aria-label={settings?.enabled ? '全局翻译已启用' : '全局翻译已暂停'}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
             settings?.enabled ? 'bg-primary-600' : 'bg-gray-300'
           }`}
         >
@@ -330,7 +330,7 @@ export default function App() {
                   onClick={() => updateSettings({ translationMode: 'inline-only' })}
                   role="radio"
                   aria-checked={settings.translationMode === 'inline-only'}
-                  className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
+                  className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
                     settings.translationMode === 'inline-only'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
@@ -346,7 +346,7 @@ export default function App() {
                   onClick={() => updateSettings({ translationMode: 'bilingual' })}
                   role="radio"
                   aria-checked={settings.translationMode === 'bilingual'}
-                  className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
+                  className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
                     settings.translationMode === 'bilingual'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
@@ -361,7 +361,7 @@ export default function App() {
                   onClick={() => updateSettings({ translationMode: 'full-translate' })}
                   role="radio"
                   aria-checked={settings.translationMode === 'full-translate'}
-                  className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all ${
+                  className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
                     settings.translationMode === 'full-translate'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
@@ -412,7 +412,7 @@ export default function App() {
                   role="switch"
                   aria-checked={isSiteTranslationEnabled ? 'true' : 'false'}
                   aria-label={`${currentHostname} 网站翻译`}
-                  className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${
+                  className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
                     isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
                   } ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
@@ -435,7 +435,7 @@ export default function App() {
         <div className="grid grid-cols-2 gap-2 mt-auto">
           <button
             onClick={openOptions}
-            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors"
+            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -445,7 +445,7 @@ export default function App() {
           </button>
           <button
             onClick={openVocabulary}
-            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors"
+            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
