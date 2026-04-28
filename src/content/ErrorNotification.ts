@@ -23,9 +23,13 @@ export class ErrorNotification {
 
     const el = document.createElement('div');
     el.className = 'not-translator-error-notification';
+    // WCAG 4.1.3 / 1.3.1: 错误通知使用 role=alert + aria-live=assertive 让屏幕阅读器立即播报
+    el.setAttribute('role', 'alert');
+    el.setAttribute('aria-live', 'assertive');
+    el.setAttribute('aria-atomic', 'true');
     el.innerHTML = `
       <div class="not-translator-error-header">
-        <svg class="not-translator-error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <svg class="not-translator-error-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="12" r="10" stroke-width="2"/>
           <line x1="12" y1="8" x2="12" y2="12" stroke-width="2"/>
           <line x1="12" y1="16" x2="12.01" y2="16" stroke-width="2"/>
@@ -43,19 +47,19 @@ export class ErrorNotification {
       ` : ''}
       <div class="not-translator-error-actions">
         ${error.retryable ? `
-          <button class="not-translator-error-btn not-translator-error-btn-primary" data-action="retry">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16">
+          <button type="button" class="not-translator-error-btn not-translator-error-btn-primary" data-action="retry" aria-label="重试翻译">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16">
               <path d="M23 4v6h-6M1 20v-6h6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             重试
           </button>
         ` : ''}
         ${error.action && error.action !== 'retry' ? `
-          <button class="not-translator-error-btn not-translator-error-btn-secondary" data-action="${error.action}">
+          <button type="button" class="not-translator-error-btn not-translator-error-btn-secondary" data-action="${error.action}">
             ${this.getActionLabel(error.action)}
           </button>
         ` : ''}
-        <button class="not-translator-error-btn not-translator-error-btn-ghost" data-action="dismiss">
+        <button type="button" class="not-translator-error-btn not-translator-error-btn-ghost" data-action="dismiss" aria-label="关闭错误提示">
           关闭
         </button>
       </div>
