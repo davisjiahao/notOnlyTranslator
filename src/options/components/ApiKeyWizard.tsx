@@ -230,14 +230,14 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
           {onSkip && (
             <button
               onClick={onSkip}
-              className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
               稍后再说
             </button>
           )}
           <button
             onClick={() => setCurrentStep('provider')}
-            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md"
+            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             开始设置
           </button>
@@ -286,7 +286,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                       onClick={() => setSelectedProvider(providerId)}
                       role="radio"
                       aria-checked={isSelected}
-                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                      className={`w-full p-4 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                         isSelected
                           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
@@ -331,13 +331,13 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <div className="flex gap-3">
           <button
             onClick={() => setCurrentStep('welcome')}
-            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             上一步
           </button>
           <button
             onClick={() => setCurrentStep('apikey')}
-            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors"
+            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             下一步
           </button>
@@ -402,7 +402,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                 type="button"
                 onClick={() => setShowKey(!showKey)}
                 aria-label={showKey ? '隐藏 API 密钥' : '显示 API 密钥'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
               >
                 {showKey ? (
                   <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -439,7 +439,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                   type="button"
                   onClick={() => setShowSecondaryKey(!showSecondaryKey)}
                   aria-label={showSecondaryKey ? '隐藏 Secret Key' : '显示 Secret Key'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
                 >
                   {showSecondaryKey ? (
                     <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -505,14 +505,14 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <div className="flex gap-3">
           <button
             onClick={() => setCurrentStep('provider')}
-            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             上一步
           </button>
           <button
             onClick={handleTestConnection}
             disabled={!canProceedToTest() || isTesting}
-            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             {isTesting ? (
               <span className="flex items-center justify-center gap-2">
@@ -589,7 +589,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                     onClick={() => setModelName(model.id)}
                     role="radio"
                     aria-checked={modelName === model.id}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                    className={`w-full p-4 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                       modelName === model.id
                         ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
@@ -637,14 +637,14 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <div className="flex gap-3">
           <button
             onClick={() => setCurrentStep('apikey')}
-            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             上一步
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || (!useCustomModel && !modelName)}
-            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             {isSaving ? '保存中...' : '完成设置'}
           </button>
@@ -698,7 +698,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
 
         <button
           onClick={() => window.location.reload()}
-          className="w-full py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors"
+          className="w-full py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           开始使用
         </button>
