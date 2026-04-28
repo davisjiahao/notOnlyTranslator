@@ -152,12 +152,16 @@ export class NavigationManager {
       if (!indicator) {
         indicator = document.createElement('div');
         indicator.className = 'not-translator-nav-indicator';
+        // WCAG 4.1.3: role=status 让屏幕阅读器感知导航位置变化
+        indicator.setAttribute('role', 'status');
+        indicator.setAttribute('aria-live', 'polite');
         const content = tooltipElement.querySelector('.not-translator-tooltip-content');
         if (content) {
           content.insertBefore(indicator, content.firstChild);
         }
       }
       indicator.textContent = `${current} / ${total}`;
+      indicator.setAttribute('aria-label', `第 ${current} 个，共 ${total} 个高亮词`);
     }
   }
 
