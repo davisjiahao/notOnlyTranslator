@@ -211,7 +211,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label="加载学习统计数据">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" aria-hidden="true"></div>
       </div>
     );
   }
@@ -672,12 +672,13 @@ function ChartTabButton({ id, controls, active, onClick, icon, label }: ChartTab
  */
 function EmptyChart({ message }: { message: string }) {
   return (
-    <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+    <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500" role="status">
       <svg
         className="w-12 h-12 mb-3 opacity-50"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
+        aria-hidden="true"
       >
         <path
           strokeLinecap="round"

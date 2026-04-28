@@ -101,6 +101,7 @@ export default function TranslationStyleSettings({
               <button
                 key={option.value}
                 onClick={() => updateStyleConfig({ highlightStyle: option.value })}
+                aria-pressed={styleConfig.highlightStyle === option.value}
                 disabled={isSaving}
                 className={`p-4 border rounded-lg text-left transition-all ${
                   styleConfig.highlightStyle === option.value
@@ -111,7 +112,7 @@ export default function TranslationStyleSettings({
                 <div className="flex items-center justify-between mb-2">
                   <span className={`text-lg ${option.preview}`}>highlighted</span>
                   {styleConfig.highlightStyle === option.value && (
-                    <svg className="w-5 h-5 text-primary-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-primary-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -300,7 +301,7 @@ export default function TranslationStyleSettings({
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-50 resize-none"
               />
               <div className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
-                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <p>

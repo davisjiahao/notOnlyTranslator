@@ -140,6 +140,7 @@ export default function HybridTranslationSettings({
                   <button
                     key={engine.value}
                     onClick={() => updateHybridConfig({ defaultEngine: engine.value })}
+                    aria-pressed={hybridConfig.defaultEngine === engine.value}
                     disabled={isSaving}
                     className={`w-full p-4 border rounded-lg text-left transition-all ${
                       hybridConfig.defaultEngine === engine.value
@@ -181,6 +182,7 @@ export default function HybridTranslationSettings({
                     <button
                         key={provider.value}
                         onClick={() => updateHybridConfig({ traditionalProvider: provider.value })}
+                        aria-pressed={hybridConfig.traditionalProvider === provider.value}
                         disabled={isSaving}
                         className={`w-full p-4 border rounded-lg text-left transition-all ${
                           hybridConfig.traditionalProvider === provider.value
@@ -207,7 +209,7 @@ export default function HybridTranslationSettings({
                           </div>
                           {hybridConfig.traditionalProvider === provider.value && (
                             <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                 <path
                                   fillRule="evenodd"
                                   d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -360,6 +362,7 @@ export default function HybridTranslationSettings({
                       <button
                         key={priority.value}
                         onClick={() => updateHybridConfig({ priority: priority.value })}
+                        aria-pressed={hybridConfig.priority === priority.value}
                         disabled={isSaving}
                         className={`p-3 border rounded-lg text-center transition-all ${
                           hybridConfig.priority === priority.value
