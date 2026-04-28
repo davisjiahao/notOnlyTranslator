@@ -110,6 +110,7 @@ export default function RatingStars({
               `}
             >
               <svg
+                aria-hidden="true"
                 viewBox="0 0 24 24"
                 fill={isFilled ? 'currentColor' : 'none'}
                 stroke="currentColor"

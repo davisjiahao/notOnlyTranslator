@@ -241,7 +241,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               >
                 {isTesting ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" role="status" aria-label="测试中" />
                     测试中...
                   </>
                 ) : (

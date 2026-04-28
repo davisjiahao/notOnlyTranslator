@@ -336,7 +336,7 @@ export default function App() {
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M4 7h16M4 7v0M7 7V4h10v3" />
                     <path d="M6 17h12" strokeWidth="2.5" />
                   </svg>
@@ -352,7 +352,7 @@ export default function App() {
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
                   双语对照
@@ -367,7 +367,7 @@ export default function App() {
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M4 5h16v14H4z" />
                     <path d="M7 9h10M7 12h10M7 15h6" />
                   </svg>
@@ -391,8 +391,8 @@ export default function App() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
             {isRefreshing ? (
               /* 刷新提示 */
-              <div className="flex items-center justify-center gap-2 py-1">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent"></div>
+              <div className="flex items-center justify-center gap-2 py-1" role="status" aria-live="polite">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent" aria-hidden="true"></div>
                 <span className="text-sm text-primary-600 font-medium">页面即将刷新...</span>
               </div>
             ) : (
