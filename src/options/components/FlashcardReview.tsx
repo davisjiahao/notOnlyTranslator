@@ -209,8 +209,8 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" />
+      <div className="flex flex-col items-center justify-center h-96" role="status">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
         <p className="text-gray-500 dark:text-gray-400">加载复习单词...</p>
       </div>
     );
@@ -218,9 +218,10 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
 
   if (reviewWords.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-center px-4">
+      <div className="flex flex-col items-center justify-center h-96 text-center px-4" role="status">
+        <div className="text-4xl mb-4" aria-hidden="true">🎉</div>
         <div className="w-16 h-16 mb-4 text-green-500">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
         </div>
@@ -298,6 +299,11 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                   <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
+                      role="progressbar"
+                      aria-valuenow={Math.round(percentage)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${label}：${count} 次 (${Math.round(percentage)}%)`}
                       style={{
                         width: `${percentage}%`,
                         backgroundColor: color,
@@ -317,14 +323,14 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
           <button
             onClick={handleRestart}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium
-                       hover:bg-blue-700 transition-colors shadow-sm"
+                       hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             再来一轮
           </button>
           <button
             onClick={() => setIsComplete(false)}
             className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium
-                       hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                       hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
           >
             查看卡片
           </button>
@@ -517,7 +523,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
           onClick={handleSkip}
           disabled={isSubmitting}
           className="px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors
-                     disabled:opacity-50"
+                     disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 rounded"
         >
           跳过
         </button>
