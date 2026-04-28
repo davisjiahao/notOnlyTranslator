@@ -70,11 +70,14 @@ export class FloatingButton {
     this.panel.querySelectorAll('.not-translator-floating-engine-item').forEach(item => {
       const el = item as HTMLElement;
       const engine = el.dataset.engine as DefaultEngine;
-      if (engine === this.currentEngine) {
+      const isActive = engine === this.currentEngine;
+      if (isActive) {
         el.classList.add('active');
       } else {
         el.classList.remove('active');
       }
+      // WCAG 4.1.2: 同步 aria-pressed 状态
+      el.setAttribute('aria-pressed', String(isActive));
     });
   }
 
@@ -143,15 +146,20 @@ export class FloatingButton {
     // 使用 DOM API 构建 HTML，避免 XSS 风险
     const header = document.createElement('div');
     header.className = 'not-translator-floating-panel-header';
-    header.innerHTML = '<span>翻译模式</span><button class="not-translator-floating-panel-close" title="收起">−</button>';
+    // WCAG 4.1.2: 关闭按钮需要 aria-label（"−" 视觉符号对屏幕阅读器无意义）
+    header.innerHTML = '<span>翻译模式</span><button type="button" class="not-translator-floating-panel-close" aria-label="收起面板" title="收起">−</button>';
 
     const modeContent = document.createElement('div');
     modeContent.className = 'not-translator-floating-panel-content';
     modes.forEach(mode => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = `not-translator-floating-mode-item ${mode.value === this.currentMode ? 'active' : ''}`;
       btn.dataset.mode = mode.value;
-      btn.innerHTML = `<span class="not-translator-floating-mode-icon">${mode.icon}</span><span class="not-translator-floating-mode-label">${mode.label}</span><span class="not-translator-floating-mode-desc">${mode.desc}</span>`;
+      // WCAG 4.1.2: 当前模式状态使用 aria-pressed
+      btn.setAttribute('aria-pressed', String(mode.value === this.currentMode));
+      // WCAG 1.1.1: 装饰性 emoji 图标对屏幕阅读器不应公布（已有文字 label）
+      btn.innerHTML = `<span class="not-translator-floating-mode-icon" aria-hidden="true">${mode.icon}</span><span class="not-translator-floating-mode-label">${mode.label}</span><span class="not-translator-floating-mode-desc">${mode.desc}</span>`;
       modeContent.appendChild(btn);
     });
 
@@ -166,16 +174,18 @@ export class FloatingButton {
     engineContent.className = 'not-translator-floating-panel-content not-translator-floating-engine-grid';
     engines.forEach(engine => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = `not-translator-floating-engine-item ${engine.value === this.currentEngine ? 'active' : ''}`;
       btn.dataset.engine = engine.value;
       btn.title = `${engine.label}翻译`;
-      btn.innerHTML = `<span class="not-translator-floating-engine-icon">${engine.icon}</span><span class="not-translator-floating-engine-label">${engine.label}</span>`;
+      btn.setAttribute('aria-pressed', String(engine.value === this.currentEngine));
+      btn.innerHTML = `<span class="not-translator-floating-engine-icon" aria-hidden="true">${engine.icon}</span><span class="not-translator-floating-engine-label">${engine.label}</span>`;
       engineContent.appendChild(btn);
     });
 
     const footer = document.createElement('div');
     footer.className = 'not-translator-floating-panel-footer';
-    footer.innerHTML = '<button class="not-translator-floating-minimize" title="最小化到角落">最小化</button>';
+    footer.innerHTML = '<button type="button" class="not-translator-floating-minimize" title="最小化到角落">最小化</button>';
 
     this.panel.appendChild(header);
     this.panel.appendChild(modeContent);
@@ -440,7 +450,10 @@ export class FloatingButton {
     // 更新 UI
     this.panel?.querySelectorAll('.not-translator-floating-mode-item').forEach(item => {
       const el = item as HTMLElement;
-      el.classList.toggle('active', el.dataset.mode === mode);
+      const isActive = el.dataset.mode === mode;
+      el.classList.toggle('active', isActive);
+      // WCAG 4.1.2: 同步 aria-pressed 状态
+      el.setAttribute('aria-pressed', String(isActive));
     });
 
     // 收起面板
@@ -537,7 +550,10 @@ export class FloatingButton {
     // 更新面板选中状态
     this.panel?.querySelectorAll('.not-translator-floating-mode-item').forEach(item => {
       const el = item as HTMLElement;
-      el.classList.toggle('active', el.dataset.mode === mode);
+      const isActive = el.dataset.mode === mode;
+      el.classList.toggle('active', isActive);
+      // WCAG 4.1.2: 同步 aria-pressed 状态
+      el.setAttribute('aria-pressed', String(isActive));
     });
   }
 
