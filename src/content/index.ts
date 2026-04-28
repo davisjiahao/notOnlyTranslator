@@ -289,6 +289,8 @@ class NotOnlyTranslator {
     const badge = document.createElement('span');
     badge.className = `not-translator-cefr-badge not-translator-cefr-${level.toLowerCase()}`;
     badge.textContent = level;
+    // WCAG 1.3.1: 为屏幕阅读器提供等级语义说明
+    badge.setAttribute('aria-label', `CEFR 难度等级 ${level}`);
     header.appendChild(badge);
   }
 
@@ -1053,6 +1055,8 @@ class NotOnlyTranslator {
       tempElement.style.left = `${rect.left + window.scrollX}px`;
       tempElement.style.top = `${rect.bottom + window.scrollY}px`;
       tempElement.style.pointerEvents = 'none';
+      // WCAG 4.1.2: 不可见定位锚点对屏幕阅读器隐藏
+      tempElement.setAttribute('aria-hidden', 'true');
       document.body.appendChild(tempElement);
 
       this.translateSelection(selectedText, tempElement).finally(() => {
@@ -1455,6 +1459,8 @@ class NotOnlyTranslator {
     tempElement.style.position = 'absolute';
     tempElement.style.left = `${rect.left + window.scrollX}px`;
     tempElement.style.top = `${rect.bottom + window.scrollY}px`;
+    // WCAG 4.1.2: 不可见定位锚点对屏幕阅读器隐藏
+    tempElement.setAttribute('aria-hidden', 'true');
     document.body.appendChild(tempElement);
 
     this.translateSelection(payload.text, tempElement).then(() => {
