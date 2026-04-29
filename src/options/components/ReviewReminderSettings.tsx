@@ -87,7 +87,7 @@ export default function ReviewReminderSettings({
                 id="reminder-hour"
                 value={localConfig.reminderHour}
                 onChange={e => updateLocal('reminderHour', parseInt(e.target.value, 10))}
-                className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 {hourOptions.map(hour => (
                   <option key={hour} value={hour}>
@@ -101,7 +101,7 @@ export default function ReviewReminderSettings({
                 id="reminder-minute"
                 value={localConfig.reminderMinute}
                 onChange={e => updateLocal('reminderMinute', parseInt(e.target.value, 10))}
-                className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 {minuteOptions.map(minute => (
                   <option key={minute} value={minute}>
@@ -139,7 +139,7 @@ export default function ReviewReminderSettings({
                 value={localConfig.dailyReviewLimit}
                 onChange={e => updateLocal('dailyReviewLimit', parseInt(e.target.value, 10) || 20)}
                 aria-label="每日复习上限"
-                className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500"
               />
             </div>
 
@@ -161,7 +161,7 @@ export default function ReviewReminderSettings({
                 value={localConfig.minWordsForReminder}
                 onChange={e => updateLocal('minWordsForReminder', parseInt(e.target.value, 10) || 5)}
                 aria-label="最小提醒词汇数"
-                className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500"
               />
             </div>
 
@@ -183,7 +183,7 @@ export default function ReviewReminderSettings({
                 value={localConfig.masteredThreshold}
                 onChange={e => updateLocal('masteredThreshold', parseInt(e.target.value, 10) || 3)}
                 aria-label="掌握阈值"
-                className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500"
               />
             </div>
           </div>
@@ -218,7 +218,7 @@ export default function ReviewReminderSettings({
               <button
                 onClick={saveConfig}
                 disabled={isSaving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSaving ? '保存中...' : '保存设置'}
               </button>
