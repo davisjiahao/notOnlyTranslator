@@ -185,7 +185,7 @@ export default function ContextualLearningMode() {
         <div className="flex justify-center gap-4">
           <button
             onClick={handleRestart}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             再来一轮
           </button>
@@ -209,7 +209,7 @@ export default function ContextualLearningMode() {
           <button
             onClick={() => setMode('contextual')}
             aria-pressed={mode === 'contextual'}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
               mode === 'contextual'
                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -220,7 +220,7 @@ export default function ContextualLearningMode() {
           <button
             onClick={() => setMode('flashcard')}
             aria-pressed={mode === 'flashcard'}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
               mode === 'flashcard'
                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -279,7 +279,7 @@ export default function ContextualLearningMode() {
                         handleRate(rating);
                       }}
                       disabled={isSubmitting}
-                      className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors disabled:opacity-50 ${
+                      className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                         rating <= 2
                           ? 'bg-red-500 hover:bg-red-600'
                           : rating === 3
