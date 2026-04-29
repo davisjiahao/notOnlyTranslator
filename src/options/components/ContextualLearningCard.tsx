@@ -164,7 +164,7 @@ export default function ContextualLearningCard({
         <div className="px-6 pb-4 flex items-center justify-center gap-4">
           <button
             onClick={handlePrevContext}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             aria-label="上一个语境"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -178,7 +178,7 @@ export default function ContextualLearningCard({
                 onClick={() => setCurrentContextIndex(index)}
                 aria-label={`切换到第 ${index + 1} 个语境`}
                 aria-current={index === currentContextIndex ? 'step' : undefined}
-                className={`w-2 h-2 rounded-full transition-colors ${
+                className={`w-2 h-2 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                   index === currentContextIndex
                     ? 'bg-blue-500'
                     : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
@@ -188,7 +188,7 @@ export default function ContextualLearningCard({
           </div>
           <button
             onClick={handleNextContext}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             aria-label="下一个语境"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -210,7 +210,7 @@ export default function ContextualLearningCard({
                 key={rating}
                 onClick={() => onRate(rating)}
                 disabled={isSubmitting}
-                className={`${color} text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center min-w-[60px]`}
+                className={`${color} text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center min-w-[60px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2`}
                 aria-label={`${rating} - ${label}：${description}`}
               >
                 <span>{label}</span>
