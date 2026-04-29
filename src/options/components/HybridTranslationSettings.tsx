@@ -115,7 +115,7 @@ export default function HybridTranslationSettings({
             role="switch"
             aria-checked={hybridConfig.enabled}
             aria-label="启用混合翻译"
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
               hybridConfig.enabled ? 'bg-primary-600' : 'bg-gray-300'
             } disabled:opacity-50`}
           >
@@ -142,7 +142,7 @@ export default function HybridTranslationSettings({
                     onClick={() => updateHybridConfig({ defaultEngine: engine.value })}
                     aria-pressed={hybridConfig.defaultEngine === engine.value}
                     disabled={isSaving}
-                    className={`w-full p-4 border rounded-lg text-left transition-all ${
+                    className={`w-full p-4 border rounded-lg text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                       hybridConfig.defaultEngine === engine.value
                         ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -184,7 +184,7 @@ export default function HybridTranslationSettings({
                         onClick={() => updateHybridConfig({ traditionalProvider: provider.value })}
                         aria-pressed={hybridConfig.traditionalProvider === provider.value}
                         disabled={isSaving}
-                        className={`w-full p-4 border rounded-lg text-left transition-all ${
+                        className={`w-full p-4 border rounded-lg text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                           hybridConfig.traditionalProvider === provider.value
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                             : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -304,7 +304,7 @@ export default function HybridTranslationSettings({
                     role="switch"
                     aria-checked={hybridConfig.enableSmartRouting}
                     aria-label="智能路由"
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                       hybridConfig.enableSmartRouting ? 'bg-primary-600' : 'bg-gray-300'
                     } disabled:opacity-50`}
                   >
@@ -364,7 +364,7 @@ export default function HybridTranslationSettings({
                         onClick={() => updateHybridConfig({ priority: priority.value })}
                         aria-pressed={hybridConfig.priority === priority.value}
                         disabled={isSaving}
-                        className={`p-3 border rounded-lg text-center transition-all ${
+                        className={`p-3 border rounded-lg text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                           hybridConfig.priority === priority.value
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                             : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
