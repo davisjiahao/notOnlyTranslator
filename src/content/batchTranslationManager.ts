@@ -51,8 +51,8 @@ export class BatchTranslationManager {
 
   /** 当前活跃的并发请求数 */
   private activeRequests = 0;
-  /** 最大并发批次数 */
-  private readonly MAX_CONCURRENT_BATCHES = 3;
+  /** 最大并发批次数 — 从 3 提升至 5，快速滑动时减少排队等待 */
+  private readonly MAX_CONCURRENT_BATCHES = 5;
 
   constructor(settings?: UserSettings) {
     this.pageUrl = window.location.href;
@@ -289,6 +289,28 @@ export class BatchTranslationManager {
     this.pendingQueue = [];
     this.processingParagraphIds.clear();
     logger.info('BatchTranslationManager: 已取消所有待处理请求');
+  }
+
+  /**
+   * 取消尚未开始翻译的队列段落（滑动离开视口时调用）
+   * 避免为用户已滑过的内容浪费 API 调用
+   */
+  cancelOffscreenParagraphs(visibleParagraphIds: Set<string>): void {
+    const before = this.pendingQueue.length;
+    this.pendingQueue = this.pendingQueue.filter(p => visibleParagraphIds.has(p.id));
+    const removed = before - this.pendingQueue.length;
+
+    // 清理已取消段落的 processing 标记
+    const remainingIds = new Set(this.pendingQueue.map(p => p.id));
+    for (const id of this.processingParagraphIds) {
+      if (!remainingIds.has(id) && !visibleParagraphIds.has(id)) {
+        this.processingParagraphIds.delete(id);
+      }
+    }
+
+    if (removed > 0) {
+      logger.info(`BatchTranslationManager: 已取消 ${removed} 个离开视口的段落（队列剩余 ${this.pendingQueue.length} 个）`);
+    }
   }
 
   /**

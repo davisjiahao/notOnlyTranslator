@@ -25,13 +25,13 @@ import { frequencyManager } from './frequencyManager';
 import { TranslationApiService } from './translationApi';
 
 /**
- * 批量翻译的重试配置（比单段翻译稍长，因为请求更大）
+ * 批量翻译的重试配置（优化延迟：初始 800ms → 原 1500ms，减少滑动中失败等待时间）
  */
 const BATCH_RETRY_OPTIONS: RetryOptions = {
   maxRetries: 3,
-  initialDelay: 1500,
+  initialDelay: 800,
   backoffMultiplier: 2,
-  maxDelay: 20000,
+  maxDelay: 10000,
   onRetry: (error, attempt, delay) => {
     logger.warn(
       `BatchTranslationService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,

@@ -43,6 +43,9 @@ export class ViewportObserver {
   /** 回调函数 */
   private callback: ViewportChangeCallback;
 
+  /** 可视区域 ID 变化回调（用于批量翻译管理器取消离屏段落） */
+  private onVisibleIdsChanged?: (visibleIds: Set<string>) => void;
+
   /** 防抖后的通知函数 */
   private debouncedNotify: () => void;
 
@@ -69,8 +72,9 @@ export class ViewportObserver {
     const options: IntersectionObserverInit = {
       // 使用视口作为根
       root: null,
-      // 扩展边界，提前加载即将进入视口的内容 (增加到 800px 以实现更早的预加载)
-      rootMargin: '800px 0px 800px 0px',
+      // 扩展边界，提前加载即将进入视口的内容
+      // 上方 1200px（更早预加载用户即将滑入的内容），下方 400px（用户已滑过的内容不需要预加载）
+      rootMargin: '1200px 0px 400px 0px',
       // 可见度阈值
       threshold: [0, 0.1],
     };
@@ -205,14 +209,21 @@ export class ViewportObserver {
   private notifyVisibleParagraphs(): void {
     if (!this.enabled) return;
 
-    // 收集需要翻译的段落（排除已处理的）
+    // 收集当前所有可视段落的 ID（包括已处理和未处理的）
+    const allVisibleIds = new Set<string>();
     const paragraphsToTranslate: VisibleParagraph[] = [];
 
     for (const [element, paragraph] of this.visibleParagraphs) {
+      allVisibleIds.add(paragraph.id);
       // 再次检查是否已处理（可能在等待防抖期间被处理了）
       if (!element.classList.contains('not-translator-processed')) {
         paragraphsToTranslate.push(paragraph);
       }
+    }
+
+    // 通知可视区域 ID 变化（用于批量翻译管理器取消离屏段落）
+    if (this.onVisibleIdsChanged) {
+      this.onVisibleIdsChanged(allVisibleIds);
     }
 
     if (paragraphsToTranslate.length > 0) {
@@ -306,6 +317,13 @@ export class ViewportObserver {
 
     // 立即通知
     this.notifyVisibleParagraphs();
+  }
+
+  /**
+   * 设置可视区域 ID 变化回调（用于批量翻译管理器取消离屏段落）
+   */
+  setVisibleIdsChangedCallback(callback: (visibleIds: Set<string>) => void): void {
+    this.onVisibleIdsChanged = callback;
   }
 
   /**

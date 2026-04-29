@@ -187,8 +187,8 @@ export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
   maxParagraphsPerBatch: 15,
   /** 单批最大字符数 */
   maxCharsPerBatch: 10000,
-  /** 防抖延迟（毫秒） */
-  debounceDelay: 300,
+  /** 防抖延迟（毫秒）— 从 300ms 降至 150ms，减少滑动到翻译启动的等待 */
+  debounceDelay: 150,
   /** 缓存最大条目数 */
   maxCacheEntries: 500,
   /** 缓存过期时间（7天，毫秒） */

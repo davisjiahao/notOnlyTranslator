@@ -557,6 +557,11 @@ class NotOnlyTranslator {
       this.batchManager?.handleVisibleParagraphs(paragraphs);
     });
 
+    // 可视区域 ID 变化时，取消已离开视口的待翻译段落
+    this.viewportObserver.setVisibleIdsChangedCallback((visibleIds: Set<string>) => {
+      this.batchManager?.cancelOffscreenParagraphs(visibleIds);
+    });
+
     logger.info('NotOnlyTranslator: 批量翻译组件已初始化');
   }
 
