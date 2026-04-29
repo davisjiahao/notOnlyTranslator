@@ -24,6 +24,12 @@ mark.not-translator-vocab-highlight {
   border-bottom-color: #3b82f6;
 }
 
+.not-translator-highlight:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* 已认识的词 - 绿色下划线 */
 .not-translator-highlight.not-translator-known {
   border-bottom-color: #86efac;
@@ -903,6 +909,12 @@ mark.not-translator-vocab-highlight {
   text-decoration-skip-ink: auto;
 }
 
+.not-translator-highlighted-word:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .not-translator-highlighted-word:hover {
   background-color: rgba(96, 165, 250, 0.15);
   border-bottom-color: #3b82f6;
@@ -941,6 +953,11 @@ mark.not-translator-vocab-highlight {
 .not-translator-highlighted-translation:hover {
   background-color: rgba(96, 165, 250, 0.2);
   border-bottom-color: #60a5fa;
+}
+
+.not-translator-highlighted-translation:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 /* ========== 全文翻译模式下的生词标注样式 ========== */
@@ -1732,6 +1749,11 @@ a .not-translator-inline-translation,
   background: #f1f5f9;
 }
 
+.not-translator-floating-mode-item:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
 .not-translator-floating-mode-item.active {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   border-color: #3b82f6;
@@ -1824,6 +1846,11 @@ a .not-translator-inline-translation,
 .not-translator-floating-engine-item:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
+}
+
+.not-translator-floating-engine-item:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
 }
 
 .not-translator-floating-engine-item.active {
@@ -1957,6 +1984,12 @@ a .not-translator-inline-translation,
   color: #374151;
 }
 
+.not-translator-help-close:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .not-translator-help-content {
   padding: 10px 12px;
 }
@@ -2045,6 +2078,12 @@ a .not-translator-inline-translation,
   color: #6b7280;
   cursor: pointer;
   user-select: none;
+}
+
+.not-translator-error-details summary:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .not-translator-error-details code {
