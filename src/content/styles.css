@@ -1704,6 +1704,11 @@ a .not-translator-inline-translation,
   color: #334155;
 }
 
+.not-translator-floating-panel-close:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* 面板内容 */
 .not-translator-floating-panel-content {
   padding: 8px;
@@ -1780,6 +1785,11 @@ a .not-translator-inline-translation,
 .not-translator-floating-minimize:hover {
   background: #e2e8f0;
   color: #475569;
+}
+
+.not-translator-floating-minimize:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 /* 面板分隔线 */
