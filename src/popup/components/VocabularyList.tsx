@@ -104,7 +104,7 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
               </div>
               <button
                 onClick={() => onRemove(entry.word)}
-                className="ml-2 p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                className="ml-2 p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
                 aria-label={`移除词汇 ${entry.word}`}
               >
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

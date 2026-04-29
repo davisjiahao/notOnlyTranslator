@@ -144,13 +144,13 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <div className="space-y-2">
               <button
                 onClick={() => setStep('quick-setup')}
-                className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors"
+                className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               >
                 开始配置
               </button>
               <button
                 onClick={handleSkip}
-                className="w-full py-2 px-4 text-gray-500 dark:text-gray-400 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                className="w-full py-2 px-4 text-gray-500 dark:text-gray-400 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-lg"
               >
                 稍后配置
               </button>
@@ -176,7 +176,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                   onClick={() => setSelectedProvider(provider.id)}
                   role="radio"
                   aria-checked={selectedProvider === provider.id}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     selectedProvider === provider.id
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -230,14 +230,14 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <div className="flex gap-2">
               <button
                 onClick={() => setStep('welcome')}
-                className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               >
                 返回
               </button>
               <button
                 onClick={handleQuickSetup}
                 disabled={isTesting || !apiKey.trim()}
-                className="flex-1 py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               >
                 {isTesting ? (
                   <>
@@ -254,7 +254,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={onOpenSettings}
-                className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+                className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
               >
                 需要更多配置选项？
               </button>
@@ -278,7 +278,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             </p>
             <button
               onClick={onComplete}
-              className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors"
+              className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
               开始使用
             </button>

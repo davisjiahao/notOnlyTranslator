@@ -225,7 +225,7 @@ function WelcomeStep({
   return (
     <div className="text-center">
       <div className="w-20 h-20 mx-auto mb-6 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
-        <svg
+        <svg aria-hidden="true"
           className="w-10 h-10 text-primary-600"
           fill="none"
           viewBox="0 0 24 24"
@@ -251,7 +251,7 @@ function WelcomeStep({
       <div className="space-y-3 mb-8 text-left">
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <svg
+            <svg aria-hidden="true"
               className="w-4 h-4 text-green-600"
               fill="none"
               viewBox="0 0 24 24"
@@ -277,7 +277,7 @@ function WelcomeStep({
 
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <svg
+            <svg aria-hidden="true"
               className="w-4 h-4 text-green-600"
               fill="none"
               viewBox="0 0 24 24"
@@ -303,7 +303,7 @@ function WelcomeStep({
 
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <svg
+            <svg aria-hidden="true"
               className="w-4 h-4 text-green-600"
               fill="none"
               viewBox="0 0 24 24"
@@ -477,7 +477,7 @@ function ApiStep({
                   }`}
                 >
                   {selectedProvider === provider.id && (
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <svg aria-hidden="true" className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -543,7 +543,7 @@ function ApiStep({
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             >
               {showKey ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -552,7 +552,7 @@ function ApiStep({
                   />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -613,7 +613,7 @@ function DemoStep({
   return (
     <div className="text-center">
       <div className="w-20 h-20 mx-auto mb-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-        <svg
+        <svg aria-hidden="true"
           className="w-10 h-10 text-green-600"
           fill="none"
           viewBox="0 0 24 24"

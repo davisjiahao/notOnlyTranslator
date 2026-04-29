@@ -673,7 +673,7 @@ function ChartTabButton({ id, controls, active, onClick, icon, label }: ChartTab
 function EmptyChart({ message }: { message: string }) {
   return (
     <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500" role="status">
-      <svg
+      <svg aria-hidden="true"
         className="w-12 h-12 mb-3 opacity-50"
         fill="none"
         viewBox="0 0 24 24"
