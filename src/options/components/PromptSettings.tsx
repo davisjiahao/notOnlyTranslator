@@ -62,7 +62,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
               role="radio"
               aria-checked={selectedVersion === version}
               disabled={isSaving}
-              className={`w-full p-4 border rounded-lg text-left transition-colors ${
+              className={`w-full p-4 border rounded-lg text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 selectedVersion === version
                   ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'

@@ -146,7 +146,7 @@ export default function CostDashboard() {
       <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={handleClearData}
-          className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
         >
           清空所有记录
         </button>
@@ -193,7 +193,7 @@ function WarningsSection({
           </div>
           <button
             onClick={() => onAcknowledge(warning.id)}
-            className="text-sm underline hover:no-underline"
+            className="text-sm underline hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
           >
             知道了
           </button>
@@ -339,7 +339,7 @@ function BudgetSection({
         </div>
         <button
           onClick={onBudgetUpdate}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           保存
         </button>

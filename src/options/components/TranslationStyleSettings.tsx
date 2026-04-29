@@ -103,7 +103,7 @@ export default function TranslationStyleSettings({
                 onClick={() => updateStyleConfig({ highlightStyle: option.value })}
                 aria-pressed={styleConfig.highlightStyle === option.value}
                 disabled={isSaving}
-                className={`p-4 border rounded-lg text-left transition-all ${
+                className={`p-4 border rounded-lg text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                   styleConfig.highlightStyle === option.value
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -251,7 +251,7 @@ export default function TranslationStyleSettings({
             role="switch"
             aria-checked={styleConfig.showOriginalAnnotation}
             aria-label="显示原文标注"
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
               styleConfig.showOriginalAnnotation ? 'bg-primary-600' : 'bg-gray-300'
             } disabled:opacity-50`}
           >
@@ -274,7 +274,7 @@ export default function TranslationStyleSettings({
             </div>
             <button
               onClick={() => setShowCustomCss(!showCustomCss)}
-              className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400"
+              className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             >
               {showCustomCss ? '收起' : '展开'}
             </button>
@@ -356,7 +356,7 @@ export default function TranslationStyleSettings({
           <button
             onClick={() => updateStyleConfig(defaultStyleConfig)}
             disabled={isSaving}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             重置为默认样式
           </button>

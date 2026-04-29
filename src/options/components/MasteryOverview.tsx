@@ -276,7 +276,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                   key={days}
                   onClick={() => setTimeRange(days as TimeRange)}
                   aria-pressed={timeRange === days}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     timeRange === days
                       ? 'bg-primary-600 text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -598,7 +598,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
           <button
             onClick={loadMasteryData}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             刷新数据
           </button>

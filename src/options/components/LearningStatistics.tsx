@@ -230,7 +230,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               key={days}
               onClick={() => setTimeRange(days as TimeRange)}
               aria-pressed={timeRange === days}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 timeRange === days
                   ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -591,7 +591,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
         <button
           onClick={loadStatisticsData}
           disabled={isLoading || isSaving}
-          className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 rounded-lg transition-colors disabled:opacity-50"
+          className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           {isLoading ? '加载中...' : '刷新数据'}
         </button>
@@ -655,7 +655,7 @@ function ChartTabButton({ id, controls, active, onClick, icon, label }: ChartTab
       aria-controls={controls}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+      className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
         active
           ? 'border-primary-500 text-primary-600 dark:text-primary-400'
           : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
