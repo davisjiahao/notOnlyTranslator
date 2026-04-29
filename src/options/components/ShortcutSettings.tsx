@@ -241,7 +241,7 @@ export default function ShortcutSettings({
                 <button
                   onClick={() => !isChromeCommand(shortcut.action) && setEditingAction(shortcut.action)}
                   disabled={isSaving || isChromeCommand(shortcut.action)}
-                  className={`px-4 py-2 border rounded-lg min-w-[120px] text-center ${
+                  className={`px-4 py-2 border rounded-lg min-w-[120px] text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     isChromeCommand(shortcut.action)
                       ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                       : 'border-gray-200 dark:border-gray-600 hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
@@ -258,7 +258,7 @@ export default function ShortcutSettings({
                 role="switch"
                 aria-checked={shortcut.enabled}
                 aria-label={`${shortcut.description} — ${shortcut.enabled ? '已启用' : '已禁用'}`}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                   shortcut.enabled ? 'bg-primary-600' : 'bg-gray-300'
                 } disabled:opacity-50`}
               >
@@ -278,13 +278,13 @@ export default function ShortcutSettings({
         <button
           onClick={resetAllShortcuts}
           disabled={isSaving}
-          className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+          className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           重置为默认
         </button>
         <button
           onClick={openChromeShortcutSettings}
-          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
           配置全局快捷键
         </button>
