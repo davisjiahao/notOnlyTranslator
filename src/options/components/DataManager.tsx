@@ -229,7 +229,7 @@ export default function DataManager() {
           tabIndex={activeTab === 'export' ? 0 : -1}
           id="tab-data-export"
           onClick={() => setActiveTab('export')}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'export'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
@@ -244,7 +244,7 @@ export default function DataManager() {
           tabIndex={activeTab === 'import' ? 0 : -1}
           id="tab-data-import"
           onClick={() => setActiveTab('import')}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'import'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
@@ -262,7 +262,7 @@ export default function DataManager() {
             setActiveTab('advanced');
             handleGetStats();
           }}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'advanced'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
@@ -286,8 +286,7 @@ export default function DataManager() {
             <button
               onClick={handleExportJSON}
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium
-                         hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               {isLoading ? '导出中...' : '导出 JSON 备份'}
             </button>
@@ -303,8 +302,7 @@ export default function DataManager() {
             <button
               onClick={handleExportCSV}
               disabled={isLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium
-                         hover:bg-green-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
             >
               {isLoading ? '导出中...' : '导出 CSV 词汇表'}
             </button>
@@ -432,8 +430,7 @@ export default function DataManager() {
           <button
             onClick={handleImport}
             disabled={isLoading}
-            className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium
-                       hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             {isLoading ? '导入中...' : '选择文件并导入'}
           </button>
@@ -507,8 +504,7 @@ export default function DataManager() {
             <button
               onClick={handleClearData}
               disabled={isLoading}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium
-                         hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
             >
               {isLoading ? '清除中...' : '清除所有数据'}
             </button>
