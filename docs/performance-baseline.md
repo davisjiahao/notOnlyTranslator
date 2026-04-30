@@ -79,11 +79,11 @@
 
 | 文件 | 大小 (KB) | 类型 |
 |------|-----------|------|
-| options-DhVZbYRb.js | 437 | Options 页面 |
+| options-CEQsVf_D.js | 449 (126 gzip) | Options 页面 |
 | with-selector-BE381vd-.js | 297 | 选择器组件 |
 | index.ts-D2g4mQ6d.js | 117 | 共享工具 |
 | index.ts-370oVde2.js | 91 | 背景脚本 |
-| popup-CMbT0K6E.js | 86 | Popup 页面 |
+| popup-BXhaCeii.js | 90 (16 gzip) | Popup 页面 |
 | MasteryOverview-CAijYZHL.js | 59 | 掌握度面板 |
 | GeneralSettings-nAb5TKH_.js | 57 | 设置面板 |
 | ApiSettings-5RyrJ_ha.js | 47 | API 设置 |
