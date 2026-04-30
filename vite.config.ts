@@ -38,6 +38,13 @@ export default defineConfig({
         popup: resolve(__dirname, 'src/popup/index.html'),
         options: resolve(__dirname, 'src/options/index.html'),
       },
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          charts: ['recharts'],
+          state: ['zustand', 'zustand/middleware'],
+        },
+      },
     },
   },
 });
