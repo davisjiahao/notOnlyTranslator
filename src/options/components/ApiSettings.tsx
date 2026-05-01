@@ -69,6 +69,9 @@ export default function ApiSettings({
   const [configTestResult, setConfigTestResult] = useState<'success' | 'error' | null>(null);
   const [configTestError, setConfigTestError] = useState<string | null>(null);
 
+  // 删除确认
+  const [configToDelete, setConfigToDelete] = useState<string | null>(null);
+
   // 模型列表
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -156,7 +159,8 @@ export default function ApiSettings({
   const saveNewConfig = async () => {
     if (!configName.trim() || !configApiKey) return;
     if (configTestResult !== 'success') {
-      alert('请先测试 API 连接');
+      setConfigTestResult('error');
+      setConfigTestError('请先测试 API 连接，确认成功后再保存');
       return;
     }
 
@@ -215,13 +219,23 @@ export default function ApiSettings({
     setEditMode('list');
   };
 
-  // 删除配置
-  const deleteConfig = (configId: string) => {
-    if (!confirm('确定要删除这个配置吗？')) return;
+  // 请求删除配置（显示内联确认）
+  const requestDeleteConfig = (configId: string) => {
+    setConfigToDelete(configId);
+  };
 
-    const newConfigs = apiConfigs.filter((c) => c.id !== configId);
-    const newActiveId = activeApiConfigId === configId ? undefined : activeApiConfigId;
+  // 确认删除配置
+  const confirmDeleteConfig = () => {
+    if (!configToDelete) return;
+    const newConfigs = apiConfigs.filter((c) => c.id !== configToDelete);
+    const newActiveId = activeApiConfigId === configToDelete ? undefined : activeApiConfigId;
     onApiConfigsUpdate(newConfigs, newActiveId);
+    setConfigToDelete(null);
+  };
+
+  // 取消删除配置
+  const cancelDeleteConfig = () => {
+    setConfigToDelete(null);
   };
 
   // 选择配置作为当前使用
@@ -312,6 +326,32 @@ export default function ApiSettings({
             </button>
           </div>
 
+          {/* 删除确认 */}
+          {configToDelete && (() => {
+            const config = apiConfigs.find(c => c.id === configToDelete);
+            return config ? (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg" role="alert">
+                <p className="text-sm text-red-700 dark:text-red-400 mb-3">
+                  确定要删除配置「<strong>{config.name}</strong>」吗？此操作不可撤销。
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={confirmDeleteConfig}
+                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  >
+                    确定删除
+                  </button>
+                  <button
+                    onClick={cancelDeleteConfig}
+                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : null;
+          })()}
+
           {testedConfigs.length > 0 ? (
             <ul className="space-y-3 list-none">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
@@ -361,7 +401,7 @@ export default function ApiSettings({
                         </svg>
                       </button>
                       <button
-                        onClick={() => deleteConfig(config.id)}
+                        onClick={() => requestDeleteConfig(config.id)}
                         aria-label={`删除配置：${config.name}`}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
                       >
