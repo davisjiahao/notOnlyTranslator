@@ -178,6 +178,7 @@ export const ErrorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedError, setSelectedError] = useState<ErrorEntry | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingClear, setPendingClear] = useState(false);
 
   // 过滤状态
   const [filters, setFilters] = useState<{
@@ -245,10 +246,13 @@ export const ErrorDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [loadStats, loadErrors]);
 
-  // 清除所有错误
-  const handleClearAll = async () => {
-    if (!confirm('确定要清除所有错误记录吗？此操作不可恢复。')) return;
+  // 请求清除所有错误（显示内联确认）
+  const requestClearAll = () => {
+    setPendingClear(true);
+  };
 
+  // 执行清除
+  const executeClearAll = async () => {
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'CLEAR_ALL_ERRORS'
@@ -259,7 +263,13 @@ export const ErrorDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('清除错误失败:', error);
+    } finally {
+      setPendingClear(false);
     }
+  };
+
+  const cancelClearAll = () => {
+    setPendingClear(false);
   };
 
   // 删除单个错误
@@ -390,6 +400,27 @@ export const ErrorDashboard: React.FC = () => {
       )}
 
       {/* 操作按钮 */}
+      {pendingClear && (
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg" role="alert">
+          <p className="text-sm text-red-700 dark:text-red-400 mb-3">
+            确定要清除所有错误记录吗？此操作不可恢复。
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={executeClearAll}
+              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+            >
+              确定
+            </button>
+            <button
+              onClick={cancelClearAll}
+              className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-3">
         <button
           onClick={handleReportAll}
@@ -399,7 +430,7 @@ export const ErrorDashboard: React.FC = () => {
           上报未上报错误 ({stats?.unreportedErrors || 0})
         </button>
         <button
-          onClick={handleClearAll}
+          onClick={requestClearAll}
           disabled={!stats || stats.totalErrors === 0}
           className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
         >
