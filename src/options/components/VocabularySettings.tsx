@@ -12,6 +12,7 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'alpha'>('recent');
+  const [pendingClear, setPendingClear] = useState(false);
 
   useEffect(() => {
     loadVocabulary();
@@ -45,9 +46,11 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
     }
   };
 
-  const clearAllWords = async () => {
-    if (!confirm('确定要清空生词本吗？此操作不可恢复。')) return;
+  const requestClearAll = () => {
+    setPendingClear(true);
+  };
 
+  const executeClearAll = async () => {
     try {
       // 逐个删除所有单词
       for (const word of words) {
@@ -59,7 +62,13 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
       setWords([]);
     } catch (error) {
       logger.error('Failed to clear vocabulary:', error);
+    } finally {
+      setPendingClear(false);
     }
+  };
+
+  const cancelClearAll = () => {
+    setPendingClear(false);
   };
 
   // Filter and sort words
@@ -216,13 +225,34 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
                 {searchTerm && ` (筛选自 ${words.length} 个)`}
               </span>
               {words.length > 0 && (
-                <button
-                  onClick={clearAllWords}
-                  disabled={isSaving}
-                  className="px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                >
-                  清空生词本
-                </button>
+                pendingClear ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-red-600 dark:text-red-400" role="alert">
+                      确定要清空生词本吗？此操作不可恢复。
+                    </span>
+                    <button
+                      onClick={executeClearAll}
+                      disabled={isSaving}
+                      className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                    >
+                      确定
+                    </button>
+                    <button
+                      onClick={cancelClearAll}
+                      className="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                    >
+                      取消
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={requestClearAll}
+                    disabled={isSaving}
+                    className="px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  >
+                    清空生词本
+                  </button>
+                )
               )}
             </div>
           </>
