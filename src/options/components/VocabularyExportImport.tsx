@@ -37,6 +37,7 @@ export default function VocabularyExportImport({
   });
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /**
@@ -241,7 +242,7 @@ export default function VocabularyExportImport({
       const filtered = filterWords(words, masteryProfile, exportOptions);
 
       if (filtered.length === 0) {
-        alert('没有符合条件的词汇可导出');
+        setExportError('没有符合条件的词汇可导出');
         setIsExporting(false);
         return;
       }
@@ -287,9 +288,11 @@ export default function VocabularyExportImport({
       URL.revokeObjectURL(url);
 
       setShowExportModal(false);
+      setExportError(null);
+      setExportError(null);
     } catch (error) {
       logger.error('Export failed:', error);
-      alert('导出失败：' + (error as Error).message);
+      setExportError('导出失败：' + (error as Error).message);
     } finally {
       setIsExporting(false);
     }
@@ -544,10 +547,17 @@ export default function VocabularyExportImport({
               </div>
             )}
 
+            {/* 导出错误提示 */}
+            {exportError && (
+              <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400" role="alert">
+                {exportError}
+              </div>
+            )}
+
             {/* 操作按钮 */}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowExportModal(false)}
+                onClick={() => { setShowExportModal(false); setExportError(null); }}
                 className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               >
                 取消
