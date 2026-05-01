@@ -40,6 +40,7 @@ export default function DataManager() {
     syncQuota: number;
     localQuota: number;
   } | null>(null);
+  const [pendingClear, setPendingClear] = useState(false);
 
   // 显示消息
   const showMessage = (type: 'success' | 'error' | 'warning', text: string) => {
@@ -158,13 +159,15 @@ export default function DataManager() {
     input.click();
   }, [importOptions]);
 
-  // 清除所有数据
-  const handleClearData = useCallback(async () => {
-    if (!confirm('确定要清除所有数据吗？此操作不可恢复！')) {
-      return;
-    }
+  // 请求清除所有数据（显示内联确认）
+  const requestClearData = useCallback(() => {
+    setPendingClear('first');
+  }, []);
 
-    if (!confirm('再次确认：这将删除所有用户配置、词汇、掌握度数据。确定继续吗？')) {
+  // 执行清除
+  const handleClearData = useCallback(async () => {
+    if (pendingClear === 'first') {
+      setPendingClear('second');
       return;
     }
 
@@ -177,7 +180,12 @@ export default function DataManager() {
       showMessage('error', '清除失败：' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsLoading(false);
+      setPendingClear(false);
     }
+  }, [pendingClear]);
+
+  const cancelClear = useCallback(() => {
+    setPendingClear(false);
   }, []);
 
   // 获取存储统计
@@ -501,9 +509,36 @@ export default function DataManager() {
             <p className="text-sm text-red-600 dark:text-red-300 mb-4">
               以下操作不可恢复，请谨慎使用。
             </p>
+
+            {/* 内联确认 */}
+            {pendingClear && (
+              <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg" role="alert">
+                <p className="text-sm text-red-800 dark:text-red-300 mb-2">
+                  {pendingClear === 'first'
+                    ? '确定要清除所有数据吗？此操作不可恢复！'
+                    : '再次确认：这将删除所有用户配置、词汇、掌握度数据。确定继续吗？'}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleClearData}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  >
+                    {pendingClear === 'first' ? '下一步' : '确定清除'}
+                  </button>
+                  <button
+                    onClick={cancelClear}
+                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={handleClearData}
-              disabled={isLoading}
+              onClick={requestClearData}
+              disabled={isLoading || pendingClear}
               className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
             >
               {isLoading ? '清除中...' : '清除所有数据'}
