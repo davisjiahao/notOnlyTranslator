@@ -37,6 +37,7 @@ export default function CacheStatsPanel() {
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'clear' | 'reset' | null>(null);
 
   /**
    * 加载缓存统计信息
@@ -87,37 +88,52 @@ export default function CacheStatsPanel() {
   }, [loadStats]);
 
   /**
-   * 清空缓存
+   * 请求清空缓存（显示内联确认）
    */
-  const handleClearCache = async () => {
-    if (!confirm('确定要清空所有翻译缓存吗？')) return;
-
-    try {
-      await chrome.runtime.sendMessage({ type: 'CLEAR_TRANSLATION_CACHE' });
-      setMessage('缓存已清空');
-      setTimeout(() => setMessage(null), 3000);
-      loadStats();
-    } catch (error) {
-      setMessage('清空失败');
-      setTimeout(() => setMessage(null), 3000);
-    }
+  const requestClearCache = () => {
+    setPendingAction('clear');
   };
 
   /**
-   * 重置统计
+   * 请求重置统计（显示内联确认）
    */
-  const handleResetStats = async () => {
-    if (!confirm('确定要重置缓存统计吗？')) return;
+  const requestResetStats = () => {
+    setPendingAction('reset');
+  };
 
-    try {
-      await chrome.runtime.sendMessage({ type: 'RESET_CACHE_METRICS' });
-      setMessage('统计已重置');
-      setTimeout(() => setMessage(null), 3000);
-      loadStats();
-    } catch (error) {
-      setMessage('重置失败');
-      setTimeout(() => setMessage(null), 3000);
+  /**
+   * 执行已确认的操作
+   */
+  const executeAction = async () => {
+    if (pendingAction === 'clear') {
+      try {
+        await chrome.runtime.sendMessage({ type: 'CLEAR_TRANSLATION_CACHE' });
+        setMessage('缓存已清空');
+        setTimeout(() => setMessage(null), 3000);
+        loadStats();
+      } catch (error) {
+        setMessage('清空失败');
+        setTimeout(() => setMessage(null), 3000);
+      }
+    } else if (pendingAction === 'reset') {
+      try {
+        await chrome.runtime.sendMessage({ type: 'RESET_CACHE_METRICS' });
+        setMessage('统计已重置');
+        setTimeout(() => setMessage(null), 3000);
+        loadStats();
+      } catch (error) {
+        setMessage('重置失败');
+        setTimeout(() => setMessage(null), 3000);
+      }
     }
+    setPendingAction(null);
+  };
+
+  /**
+   * 取消操作
+   */
+  const cancelAction = () => {
+    setPendingAction(null);
   };
 
   /**
@@ -255,15 +271,39 @@ export default function CacheStatsPanel() {
 
         {/* 操作按钮 */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          {/* 操作确认 */}
+          {pendingAction && (
+            <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg" role="alert">
+              <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">
+                {pendingAction === 'clear'
+                  ? '确定要清空所有翻译缓存吗？'
+                  : '确定要重置缓存统计吗？'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={executeAction}
+                  className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                >
+                  确定
+                </button>
+                <button
+                  onClick={cancelAction}
+                  className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex gap-3">
             <button
-              onClick={handleClearCache}
+              onClick={requestClearCache}
               className="flex-1 py-2 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
               清空缓存
             </button>
             <button
-              onClick={handleResetStats}
+              onClick={requestResetStats}
               className="flex-1 py-2 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
               重置统计
