@@ -22,6 +22,7 @@ export default function CostDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [periodDays, setPeriodDays] = useState(30);
   const [monthlyBudget, setMonthlyBudget] = useState(10);
+  const [pendingClear, setPendingClear] = useState(false);
 
   // 加载数据
   const loadData = useCallback(() => {
@@ -62,13 +63,21 @@ export default function CostDashboard() {
     loadData();
   };
 
-  // 清空数据
-  const handleClearData = () => {
-    if (confirm('确定要清空所有成本记录吗？此操作不可恢复。')) {
-      const tracker = getCostTracker();
-      tracker.clear();
-      loadData();
-    }
+  // 请求清空数据（显示内联确认）
+  const requestClearData = () => {
+    setPendingClear(true);
+  };
+
+  // 执行清空
+  const executeClear = () => {
+    const tracker = getCostTracker();
+    tracker.clear();
+    setPendingClear(false);
+    loadData();
+  };
+
+  const cancelClear = () => {
+    setPendingClear(false);
   };
 
   if (isLoading) {
@@ -144,8 +153,31 @@ export default function CostDashboard() {
 
       {/* 操作按钮 */}
       <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+        {pendingClear && (
+          <div className="flex-1 mr-4">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-400 mb-2">
+                确定要清空所有成本记录吗？此操作不可恢复。
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={executeClear}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                >
+                  确定
+                </button>
+                <button
+                  onClick={cancelClear}
+                  className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <button
-          onClick={handleClearData}
+          onClick={requestClearData}
           className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
         >
           清空所有记录
