@@ -17,6 +17,8 @@ export default function GeneralSettings({
   const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'warning' | 'success'>('warning');
+  const [clearDataStep, setClearDataStep] = useState<0 | 1 | 2>(0);
+  const [deleteInput, setDeleteInput] = useState('');
 
   // 显示 toast 提示
   const showToast = (message: string, type: 'warning' | 'success' = 'warning') => {
@@ -594,31 +596,59 @@ export default function GeneralSettings({
               以下操作不可撤销，请谨慎操作。建议在清除数据前先导出备份。
             </p>
           </div>
+
+          {/* 第一步：文本确认 */}
+          {clearDataStep === 1 && (
+            <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-400 mb-3">
+                警告：此操作将永久删除所有数据，包括学习记录、生词本、所有设置。请输入 <code className="px-1 py-0.5 bg-red-100 dark:bg-red-800 rounded text-xs font-mono">DELETE</code> 确认。
+              </p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  placeholder='输入 DELETE 确认'
+                  className="flex-1 px-3 py-2 border border-red-300 dark:border-red-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-800 dark:text-white text-sm"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (deleteInput === 'DELETE') {
+                      await chrome.storage.local.clear();
+                      await chrome.storage.sync.clear();
+                      showToast('所有数据已清除，页面即将刷新', 'success');
+                      setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                      setClearDataStep(0);
+                      setDeleteInput('');
+                      showToast('输入不正确，操作已取消', 'warning');
+                    }
+                  }}
+                  disabled={deleteInput === ''}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                >
+                  确定删除
+                </button>
+                <button
+                  onClick={() => {
+                    setClearDataStep(0);
+                    setDeleteInput('');
+                  }}
+                  className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
-            onClick={async () => {
-              // 第一次确认
-              if (
-                !confirm(
-                  '⚠️ 警告：此操作将永久删除所有数据！\n\n包括：\n• 学习记录\n• 生词本\n• 所有设置\n\n确定要继续吗？'
-                )
-              ) {
-                return;
-              }
-              // 第二次确认
-              const input = prompt('请输入 "DELETE" 确认清除此操作：');
-              if (input !== 'DELETE') {
-                if (input !== null) {
-                  alert('输入不正确，操作已取消');
-                }
-                return;
-              }
-              // 执行清除
-              await chrome.storage.local.clear();
-              await chrome.storage.sync.clear();
-              alert('所有数据已清除，页面即将刷新');
-              window.location.reload();
-            }}
-            className="w-full py-3 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+            onClick={() => setClearDataStep(1)}
+            disabled={clearDataStep === 1}
+            className="w-full py-3 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
