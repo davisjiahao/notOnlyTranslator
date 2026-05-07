@@ -147,7 +147,7 @@ function NotificationToast({
 
         <div className="flex items-start gap-3 relative">
           {/* 图标 */}
-          <div className="text-3xl animate-bounce">
+          <div className="text-3xl animate-bounce" aria-hidden="true">
             {achievement.icon}
           </div>
 
@@ -160,7 +160,7 @@ function NotificationToast({
               <span className="text-xs text-gray-500">+{achievement.points} 积分</span>
             </div>
             <h4 className={`font-bold ${colors.text} mt-1`}>
-              🎉 {achievement.name}
+              <span aria-hidden="true">🎉</span> {achievement.name}
             </h4>
             <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
               {achievement.description}

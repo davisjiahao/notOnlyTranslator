@@ -55,7 +55,7 @@ export default function ReviewReminderSettings({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            📚 复习提醒
+            <span aria-hidden="true">📚</span> 复习提醒
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             基于间隔重复算法，在最佳时机提醒你复习生词
@@ -230,7 +230,7 @@ export default function ReviewReminderSettings({
       {/* 说明信息 */}
       <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
         <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-          💡 关于间隔重复
+          <span aria-hidden="true">💡</span> 关于间隔重复
         </h4>
         <p className="text-xs text-blue-700 dark:text-blue-400">
           系统使用 SM-2 算法计算最佳复习时机。每次你正确识别一个单词，

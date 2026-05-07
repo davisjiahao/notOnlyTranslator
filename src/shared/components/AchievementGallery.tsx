@@ -87,7 +87,7 @@ export function AchievementGallery({ onClose }: AchievementGalleryProps) {
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">🏆 我的成就</h2>
+            <h2 className="text-xl font-bold"><span aria-hidden="true">🏆</span> 我的成就</h2>
             <p className="text-blue-100 text-sm mt-1">
               已解锁 {unlockedCount}/{totalCount} 个成就 · 总积分 {totalPoints}
             </p>
@@ -147,7 +147,7 @@ export function AchievementGallery({ onClose }: AchievementGalleryProps) {
 
         {filteredProgress.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-4xl mb-2">🎯</p>
+            <p className="text-4xl mb-2" aria-hidden="true">🎯</p>
             <p>暂无{filter === 'unlocked' ? '已解锁' : filter === 'locked' ? '未解锁' : ''}成就</p>
           </div>
         )}

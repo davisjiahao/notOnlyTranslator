@@ -38,7 +38,7 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
         <div className={`
           text-3xl p-2 rounded-lg
           ${isUnlocked ? 'bg-white/60' : 'bg-gray-200'}
-        `}>
+        `} aria-hidden="true">
           {achievement.icon}
         </div>
         <div className="flex-1 min-w-0">

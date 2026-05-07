@@ -320,7 +320,7 @@ export default function VocabularyRecommendation({
               {dailyPlan.newWords.length > 0 && (
                 <div className="mb-6">
                   <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-                    🆕 新词学习
+                    <span aria-hidden="true">🆕</span> 新词学习
                   </h4>
                   <div className="grid gap-3">
                     {dailyPlan.newWords.slice(0, 6).map((rec, index) => (
@@ -340,7 +340,7 @@ export default function VocabularyRecommendation({
               {dailyPlan.reviewWords.length > 0 && (
                 <div>
                   <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-                    🔄 复习巩固
+                    <span aria-hidden="true">🔄</span> 复习巩固
                   </h4>
                   <div className="grid gap-3">
                     {dailyPlan.reviewWords.slice(0, 4).map((rec, index) => (

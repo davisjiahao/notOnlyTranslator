@@ -57,7 +57,7 @@ export function AchievementUnlockModal({
           w-24 h-24 mx-auto rounded-full flex items-center justify-center text-5xl mb-4
           ${colors.bg} ${colors.border} border-4
           ${isUnlocked ? 'animate-bounce' : 'grayscale'}
-        `}>
+        `} aria-hidden="true">
           {achievement.icon}
         </div>
 
@@ -65,7 +65,7 @@ export function AchievementUnlockModal({
         {isUnlocked && (
           <div className="text-center mb-4">
             <span className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-sm font-bold px-4 py-1 rounded-full">
-              🎉 成就解锁！
+              <span aria-hidden="true">🎉</span> 成就解锁！
             </span>
           </div>
         )}
