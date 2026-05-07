@@ -136,7 +136,8 @@ export class TranslationDisplay {
 
   /**
    * 模式1: 行内翻译（非侵入式）
-   * 在原文中找到生词位置，用 span 包装并在后面添加译文
+   * 在原文中找到生词位置，用 mark 包装高亮，译文通过 Tooltip 展示
+   * 不向 DOM 注入额外文本，避免破坏页面布局
    */
   private static applyInlineModeNonInvasive(
     paragraph: HTMLElement,
@@ -145,9 +146,9 @@ export class TranslationDisplay {
     // 按位置从后往前排序（避免修改DOM时位置偏移）
     const sortedWords = [...result.words].sort((a, b) => b.position[0] - a.position[0]);
 
-    // 遍历每个生词，在原文中找到并包装
+    // 遍历每个生词，在原文中找到并包装（不注入行内译文）
     for (const word of sortedWords) {
-      this.wrapWordInText(paragraph, word, true);
+      this.wrapWordInText(paragraph, word, false);
     }
 
     paragraph.classList.add('not-translator-processed');
