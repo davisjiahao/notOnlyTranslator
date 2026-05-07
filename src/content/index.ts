@@ -342,6 +342,17 @@ class NotOnlyTranslator {
     // 滚动到元素
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
+    // WCAG 2.4.3: 将键盘焦点移动到目标元素
+    // 导航的元素可能没有 tabindex，临时设置为可编程聚焦
+    element.setAttribute('tabindex', '-1');
+    element.focus();
+    // 失去焦点时恢复，避免干扰页面原有焦点顺序
+    const onBlur = () => {
+      element.removeAttribute('tabindex');
+      element.removeEventListener('blur', onBlur);
+    };
+    element.addEventListener('blur', onBlur);
+
     // 添加导航高亮效果
     this.navigationManager.highlightNavigationElement(element);
 
