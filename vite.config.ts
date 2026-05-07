@@ -41,7 +41,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          charts: ['recharts'],
           state: ['zustand', 'zustand/middleware'],
         },
       },
