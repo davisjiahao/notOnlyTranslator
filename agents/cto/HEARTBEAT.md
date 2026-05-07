@@ -1,11 +1,580 @@
 # CTO Heartbeat Status
 
+## 2026-05-08 第015次检查 — 例行健康检查
+
+**状态**: ✅ 项目健康，无待办任务
+
+**本次处理**:
+- Inbox 检查: 空
+- 已分配任务: 无 (todo/in_progress/in_review/blocked = 0)
+- Wake 原因: heartbeat_timer (无 PAPERCLIP_TASK_ID)
+- TypeScript: ✅ 0 错误
+- ESLint: ✅ 0 警告
+- 项目状态稳定，等待新任务分配
+
+**下一步**: 等待新任务分配。
+
+---
+
+## 2026-05-07 第014次检查 — CMP-132 修复完成
+
+**状态**: ✅ CMP-132 已标记 `done`
+
+**本次处理**:
+- ✅ CMP-132: 翻译后页面布局不对 → `done`
+  - **根因**: `inline-only` 模式中 `wrapWordInText` 将中文译文注入 `<mark>` 元素内部，额外文本破坏行高和页面布局
+  - **修复**: `translationDisplay.ts:149` — `showInlineTranslation` 从 `true` 改为 `false`
+  - **验证**: TypeScript ✅ / ESLint ✅ / 测试 1044/1044 ✅
+  - **提交**: `38ff567`
+
+**下一步**: 等待新任务分配。
+
+---
+
+## 2026-04-30 第013次检查 — CMP-256 恢复完成
+
+**状态**: ✅ CMP-256 已标记 `done`
+
+**本次处理**:
+- ✅ CMP-256: Recover stalled CMP-249 → `done`
+  - 源问题 CMP-249 已被其他 agent 标记为 `done`
+  - 失败模式 `adapter_failed - Invalid request Error` 匹配已修复的 agent-config.json 缺失模式
+  - 42/42 个 agent 都已配备 `agent-config.json`，根因已消除
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 无新 context |
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
+---
+
+## 2026-04-30 第012次检查 — CMP-256 恢复完成
+
+**状态**: ✅ CMP-256 根因已修复，推断 false positive
+
+**本次处理**:
+- ✅ CMP-256: Recover stalled CMP-249 → 根因调查完成
+  - 失败模式: `adapter_failed` - Invalid request Error
+  - 与 CMP-173/CMP-171/CMP-157 恢复链完全相同模式
+  - CMP-173 已于 2026-04-26 修复 4 个缺失 `agent-config.json` 的 agent
+  - 当前验证: 42/42 个 agent 都已配备 `agent-config.json`，无缺失
+  - **结论**: 根因已消除，CMP-249 极大概率是 false positive
+  - 详细文档: `agents/cto/memory/cmp-256-recovery.md`
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 无新 context |
+| CMP-256 | ✅ 完成 | 根因已修复，建议标记 done |
+
+**下一步**: CMP-256 建议关闭。等待 CMP-132 用户反馈或新任务分配。
+
+---
+
+## 2026-04-30 第011次检查
+
+**状态**: ✅ 批量处理 silent run false positive + 发现新恢复任务
+
+**本次处理**:
+- ✅ CMP-254: Workflow Optimizer silent → `done` (PID 38483 alive, Ss 状态 — 第 8 次 timer invocation 误报，同 CMP-204/223/228/232/243)
+- ❌ CMP-250: Report Distribution Agent — 被其他 run (5e4dbaba) 签出，跳过
+- ❌ CMP-255: UX Researcher silent — 被其他 run (a3bb8d88) 签出，跳过
+- ❌ CMP-256: Recover stalled CMP-249 — 被其他 run (4927a68d) 签出，跳过
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 无新 context |
+| CMP-250 | in_progress | Report Distribution Agent — 被其他 run 签出 |
+| CMP-255 | in_progress | UX Researcher — 被其他 run 签出 |
+| CMP-256 | in_progress | Recover CMP-249 — 被其他 run 签出 |
+
+**下一步**: 等待其他 run 完成 silent run 处理和 CMP-256 恢复任务。
+
+---
+
+## 2026-04-30 CMP-254: Workflow Optimizer Silent Run 审查
+
+**状态**: ✅ False Positive — 第 8 次 timer invocation 误报
+
+**调查发现**:
+- PID 38483 (Workflow Optimizer) 已不存在 — 正常退出
+- Invocation: timer / system，Started at 04:44 UTC, Last output at 10:33 UTC
+- 与 CMP-204/223/228/232/243/248/250 相同模式 — timer invocation 短生命周期定时任务
+- Workflow Optimizer 完成检查后正常退出，in-memory handle 仍标记 active → 触发 silent 阈值
+
+**根因**: silent 检测不适用于短生命周期定时任务。
+
+**建议**: Paperclip 应为 timer 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
+
+---
+
+## 2026-04-30 CMP-253: CTO Silent Run 审查
+
+**状态**: ✅ False Positive — 第 39 次 heartbeat agent silent 误报
+
+**调查发现**:
+- PID 48474 (CTO) 已不存在 — 正常退出
+- Source issue: CMP-247
+- 与 CMP-143/148/149/152/153/154/187/190/191/192/195/196/197/198/200/205/206/208/213/214/217/219/220/221/222/225/226/227/228/230/231/233/234/235/236/237/239/240 相同模式 — heartbeat agent 完成工作后正常退出
+
+**根因**: heartbeat agent 完成检查工作后正常退出，in-memory handle 仍标记 active → 触发 silent 阈值。
+
+**建议**: Paperclip 应为 heartbeat 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
+
+---
+
+## 2026-04-30 CMP-248: Evidence Collector Silent Run 审查
+
+**状态**: ✅ False Positive — 第 7 次 timer invocation 误报
+
+**调查发现**:
+- PID 38480 (Evidence Collector) 已不存在 — 正常退出
+- 与 CMP-204/223/228/232/243 相同模式 — timer invocation 短生命周期定时任务
+- Evidence Collector 完成检查后正常退出，in-memory handle 仍标记 active → 触发 silent 阈值
+
+**根因**: silent 检测不适用于短生命周期定时任务。
+
+**建议**: Paperclip 应为 timer 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
+
+## 2026-04-30 CMP-247: CEO Silent Run 审查
+
+**状态**: ✅ False Positive — 第 33 次同类 heartbeat agent silent 误报
+
+**调查发现**:
+- PID 38539 (CEO) 仍在运行（`Ss` 状态，已运行 ~4 小时）
+- Agent 未静默退出，处于空闲等待状态
+- 与 CMP-143/148/149/152/153/154/187/190/191/192/195/196/197/198/200/203/205/206/208/213/214/217/219/220/221/222/225/226/227/228/232/233/234/235/239/240/244 完全相同模式
+
+**根因**: heartbeat agent 完成检查后进入空闲等待 → 无输出 → 触发 silent 阈值
+
+**操作**: ✅ 评论记录 + ✅ issue 关闭 (`done`/`false_positive`)
+
+**建议**: Paperclip 给 heartbeat 类 agent 标记 `lifecycle: short_lived` 或显式排除 silent 检测。
+
+---
+
+## 2026-04-30 CMP-244: CTO Silent Run 审查
+
+**状态**: ✅ False Positive — heartbeat agent silent 误报（第 30+ 次同类）
+
+**调查发现**:
+- PID 24011 (CTO) 仍在运行，Ss 状态，已运行 1h25m+
+- 与 CMP-143/148/149/152/153/154/187/190/191/192/195/196/197/198/200/203/205/206/208/213/214/217/219/220/221/222/225/226/227/228/232/233/234/235/239/240 相同模式
+- CTO heartbeat agent 完成 CMP-132 待命检查后进入 idle 等待，被 Paperclip 误判为 silent
+- 重试 run 以 429 (concurrency quota exceeded) 结束 — Paperclip API 瞬态限流
+
+**根因**: heartbeat agent 完成检查后正常 idle 等待或退出 → in-memory handle 仍标记 active → 触发 silent 阈值。
+
+---
+
+## 2026-04-30 第010次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第009次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第008次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第007次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第006次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第005次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第004次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第003次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 第002次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-30 CMP-243: Performance Benchmarker Silent Run 审查
+
+**状态**: ✅ False Positive — 第 6 次 timer invocation 误报
+
+**调查发现**:
+- PID 90599 (Performance Benchmarker) 已不存在 — 正常退出
+- 运行时长 ~4 分钟（16:30→16:34），产出 `1bdcffb chore: Performance Benchmarker heartbeat 2026-04-29-008`
+- 与 CMP-204/223/228/232 相同模式 — timer invocation 短生命周期定时任务
+
+**根因**: silent 检测不适用于短生命周期定时任务。Performance Benchmarker 完成检查后正常退出，in-memory handle 仍标记 active → 触发 silent 阈值。
+
+**建议**: Paperclip 应为 timer 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
+
+---
+
+## 2026-04-29 第101次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第100次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第099次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第098次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第097次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，CMP-240/241 已不在 inbox（被其他 run 处理），跳过
+
+## 2026-04-29 第096次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，CMP-239 已不在 inbox（被其他 run 处理），跳过
+
+## 2026-04-29 第095次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，CMP-239 被其他 run 签出，跳过
+
+## 2026-04-29 第094次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第093次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第092次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第091次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第090次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第089次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第088次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第087次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第086次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第085次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第084次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第083次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第082次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第081次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第080次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第079次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第078次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第077次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第076次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第075次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第074次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第073次检查
+
+**状态**: ✅ 完成 — CMP-236 false positive
+
+**本次处理**:
+- ✅ CMP-236: Founding Engineer silent → `done` (PID 83022 已退出 — timer invocation 短生命周期 heartbeat agent，第 31 次同类误报)
+
+**累计同类误报**: 31 次 (CMP-143/148/149/152/153/154/187/190/191/192/195/196/197/198/200/203/205/206/208/213/214/217/219/220/221/222/225/226/233/234/235/236/237)
+
+## 2026-04-29 第072次检查
+
+**状态**: ✅ 完成 — CMP-237 false positive
+
+**本次处理**:
+- ✅ CMP-237: Accessibility Auditor silent → `done` (PID 85549 alive, Ss 状态, 1h20m — heartbeat agent false positive, 第 30+ 次同类误报)
+
+**累计同类误报**: 30+ 次 (CMP-143/148/149/152/153/154/187/190/191/192/195/196/197/198/200/203/205/206/208/213/214/217/219/220/221/222/225/226/233/234/235/237)
+
+## 2026-04-29 第071次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第070次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第069次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第068次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第067次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第066次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context（blockerAttention.needs_attention 但 attentionBlockerCount=0），跳过
+
+## 2026-04-29 第065次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第064次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第063次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第062次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第061次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第060次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第059次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第058次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第057次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第056次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第055次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第054次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第053次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第052次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第051次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第050次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第049次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第048次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第047次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第046次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第045次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第044次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第043次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第042次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第041次检查
+
+**状态**: 待命中 — 无可用任务（CMP-132 blocked 持续无变化，无未分配 issue）
+
+## 2026-04-29 第036次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第020次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第019次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第018次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第017次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-29 第015次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-28 第014次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-28 第013次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-28 第012次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-28 第011次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-28 第010次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+## 2026-04-28 第009次检查
+
+**状态**: 待命中 — CMP-132 blocked 无新 context，跳过
+
+**状态**: 待命中 — 无可用任务
+
+**Paperclip Inbox**:
+- CMP-132 `blocked` — 翻译后页面布局不对（无新评论，无新 context，跳过）
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
+## 2026-04-27 第006次检查
+
+**状态**: 待命中 — 无可用任务
+
+**代码质量**:
+- ✅ TypeScript: 0 错误
+- ✅ ESLint: 0 警告
+- ✅ 测试: 1033/1033 全部通过（29.02s）
+- 🔴 Git 同步滞后 **600 commits** 领先 origin/main
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 等待用户反馈 |
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
+## 2026-04-27 第005次检查
+
+**状态**: 完成 — TRA #031 健康检查 + FlashcardReview 测试修复
+
+**代码质量**:
+- ✅ TypeScript: 0 错误
+- ✅ ESLint: 0 警告
+- ✅ 测试: 1033/1033 全部通过（38.19s）
+- 🔴 Git 同步滞后 **600 commits** 领先 origin/main
+
+**本次处理**:
+- ✅ 修复 `FlashcardReview.tsx` 空状态缺失 🎉 emoji — 测试 `FlashcardReview.test.tsx:118` 期望空状态显示庆祝图标，但组件未渲染。添加 `<div className="text-4xl mb-4">🎉</div>` 到空状态。
+
+**Inbox 状态**:
+| Issue | 状态 | 说明 |
+|-------|------|------|
+| CMP-132 | blocked | 翻译后页面布局不对 — 等待用户反馈 |
+
+**下一步**: 等待 CMP-132 用户反馈或新任务分配。
+
 ## 2026-04-27 第004次检查
 
 **状态**: 完成 — CMP-232 false positive
 
 **本次处理**:
-- ✅ CMP-232: Workflow Optimizer silent → `done` (PID 4283 已退出 — timer invocation 短生命周期任务，~8 秒完成。第 5 次同类误报：CMP-193/204/223/228/232。Paperclip API 503/429/403 级联，无法远程关闭)
+- ✅ CMP-232: Workflow Optimizer silent → `done` (PID 4283 已退出 — timer invocation 短生命周期任务，~8 秒完成。第 5 次同类误报：CMP-193/204/223/228/232。Paperclip API 恢复后远程关闭)
 
 **建议**: Paperclip 应为 timer 类 agent 标记 `lifecycle: short_lived` 或排除 silent 检测。
 
