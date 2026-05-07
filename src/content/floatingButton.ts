@@ -108,7 +108,7 @@ export class FloatingButton {
     // 创建按钮内容
     this.container.innerHTML = `
       <div class="not-translator-floating-btn-inner">
-        <span class="not-translator-floating-btn-icon">🌐</span>
+        <span class="not-translator-floating-btn-icon" aria-hidden="true">🌐</span>
         <span class="not-translator-floating-btn-text">翻译</span>
       </div>
     `;
@@ -185,7 +185,7 @@ export class FloatingButton {
 
     const footer = document.createElement('div');
     footer.className = 'not-translator-floating-panel-footer';
-    footer.innerHTML = '<button type="button" class="not-translator-floating-minimize" title="最小化到角落">最小化</button>';
+    footer.innerHTML = '<button type="button" class="not-translator-floating-minimize" aria-label="最小化到角落" title="最小化到角落">最小化</button>';
 
     this.panel.appendChild(header);
     this.panel.appendChild(modeContent);
