@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTablistKeyboard } from '@/shared/hooks';
 import {
   RecommendationStrategy,
   getRecommendations,
@@ -37,6 +38,13 @@ export default function VocabularyRecommendation({
   const [strategy, setStrategy] = useState<RecommendationStrategy>(RecommendationStrategy.MIXED);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+
+  const tabs: ViewMode[] = ['recommendations', 'daily', 'settings'];
+  const { onKeyDown: onTabKeyDown } = useTablistKeyboard(
+    tabs.length,
+    tabs.indexOf(viewMode),
+    (index) => setViewMode(tabs[index])
+  );
 
   // 加载推荐
   const loadRecommendations = useCallback(async () => {
@@ -182,6 +190,7 @@ export default function VocabularyRecommendation({
           id="tab-recommendations"
           tabIndex={viewMode === 'recommendations' ? 0 : -1}
           onClick={() => setViewMode('recommendations')}
+          onKeyDown={onTabKeyDown(0)}
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             viewMode === 'recommendations'
               ? 'text-blue-600 border-b-2 border-blue-600'
@@ -197,6 +206,7 @@ export default function VocabularyRecommendation({
           id="tab-daily"
           tabIndex={viewMode === 'daily' ? 0 : -1}
           onClick={() => setViewMode('daily')}
+          onKeyDown={onTabKeyDown(1)}
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             viewMode === 'daily'
               ? 'text-blue-600 border-b-2 border-blue-600'
@@ -212,6 +222,7 @@ export default function VocabularyRecommendation({
           id="tab-settings"
           tabIndex={viewMode === 'settings' ? 0 : -1}
           onClick={() => setViewMode('settings')}
+          onKeyDown={onTabKeyDown(2)}
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             viewMode === 'settings'
               ? 'text-blue-600 border-b-2 border-blue-600'

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTablistKeyboard } from '@/shared/hooks';
 import type {
   CEFRLevel,
   WordMasteryStats,
@@ -59,6 +60,13 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const [activeTab, setActiveTab] = useState<ChartTab>('vocabulary');
   const [isLoading, setIsLoading] = useState(true);
+
+  const chartTabs: ChartTab[] = ['vocabulary', 'activity', 'progress'];
+  const { onKeyDown: onChartTabKeyDown } = useTablistKeyboard(
+    chartTabs.length,
+    chartTabs.indexOf(activeTab),
+    (index) => setActiveTab(chartTabs[index])
+  );
 
   // 数据状态
   const [stats, setStats] = useState<WordMasteryStats | null>(null);
@@ -358,6 +366,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               controls="panel-vocabulary"
               active={activeTab === 'vocabulary'}
               onClick={() => setActiveTab('vocabulary')}
+              onKeyDown={onChartTabKeyDown(0)}
               icon="📈"
               label="词汇趋势"
             />
@@ -366,6 +375,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               controls="panel-activity"
               active={activeTab === 'activity'}
               onClick={() => setActiveTab('activity')}
+              onKeyDown={onChartTabKeyDown(1)}
               icon="📊"
               label="学习活动"
             />
@@ -374,6 +384,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               controls="panel-progress"
               active={activeTab === 'progress'}
               onClick={() => setActiveTab('progress')}
+              onKeyDown={onChartTabKeyDown(2)}
               icon="🎯"
               label="等级进度"
             />
@@ -642,11 +653,12 @@ interface ChartTabButtonProps {
   controls: string;
   active: boolean;
   onClick: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
   icon: string;
   label: string;
 }
 
-function ChartTabButton({ id, controls, active, onClick, icon, label }: ChartTabButtonProps) {
+function ChartTabButton({ id, controls, active, onClick, onKeyDown, icon, label }: ChartTabButtonProps) {
   return (
     <button
       id={id}
@@ -655,6 +667,7 @@ function ChartTabButton({ id, controls, active, onClick, icon, label }: ChartTab
       aria-controls={controls}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
         active
           ? 'border-primary-500 text-primary-600 dark:text-primary-400'

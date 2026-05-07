@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTablistKeyboard } from '@/shared/hooks';
 import {
   exportToJSON,
   importFromJSON,
@@ -24,6 +25,13 @@ export default function DataManager() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const [importOptions, setImportOptions] = useState<ImportOptions>(DEFAULT_IMPORT_OPTIONS);
+
+  const tabs: Tab[] = ['export', 'import', 'advanced'];
+  const { onKeyDown: onTabKeyDown } = useTablistKeyboard(
+    tabs.length,
+    tabs.indexOf(activeTab),
+    (index) => setActiveTab(tabs[index])
+  );
   const [importPreview, setImportPreview] = useState<{
     valid: boolean;
     errors: string[];
@@ -40,7 +48,7 @@ export default function DataManager() {
     syncQuota: number;
     localQuota: number;
   } | null>(null);
-  const [pendingClear, setPendingClear] = useState(false);
+  const [pendingClear, setPendingClear] = useState<false | 'first' | 'second'>(false);
 
   // 显示消息
   const showMessage = (type: 'success' | 'error' | 'warning', text: string) => {
@@ -237,6 +245,7 @@ export default function DataManager() {
           tabIndex={activeTab === 'export' ? 0 : -1}
           id="tab-data-export"
           onClick={() => setActiveTab('export')}
+          onKeyDown={onTabKeyDown(0)}
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'export'
               ? 'text-blue-600 border-b-2 border-blue-600'
@@ -252,6 +261,7 @@ export default function DataManager() {
           tabIndex={activeTab === 'import' ? 0 : -1}
           id="tab-data-import"
           onClick={() => setActiveTab('import')}
+          onKeyDown={onTabKeyDown(1)}
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'import'
               ? 'text-blue-600 border-b-2 border-blue-600'
@@ -270,6 +280,7 @@ export default function DataManager() {
             setActiveTab('advanced');
             handleGetStats();
           }}
+          onKeyDown={onTabKeyDown(2)}
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'advanced'
               ? 'text-blue-600 border-b-2 border-blue-600'
@@ -538,7 +549,7 @@ export default function DataManager() {
 
             <button
               onClick={requestClearData}
-              disabled={isLoading || pendingClear}
+              disabled={isLoading || pendingClear !== false}
               className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
             >
               {isLoading ? '清除中...' : '清除所有数据'}
