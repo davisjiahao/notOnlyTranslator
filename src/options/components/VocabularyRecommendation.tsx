@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTablistKeyboard } from '@/shared/hooks';
 import {
   RecommendationStrategy,
@@ -40,10 +40,12 @@ export default function VocabularyRecommendation({
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
   const tabs: ViewMode[] = ['recommendations', 'daily', 'settings'];
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { onKeyDown: onTabKeyDown } = useTablistKeyboard(
     tabs.length,
     tabs.indexOf(viewMode),
-    (index) => setViewMode(tabs[index])
+    (index) => setViewMode(tabs[index]),
+    (i) => tabRefs.current[i]
   );
 
   // 加载推荐
@@ -184,6 +186,7 @@ export default function VocabularyRecommendation({
       {/* 标签页导航 */}
       <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist" aria-label="学习模式">
         <button
+          ref={el => tabRefs.current[0] = el}
           role="tab"
           aria-selected={viewMode === 'recommendations'}
           aria-controls="panel-recommendations"
@@ -200,6 +203,7 @@ export default function VocabularyRecommendation({
           推荐词汇
         </button>
         <button
+          ref={el => tabRefs.current[1] = el}
           role="tab"
           aria-selected={viewMode === 'daily'}
           aria-controls="panel-daily"
@@ -216,6 +220,7 @@ export default function VocabularyRecommendation({
           今日计划
         </button>
         <button
+          ref={el => tabRefs.current[2] = el}
           role="tab"
           aria-selected={viewMode === 'settings'}
           aria-controls="panel-settings"

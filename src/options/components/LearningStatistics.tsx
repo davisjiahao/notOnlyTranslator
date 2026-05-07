@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTablistKeyboard } from '@/shared/hooks';
 import type {
   CEFRLevel,
@@ -62,10 +62,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
   const [isLoading, setIsLoading] = useState(true);
 
   const chartTabs: ChartTab[] = ['vocabulary', 'activity', 'progress'];
+  const chartTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { onKeyDown: onChartTabKeyDown } = useTablistKeyboard(
     chartTabs.length,
     chartTabs.indexOf(activeTab),
-    (index) => setActiveTab(chartTabs[index])
+    (index) => setActiveTab(chartTabs[index]),
+    (i) => chartTabRefs.current[i]
   );
 
   // 数据状态
@@ -367,6 +369,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               active={activeTab === 'vocabulary'}
               onClick={() => setActiveTab('vocabulary')}
               onKeyDown={onChartTabKeyDown(0)}
+              onRef={el => chartTabRefs.current[0] = el}
               icon="📈"
               label="词汇趋势"
             />
@@ -376,6 +379,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               active={activeTab === 'activity'}
               onClick={() => setActiveTab('activity')}
               onKeyDown={onChartTabKeyDown(1)}
+              onRef={el => chartTabRefs.current[1] = el}
               icon="📊"
               label="学习活动"
             />
@@ -385,6 +389,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               active={activeTab === 'progress'}
               onClick={() => setActiveTab('progress')}
               onKeyDown={onChartTabKeyDown(2)}
+              onRef={el => chartTabRefs.current[2] = el}
               icon="🎯"
               label="等级进度"
             />
@@ -656,11 +661,13 @@ interface ChartTabButtonProps {
   onKeyDown: (e: React.KeyboardEvent) => void;
   icon: string;
   label: string;
+  onRef?: (el: HTMLButtonElement | null) => void;
 }
 
-function ChartTabButton({ id, controls, active, onClick, onKeyDown, icon, label }: ChartTabButtonProps) {
+function ChartTabButton({ id, controls, active, onClick, onKeyDown, icon, label, onRef }: ChartTabButtonProps) {
   return (
     <button
+      ref={onRef}
       id={id}
       role="tab"
       aria-selected={active}

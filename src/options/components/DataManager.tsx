@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTablistKeyboard } from '@/shared/hooks';
 import {
   exportToJSON,
@@ -27,10 +27,12 @@ export default function DataManager() {
   const [importOptions, setImportOptions] = useState<ImportOptions>(DEFAULT_IMPORT_OPTIONS);
 
   const tabs: Tab[] = ['export', 'import', 'advanced'];
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { onKeyDown: onTabKeyDown } = useTablistKeyboard(
     tabs.length,
     tabs.indexOf(activeTab),
-    (index) => setActiveTab(tabs[index])
+    (index) => setActiveTab(tabs[index]),
+    (i) => tabRefs.current[i]
   );
   const [importPreview, setImportPreview] = useState<{
     valid: boolean;
@@ -239,6 +241,7 @@ export default function DataManager() {
       {/* 标签页导航 */}
       <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist" aria-label="数据管理">
         <button
+          ref={el => tabRefs.current[0] = el}
           role="tab"
           aria-selected={activeTab === 'export'}
           aria-controls="panel-data-export"
@@ -255,6 +258,7 @@ export default function DataManager() {
           导出数据
         </button>
         <button
+          ref={el => tabRefs.current[1] = el}
           role="tab"
           aria-selected={activeTab === 'import'}
           aria-controls="panel-data-import"
@@ -271,6 +275,7 @@ export default function DataManager() {
           导入数据
         </button>
         <button
+          ref={el => tabRefs.current[2] = el}
           role="tab"
           aria-selected={activeTab === 'advanced'}
           aria-controls="panel-data-advanced"
