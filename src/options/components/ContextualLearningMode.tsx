@@ -300,9 +300,9 @@ export default function ContextualLearningMode() {
       {/* 提示 */}
       <div className="mt-4 text-center text-sm text-gray-400 dark:text-gray-500">
         {mode === 'contextual' ? (
-          <span>💡 在真实语境中学习单词用法，加深记忆</span>
+          <span><span aria-hidden="true">💡</span> 在真实语境中学习单词用法，加深记忆</span>
         ) : (
-          <span>💡 空格键翻转卡片，数字键 1-5 评分</span>
+          <span><span aria-hidden="true">💡</span> 空格键翻转卡片，数字键 1-5 评分</span>
         )}
       </div>
     </div>
