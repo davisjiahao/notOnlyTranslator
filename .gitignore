@@ -50,6 +50,11 @@ benchmark/results/
 .tmp
 *.tsbuildinfo
 
+# AI tooling directories
+.claude-flow/
+.omc/
+.opencode/
+
 # Auto Claude data directory
 .auto-claude/
 
@@ -60,3 +65,4 @@ benchmark/results/
 .worktrees/
 .security-key
 logs/security/
+amp
