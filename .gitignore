@@ -43,6 +43,7 @@ coverage/
 test-results/
 e2e-report/
 benchmark/results/
+.playwright-mcp/
 
 # Misc
 .cache
