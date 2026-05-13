@@ -157,8 +157,10 @@ export default function ApiSettings({
 
   // 保存新配置
   const saveNewConfig = async () => {
-    if (!configName.trim() || !configApiKey) return;
-    if (configTestResult !== 'success') {
+    const needsConnectionTest = currentProviderConfig?.requiresConnectionTest !== false;
+    if (!configName.trim()) return;
+    if (needsConnectionTest && !configApiKey) return;
+    if (needsConnectionTest && configTestResult !== 'success') {
       setConfigTestResult('error');
       setConfigTestError('请先测试 API 连接，确认成功后再保存');
       return;
@@ -623,7 +625,7 @@ export default function ApiSettings({
       {/* API Key input */}
       <div className="mb-6">
         <label htmlFor="config-api-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          API 密钥 <span className="text-red-500" aria-hidden="true">*</span>
+          API 密钥 {currentProviderConfig?.requiresConnectionTest !== false && <span className="text-red-500" aria-hidden="true">*</span>}
         </label>
         <div className="relative">
           <input
@@ -635,8 +637,9 @@ export default function ApiSettings({
               setConfigTestResult(null);
             }}
             placeholder={currentProviderConfig.apiKeyPlaceholder}
-            aria-required="true"
-            className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
+            disabled={currentProviderConfig?.requiresConnectionTest === false}
+            aria-required={currentProviderConfig?.requiresConnectionTest !== false}
+            className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-900 disabled:cursor-not-allowed"
           />
           <button
             type="button"
@@ -826,21 +829,23 @@ export default function ApiSettings({
 
       {/* Action buttons */}
       <div className="flex gap-3">
-        <button
-          onClick={testNewConfig}
-          disabled={
-            !configApiKey ||
-            isTestingConfig ||
-            (configProvider === 'custom' && !configApiUrl) ||
-            (requiresSecondaryKey(configProvider) && !configSecondaryKey)
-          }
-          className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-        >
-          {isTestingConfig ? '测试中...' : '测试连接'}
-        </button>
+        {currentProviderConfig?.requiresConnectionTest !== false && (
+          <button
+            onClick={testNewConfig}
+            disabled={
+              !configApiKey ||
+              isTestingConfig ||
+              (configProvider === 'custom' && !configApiUrl) ||
+              (requiresSecondaryKey(configProvider) && !configSecondaryKey)
+            }
+            className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+          >
+            {isTestingConfig ? '测试中...' : '测试连接'}
+          </button>
+        )}
         <button
           onClick={saveNewConfig}
-          disabled={isSaving || !configName.trim() || !configApiKey || configTestResult !== 'success'}
+          disabled={isSaving || !configName.trim() || (currentProviderConfig?.requiresConnectionTest !== false && !configApiKey) || (currentProviderConfig?.requiresConnectionTest !== false && configTestResult !== 'success')}
           className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           {isSaving ? '保存中...' : '保存配置'}
@@ -848,7 +853,7 @@ export default function ApiSettings({
       </div>
 
       {/* 保存按钮禁用原因提示 */}
-      {configApiKey && (
+      {currentProviderConfig?.requiresConnectionTest !== false && configApiKey && (
         <p className="text-xs text-amber-600 dark:text-amber-400 mt-3 text-center">
           {configTestResult !== 'success'
             ? '请先测试 API 连接成功后才能保存配置'

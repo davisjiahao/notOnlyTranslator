@@ -52,6 +52,7 @@ export interface ProviderConfig {
   authHeaderName?: string;
   docUrl: string;
   apiKeyPlaceholder: string;
+  requiresConnectionTest?: boolean;
 }
 
 export interface UnknownWordEntry {

@@ -238,6 +238,7 @@ export const PROVIDER_CONFIGS: Record<ApiProvider, ProviderConfig> = {
     recommendedModel: 'free-google-translate',
     docUrl: '',
     apiKeyPlaceholder: '无需 API Key',
+    requiresConnectionTest: false,
   },
 
   youdao: {
