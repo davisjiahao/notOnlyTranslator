@@ -517,8 +517,11 @@ export const ErrorDashboard: React.FC = () => {
             errors.map(error => (
               <div
                 key={error.id}
-                className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2 rounded-lg"
                 onClick={() => openErrorDetail(error)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openErrorDetail(error); } }}
+                tabIndex={0}
+                role="button"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

@@ -310,8 +310,11 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
             {entries.map((entry) => (
               <div
                 key={entry.id}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors cursor-pointer group"
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors cursor-pointer group focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2"
                 onClick={() => setSelectedEntry(entry)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEntry(entry); } }}
+                tabIndex={0}
+                role="button"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

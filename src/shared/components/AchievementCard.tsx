@@ -18,8 +18,11 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
   return (
     <div
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+      tabIndex={0}
+      role="button"
       className={`
-        relative p-4 rounded-xl border-2 transition-all cursor-pointer
+        relative p-4 rounded-xl border-2 transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2
         ${isUnlocked
           ? `${colors.bg} ${colors.border} hover:shadow-md`
           : 'bg-gray-50 border-gray-200 opacity-70 hover:opacity-90'
