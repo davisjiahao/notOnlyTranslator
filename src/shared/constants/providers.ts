@@ -223,6 +223,23 @@ export const PROVIDER_CONFIGS: Record<ApiProvider, ProviderConfig> = {
     apiKeyPlaceholder: 'AIza...',
   },
 
+  free_google_translate: {
+    id: 'free_google_translate',
+    name: 'Google 翻译（免费）',
+    description: '无需 API Key，使用 Google 翻译 Web 端点，开箱即用',
+    region: 'international',
+    apiFormat: 'free_google_translate',
+    defaultEndpoint: 'https://translate.googleapis.com',
+    chatEndpoint: 'https://translate.googleapis.com/translate_a/single',
+    modelsSupported: false,
+    defaultModels: [
+      { id: 'free-google-translate', name: 'Google 翻译', description: '免费 Web 端点，无需 API Key', isRecommended: true },
+    ],
+    recommendedModel: 'free-google-translate',
+    docUrl: '',
+    apiKeyPlaceholder: '无需 API Key',
+  },
+
   youdao: {
     id: 'youdao',
     name: '有道翻译',
@@ -275,7 +292,7 @@ export const PROVIDER_GROUPS: ProviderGroup[] = [
   },
   {
     label: '专业翻译服务',
-    providers: ['deepl', 'google_translate', 'youdao'],
+    providers: ['deepl', 'google_translate', 'free_google_translate', 'youdao'],
   },
   {
     label: '国内供应商',

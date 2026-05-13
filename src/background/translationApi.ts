@@ -378,9 +378,14 @@ export class TranslationApiService {
       return this.callDeepLFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
     }
 
-    // Google Translate 格式特殊处理
+    // Google Translate 格式特殊处理（付费 Cloud API）
     if (apiFormat === 'google_translate') {
       return this.callGoogleTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+    }
+
+    // Google 翻译免费 Web 端点（无需 API Key）
+    if (apiFormat === 'free_google_translate') {
+      return this.callFreeGoogleTranslateFormat(systemPrompt, userPrompt, endpoint, retryOptions);
     }
 
     // 有道翻译 格式特殊处理
@@ -597,6 +602,59 @@ export class TranslationApiService {
   }
 
   /**
+   * 调用 Google 翻译免费 Web 端点（无需 API Key）
+   * 使用 translate.googleapis.com/translate_a/single 接口
+   */
+  private static async callFreeGoogleTranslateFormat(
+    _systemPrompt: string,
+    userPrompt: string,
+    endpoint: string,
+    retryOptions: RetryOptions
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      const url = new URL(endpoint);
+      url.searchParams.append('client', 'gtx');
+      url.searchParams.append('sl', 'en');
+      url.searchParams.append('tl', 'zh-CN');
+      url.searchParams.append('dt', 't');
+      url.searchParams.append('q', userPrompt);
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new ApiError(`Google 翻译免费端点请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      }
+
+      const data = await response.json();
+
+      // 响应格式: [[[["译文","原文",null,null,3]],null,"en",null,null,[["en"],[0],[12]],null,null,null,null,[0],null,null,0]
+      if (!Array.isArray(data) || !Array.isArray(data[0])) {
+        throw new ApiError('Google 翻译免费端点返回格式无效', undefined, true);
+      }
+
+      // 从嵌套数组中提取翻译结果
+      const sentences: string[] = [];
+      for (const sentenceGroup of data[0]) {
+        if (Array.isArray(sentenceGroup) && sentenceGroup[0] && sentenceGroup[0][0]) {
+          sentences.push(sentenceGroup[0][0]);
+        }
+      }
+
+      const content = sentences.join('');
+      if (!content) {
+        throw new ApiError('Google 翻译免费端点返回空响应', undefined, true);
+      }
+
+      return content;
+    }, retryOptions);
+  }
+
+  /**
    * 调用有道翻译 API 进行翻译
    * 有道翻译使用签名验证机制
    */
@@ -783,6 +841,11 @@ export class TranslationApiService {
       return this.quickTranslateGoogle(text, apiKey, endpoint, config.name);
     }
 
+    // Google 翻译免费端点 快速翻译
+    if (apiFormat === 'free_google_translate') {
+      return this.quickTranslateFreeGoogle(text, endpoint);
+    }
+
     // 有道翻译 快速翻译
     if (apiFormat === 'youdao_translate') {
       return this.quickTranslateYoudao(text, apiKey, endpoint, config.name);
@@ -934,6 +997,46 @@ export class TranslationApiService {
 
       const data = await response.json() as GoogleTranslateResponse;
       return data.data?.translations?.[0]?.translatedText || '';
+    }, QUICK_RETRY_OPTIONS).catch(() => '');
+  }
+
+  /**
+   * 快速翻译 - Google 翻译免费端点（无需 API Key）
+   */
+  private static async quickTranslateFreeGoogle(
+    text: string,
+    endpoint: string
+  ): Promise<string> {
+    return retryWithBackoff(async () => {
+      const url = new URL(endpoint);
+      url.searchParams.append('client', 'gtx');
+      url.searchParams.append('sl', 'en');
+      url.searchParams.append('tl', 'zh-CN');
+      url.searchParams.append('dt', 't');
+      url.searchParams.append('q', text);
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        return '';
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data) || !Array.isArray(data[0])) {
+        return '';
+      }
+
+      const sentences: string[] = [];
+      for (const sentenceGroup of data[0]) {
+        if (Array.isArray(sentenceGroup) && sentenceGroup[0] && sentenceGroup[0][0]) {
+          sentences.push(sentenceGroup[0][0]);
+        }
+      }
+
+      return sentences.join('');
     }, QUICK_RETRY_OPTIONS).catch(() => '');
   }
 

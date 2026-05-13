@@ -551,6 +551,7 @@ export class CostTracker {
       custom: '自定义 API',
       deepl: 'DeepL',
       google_translate: 'Google Translate',
+      free_google_translate: 'Google 翻译（免费）',
       youdao: '有道翻译',
     };
     return names[provider] || provider;

@@ -124,6 +124,11 @@ export const PROVIDER_PRICING: Record<string, LlmPricing | TranslationPricing> =
     freeCharactersPerMonth: 500000,
     pricePerMillionCharacters: 20,
   },
+  free_google_translate: {
+    freeCharactersPerMonth: Infinity,
+    pricePerMillionCharacters: 0,
+    isFree: true,
+  },
   youdao_standard: {
     freeCharactersPerMonth: 2000000,
     pricePerMillionCharacters: 0,
