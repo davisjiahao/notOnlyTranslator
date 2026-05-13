@@ -170,7 +170,7 @@ function NotificationToast({
           {/* 关闭按钮 */}
           <button
             onClick={onDismiss}
-            className="text-gray-400 hover:text-gray-600 transition-colors -mt-1 -mr-1 p-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            className="text-gray-500 hover:text-gray-600 transition-colors -mt-1 -mr-1 p-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             aria-label="关闭"
           >
             <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
