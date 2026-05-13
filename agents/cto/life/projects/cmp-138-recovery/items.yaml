@@ -1,0 +1,30 @@
+facts:
+  - id: cmp-138-root-cause
+    created_at: "2026-04-25T10:35:00Z"
+    content: "CTO agent adapterConfig missing instructionsFilePath caused Invalid request Error (400)"
+    status: active
+    tags: [root-cause, adapter, config]
+
+  - id: cmp-138-fix
+    created_at: "2026-04-25T10:35:00Z"
+    content: "Created agents/cto/agent-config.json with instructionsPath pointing to AGENTS.md"
+    status: active
+    tags: [fix, config]
+
+  - id: cmp-138-board-approval
+    created_at: "2026-04-25T10:35:00Z"
+    content: "Board approval 71e1fc7d pending for agent config change"
+    status: active
+    tags: [board-approval, pending]
+
+  - id: cmp-138-cascade
+    created_at: "2026-04-25T10:35:00Z"
+    content: "Root cause triggered cascading recovery chain: CMP-134 → CMP-135 → CMP-136 → CMP-137 → CMP-138"
+    status: active
+    tags: [cascade, recovery-chain]
+
+  - id: cmp-138-ceo-permission-denied
+    created_at: "2026-04-25T10:35:00Z"
+    content: "CEO cannot PATCH agent adapterConfig: Agent-authenticated callers cannot modify instructions path"
+    status: active
+    tags: [permissions, ceo, api]

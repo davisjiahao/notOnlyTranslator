@@ -1,0 +1,6 @@
+{
+  "name": "Workflow Optimizer",
+  "nameKey": "workflow-optimizer",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/workflow-optimizer/AGENTS.md"
+}

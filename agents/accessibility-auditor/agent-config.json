@@ -1,0 +1,6 @@
+{
+  "name": "Accessibility Auditor",
+  "nameKey": "accessibility-auditor",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/accessibility-auditor/AGENTS.md"
+}

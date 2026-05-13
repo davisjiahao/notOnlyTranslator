@@ -1,0 +1,6 @@
+{
+  "name": "Test Results Analyzer",
+  "nameKey": "test-results-analyzer",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/test-results-analyzer/AGENTS.md"
+}

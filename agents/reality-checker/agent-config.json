@@ -1,0 +1,6 @@
+{
+  "name": "Reality Checker",
+  "nameKey": "reality-checker",
+  "adapter": "claude-local",
+  "instructionsPath": "agents/reality-checker/AGENTS.md"
+}
