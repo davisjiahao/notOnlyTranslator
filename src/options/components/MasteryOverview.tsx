@@ -279,7 +279,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     timeRange === days
                       ? 'bg-primary-600 text-white'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   {days}天

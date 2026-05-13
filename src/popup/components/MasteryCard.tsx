@@ -164,7 +164,7 @@ export default function MasteryCard() {
             </span>
             <button
               onClick={() => openOptions('mastery')}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+              className="text-xs text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             >
               详情
             </button>

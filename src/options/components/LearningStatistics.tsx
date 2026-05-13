@@ -243,7 +243,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 timeRange === days
                   ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  : 'text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
               {days === 365 ? '1年' : `${days}天`}
@@ -678,7 +678,7 @@ function ChartTabButton({ id, controls, active, onClick, onKeyDown, icon, label,
       className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
         active
           ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-          : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          : 'border-transparent text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
       }`}
     >
       <span aria-hidden="true">{icon}</span>
