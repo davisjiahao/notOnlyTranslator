@@ -424,8 +424,8 @@ export default function ApiSettings({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-base mb-1">还没有配置 API</p>
-              <p className="text-gray-400 dark:text-gray-500 text-sm mb-6">添加您的第一个 API 配置以开始使用</p>
+              <p className="text-gray-500 dark:text-gray-300 text-base mb-1">还没有配置 API</p>
+              <p className="text-gray-400 dark:text-gray-400 text-sm mb-6">添加您的第一个 API 配置以开始使用</p>
               <button
                 onClick={() => {
                   resetConfigForm();
@@ -459,7 +459,7 @@ export default function ApiSettings({
                   当前使用
                 </span>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 API Key: {apiKey.slice(0, 8)}...{apiKey.slice(-4)}
               </div>
             </div>
