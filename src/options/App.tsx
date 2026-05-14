@@ -246,7 +246,7 @@ export default function App() {
     // 从 URL 参数读取要打开的标签页
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['level', 'test', 'api', 'vocabulary', 'general', 'statistics', 'prompt'].includes(tabParam)) {
+    if (tabParam && tabs.some(t => t.id === tabParam)) {
       setActiveTab(tabParam as Tab);
     }
   }, []);
