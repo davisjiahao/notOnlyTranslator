@@ -108,24 +108,24 @@ export default function MasteryCard() {
           >
             {dueCount}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">待复习</div>
+          <div className="text-xs text-gray-500 dark:text-gray-300">待复习</div>
         </button>
 
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
           <div className="text-lg font-bold text-green-600">{masteredCount}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">已掌握</div>
+          <div className="text-xs text-gray-500 dark:text-gray-300">已掌握</div>
         </div>
 
         <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-2 text-center">
           <div className="text-lg font-bold text-primary-600">{streak}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">连续天数</div>
+          <div className="text-xs text-gray-500 dark:text-gray-300">连续天数</div>
         </div>
       </div>
 
       {/* 待复习单词列表 */}
       {showReviews && reviewWords.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mb-3">
-          <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+          <div className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">
             需要复习的单词
           </div>
           <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -139,7 +139,7 @@ export default function MasteryCard() {
                     {word.word}
                   </div>
                   {word.context && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <div className="text-xs text-gray-500 dark:text-gray-300 truncate">
                       {word.translation || word.context}
                     </div>
                   )}
@@ -159,7 +159,7 @@ export default function MasteryCard() {
       {learningStats?.heatmapData && learningStats.heatmapData.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
               近7天学习
             </span>
             <button
