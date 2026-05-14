@@ -522,7 +522,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
         <button
           onClick={handleSkip}
           disabled={isSubmitting}
-          className="px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors
+          className="px-4 py-2 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100 transition-colors
                      disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 rounded"
         >
           跳过

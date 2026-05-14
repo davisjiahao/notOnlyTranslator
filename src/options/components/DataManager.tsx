@@ -252,7 +252,7 @@ export default function DataManager() {
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'export'
               ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-300'
           }`}
         >
           导出数据
@@ -269,7 +269,7 @@ export default function DataManager() {
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'import'
               ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-300'
           }`}
         >
           导入数据
@@ -289,7 +289,7 @@ export default function DataManager() {
           className={`px-4 py-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t ${
             activeTab === 'advanced'
               ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-300'
           }`}
         >
           高级选项
