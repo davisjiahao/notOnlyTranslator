@@ -141,6 +141,11 @@ export function QuotaIndicator({ remaining, total, showLabel = true }: QuotaIndi
       <div className="flex items-center gap-1.5">
         <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
+            role="progressbar"
+            aria-valuenow={remaining}
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-label={`剩余额度：${remaining}/${total}`}
             className={`h-full rounded-full transition-all ${getColor()}`}
             style={{ width: `${percentage}%` }}
           />
@@ -181,7 +186,7 @@ export function QuotaExhaustedModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in">
         {/* 图标 */}
         <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-100 to-orange-100 rounded-full flex items-center justify-center mb-4">
-          <span className="text-4xl">⚡</span>
+          <span className="text-4xl" aria-hidden="true">⚡</span>
         </div>
 
         <h2 id="quota-exhausted-title" className="text-xl font-bold text-center text-gray-800 mb-2">

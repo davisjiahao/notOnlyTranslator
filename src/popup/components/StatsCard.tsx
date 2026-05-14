@@ -28,7 +28,7 @@ export default function StatsCard({ stats }: StatsCardProps) {
           <span className="px-2 py-0.5 text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded">
             {stats.level}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             置信度: {Math.round(stats.confidence * 100)}%
           </span>
         </div>

@@ -292,7 +292,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className="w-3 h-3 rounded-full bg-green-500" role="img" aria-label="已掌握"></div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">已掌握</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.masteredWords}</div>
@@ -306,7 +306,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <div className="w-3 h-3 rounded-full bg-blue-500" role="img" aria-label="学习中"></div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">学习中</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.learningWords}</div>
@@ -320,7 +320,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <div className="w-3 h-3 rounded-full bg-red-500" role="img" aria-label="需加强"></div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">需加强</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.strugglingWords}</div>
@@ -334,7 +334,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                <div className="w-3 h-3 rounded-full bg-amber-500" role="img" aria-label="待复习"></div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">待复习</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.dueForReview}</div>
@@ -349,7 +349,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-purple-500" role="img" aria-label="当前连续"></div>
                   <span className="text-sm text-gray-600 dark:text-gray-400">当前连续</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.currentStreak}</div>
@@ -358,7 +358,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-indigo-500" role="img" aria-label="最长连续"></div>
                   <span className="text-sm text-gray-600 dark:text-gray-400">最长连续</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.longestStreak}</div>
@@ -367,7 +367,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-teal-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-teal-500" role="img" aria-label="学习天数"></div>
                   <span className="text-sm text-gray-600 dark:text-gray-400">学习天数</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.totalStudyDays}</div>
@@ -376,7 +376,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-cyan-500" role="img" aria-label="日均学习"></div>
                   <span className="text-sm text-gray-600 dark:text-gray-400">日均学习</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.averageDailyWords}</div>

@@ -16,11 +16,9 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
   const isUnlocked = progress.isUnlocked;
 
   return (
-    <div
+    <button
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
-      tabIndex={0}
-      role="button"
+      type="button"
       className={`
         relative p-4 rounded-xl border-2 transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2
         ${isUnlocked
@@ -94,6 +92,6 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
           </span>
         )}
       </div>
-    </div>
+    </button>
   );
 }

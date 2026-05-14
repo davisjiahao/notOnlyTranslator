@@ -87,18 +87,18 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900 dark:text-white">{entry.word}</span>
                   {entry.reviewCount > 0 && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       复习 {entry.reviewCount} 次
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{entry.translation}</p>
                 {entry.context && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                     "{entry.context}"
                   </p>
                 )}
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {formatDate(entry.markedAt)}
                 </p>
               </div>

@@ -135,7 +135,7 @@ function ConfettiAnimation() {
   const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
       {Array.from({ length: 50 }).map((_, i) => {
         const left = Math.random() * 100;
         const delay = Math.random() * 2;
