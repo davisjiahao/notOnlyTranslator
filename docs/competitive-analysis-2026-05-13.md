@@ -279,3 +279,147 @@ P3 (远期):
 | **多平台覆盖** | Chrome/Firefox/Safari/Mobile 全覆盖，用户在哪扩展就在哪 |
 | **快捷键驱动交互** | 三击空格、Ctrl+悬停，比点击扩展图标更高效 |
 | **先发制人的文档翻译** | PDF/EPUB/DOCX 全覆盖，虽然这不是我们的核心方向，但说明了功能扩展的思路 |
+
+---
+
+## 十、优化建议（基于竞品分析的具体行动方案）
+
+### 10.1 P0：解决"零成本入门"体验（预计 3-5 天）
+
+**问题**：当前用户必须自备 API Key 才能使用核心功能，新用户上手门槛极高。沉浸式翻译免费用户可直接使用 Google/Microsoft 翻译。
+
+**具体方案**：
+1. 在 `providers.ts` 中新增 `google_translate` 供应商（已有框架）
+2. 修改 `TranslationService.translate()` 的兜底逻辑：当无 API Key 时自动回退到免费引擎
+3. 用户引导流程优化：首次打开时展示"无需 API Key，立即体验"vs "配置自定义 API 获得更高质量翻译"两种路径
+
+**涉及文件**：
+- `src/background/translationApi.ts` — 增加免费引擎回退层
+- `src/background/translation.ts` — translate 方法增加无 API Key 判断
+- `src/popup/App.tsx` — 欢迎弹窗逻辑调整
+- `src/shared/constants/providers.ts` — 已有 `google_translate` 配置，确认接入
+
+**预期效果**：新用户 0 秒上手，降低 90%+ 首次使用门槛。API Key 用户仍可体验高质量翻译。
+
+### 10.2 P0：本地 CEFR 词表预过滤（预计 5-7 天）
+
+**问题**：每个段落都需要调用 LLM 判断是否含超纲词，API 延迟 2-5 秒，成本高。
+
+**具体方案**：
+1. 嵌入 CEFR-A 至 CEFR-C2 词汇表（约 10,000 词，压缩后 < 500KB）
+2. 在 `batchTranslation.ts` 中增加两层本地过滤：
+   - **第一层（快速）**：段落单词全部在用户 CEFR 级别以下 → 跳过整段
+   - **第二层（精确）**：提取不在用户词表中的单词列表 → 仅对含生词的段落调用 LLM
+3. 用户标记"认识/不认识"时，更新本地词表索引
+
+**涉及文件**：
+- `src/shared/utils/` — 新增 `cefrVocabulary.ts`（词表加载 + 匹配）
+- `src/background/batchTranslation.ts` — 增加 `preFilterParagraphs()` 方法
+- `src/background/userLevel.ts` — 已知词汇同步到本地词表
+- `src/shared/constants/` — 新增词表数据文件
+
+**预期效果**：减少 50-80% 的 LLM API 调用，页面加载速度从 5-15s 降至 1-3s。
+
+### 10.3 P1：右键菜单翻译（预计 2-3 天）
+
+**问题**：沉浸式翻译支持右键菜单直接翻译，这是浏览器扩展最基本的交互模式之一。
+
+**具体方案**：
+1. 在 `src/background/index.ts` 的 context menu 注册逻辑中增加翻译选项
+2. 当用户选中文字 → 右键 → 点击翻译 → 调用现有翻译流程
+3. 结果以 tooltip 或浮动面板形式展示
+
+**涉及文件**：
+- `src/background/index.ts` — 第 78-130 行 context menu 初始化（已有框架）
+- `src/content/tooltip.ts` — 复用现有 tooltip 组件
+
+### 10.4 P1：智能混合翻译架构升级（预计 7-10 天）
+
+**问题**：现有混合翻译（HybridTranslationService）已存在但需进一步优化路由逻辑。
+
+**具体方案**：
+
+```
+翻译请求 → 路由引擎
+  ├── 简单段落（无生词、无语法需求）→ DeepL/Google Translate (~300ms)
+  ├── 含生词段落 → GPT-4o-mini / Gemini 2.0 Flash (~2-3s)
+  └── 复杂段落（需要语法分析、语境理解）→ Claude Sonnet 4.6 / GPT-4o (~3-5s)
+```
+
+**涉及文件**：
+- `src/background/hybridTranslation.ts` — 重写智能路由层
+- `src/shared/types/index.ts` — 增加 `TranslationEngine` 类型
+- `src/shared/constants/providers.ts` — 标记每个引擎的延迟等级
+
+### 10.5 P1：翻译性能专项优化（预计 3-5 天）
+
+| 优化点 | 当前状态 | 目标 | 方案 |
+|--------|---------|------|------|
+| LLM 响应时间 | 2-5s | < 2s | 降低 maxTokens（从 4000 → 2000），temperature 从 0.3 → 0.1（翻译不需要创造性） |
+| 缓存命中率 | 未知 | > 60% | 增加同义词/近似文本模糊匹配（当前 `generateCacheKey` 仅精确匹配） |
+| 首屏渲染 | 未知 | < 1s | 优先翻译视口内段落，视口外延迟加载 |
+| Service Worker 存活率 | 30s alarm | 稳定 | 增加 `chrome.alarms` 事件处理 + 请求队列持久化 |
+
+### 10.6 P2：学习闭环深化（预计 5-7 天）
+
+**沉浸式翻译完全没有的领域**——我们应在此处建立竞争壁垒：
+
+1. **阅读中生词自动复习**
+   - 方案：当用户阅读页面遇到已标记生词时，自动弹出"还记得这个词吗？"提示
+   - 间隔重复：根据 Ebbinghaus 遗忘曲线（1/3/7/14/30 天），在阅读中自动触发复习
+
+2. **学习进度仪表盘**
+   - 词汇量增长趋势图（按月/周/天）
+   - 掌握度分布饼图（CEFR A1-C2 各占多少词）
+   - 已翻译段落数、已学习单词数
+
+3. **上下文语境记忆卡片**
+   - 不是孤立的单词卡片，而是带完整语境的记忆卡
+   - "你在阅读 [文章标题] 时遇到这个词，意思是 [翻译]"
+
+**涉及文件**：
+- `src/options/components/` — 新增 `LearningDashboard.tsx`
+- `src/background/mastery.ts` — 增加复习提醒触发逻辑
+- `src/content/` — 增加阅读中复习提示组件
+
+### 10.7 P2：快捷键交互增强（预计 2 天）
+
+**沉浸式翻译的快捷键驱动交互值得学习**：
+
+| 当前 | 建议优化 |
+|------|---------|
+| 点击扩展图标打开面板 | `Alt+T` 全局开关 |
+| 悬停 500ms 触发翻译 | `Ctrl+悬停` 即时翻译（减少等待）|
+| 无全局快捷键 | `Alt+F` 全文翻译、`Alt+I` 切换 inline-only/bilingual 模式 |
+
+### 10.8 P3：平台扩展（Firefox 版本）
+
+**预计 1-2 周**。Vite + @crxjs 已支持 Firefox manifest V3。主要工作：
+- 修改 manifest.json 中浏览器特定 API 差异
+- 测试 Firefox content script injection 差异
+- 上架 Mozilla Add-ons 市场
+
+---
+
+## 十一、优化路线图总结
+
+```
+P0（立即执行，预计 1-2 周）:
+├── 接入免费翻译引擎（0 API Key 即可使用）
+└── 本地 CEFR 词表预过滤（减少 50-80% API 调用）
+
+P1（本月，预计 2-4 周）:
+├── 右键菜单翻译
+├── 智能混合翻译架构升级（DeepL + LLM 分级路由）
+├── 翻译性能专项优化（缓存命中率、响应时间）
+└── 快捷键交互增强
+
+P2（下月，预计 4-6 周）:
+├── 学习闭环深化（阅读中复习 + 进度仪表盘 + 语境记忆卡）
+└── 输入框翻译
+
+P3（远期）:
+├── Firefox 版本
+├── 多设备同步（Chrome sync 已有基础）
+└── 社区共享词表/提示词模板
+```
