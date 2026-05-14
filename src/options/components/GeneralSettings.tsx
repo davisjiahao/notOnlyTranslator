@@ -105,6 +105,8 @@ export default function GeneralSettings({
       {/* Toast 提示 */}
       {toastMessage && (
         <div
+          role="status"
+          aria-live="polite"
           className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg animate-fade-in flex items-center gap-2 ${
             toastType === 'warning'
               ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'

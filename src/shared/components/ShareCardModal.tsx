@@ -250,13 +250,14 @@ function ShareButton({ icon, label, onClick, disabled }: ShareButtonProps) {
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-label={label}
       className="flex flex-col items-center gap-1 group disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
     >
       <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl
-        group-hover:bg-blue-100 group-hover:scale-110 transition-all">
+        group-hover:bg-blue-100 group-hover:scale-110 transition-all" aria-hidden="true">
         {icon}
       </div>
-      <span className="text-xs text-gray-600">{label}</span>
+      <span className="text-xs text-gray-600" aria-hidden="true">{label}</span>
     </button>
   );
 }
