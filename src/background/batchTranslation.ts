@@ -111,6 +111,34 @@ export class BatchTranslationService {
     // 获取需要翻译的段落
     let toTranslate = paragraphsWithHash.filter((p) => cacheMisses.includes(p.textHash));
 
+    // 模糊匹配：对缓存未命中的段落尝试近似文本匹配
+    const fuzzyHits: Map<string, { result: TranslationResult; similarity: number }> = new Map();
+    const fuzzyMisses: typeof toTranslate = [];
+
+    for (const p of toTranslate) {
+      const fuzzyResult = await enhancedCache.fuzzyGet(p.text, mode);
+      if (fuzzyResult) {
+        fuzzyHits.set(p.id, fuzzyResult);
+      } else {
+        fuzzyMisses.push(p);
+      }
+    }
+
+    // 将模糊匹配结果加入结果集
+    for (const p of toTranslate) {
+      const hit = fuzzyHits.get(p.id);
+      if (hit) {
+        results.push({
+          id: p.id,
+          result: hit.result,
+          cached: true,
+        });
+        logger.info(`BatchTranslationService: 模糊匹配命中段落 ${p.id} (相似度 ${(hit.similarity * 100).toFixed(1)}%)`);
+      }
+    }
+
+    toTranslate = fuzzyMisses;
+
     // 过滤掉中文占比过高的段落（>20%）
     // 同时也过滤掉本地判定为"太简单"的段落
     const skippedParagraphs: BatchParagraphResult[] = [];
@@ -152,7 +180,7 @@ export class BatchTranslationService {
     // 将跳过的结果加入结果集
     results.push(...skippedParagraphs);
 
-    logger.info(`BatchTranslationService: 缓存命中 ${cacheHits.size} 个，跳过 ${skippedParagraphs.length} 个，需翻译 ${toTranslate.length} 个`);
+    logger.info(`BatchTranslationService: 精确缓存命中 ${cacheHits.size} 个，模糊匹配 ${fuzzyHits.size} 个，跳过 ${skippedParagraphs.length} 个，需翻译 ${toTranslate.length} 个`);
 
     // 如果有需要翻译的段落，调用API
     if (toTranslate.length > 0) {

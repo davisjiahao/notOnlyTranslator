@@ -350,8 +350,8 @@ export const PROMPT_VERSIONS: Record<string, PromptTemplate> = {
       required: ['fullText', 'words', 'sentences'],
     },
     config: {
-      temperature: 0.3,
-      maxTokens: 4000,
+      temperature: 0.1,
+      maxTokens: 2000,
       topP: 0.95,
       responseFormat: 'json',
     },
@@ -424,8 +424,8 @@ export const PROMPT_VERSIONS: Record<string, PromptTemplate> = {
       required: ['fullText', 'words'],
     },
     config: {
-      temperature: 0.2,
-      maxTokens: 4000,
+      temperature: 0.1,
+      maxTokens: 2000,
       topP: 0.9,
       responseFormat: 'json',
     },

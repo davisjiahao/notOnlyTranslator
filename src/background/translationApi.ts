@@ -277,7 +277,8 @@ export class TranslationApiService {
       buildBody: (model, messages, useJsonFormat) => ({
         model,
         messages,
-        temperature: 0.3,
+        temperature: 0.1,
+        max_tokens: 2000,
         ...(useJsonFormat ? { response_format: { type: 'json_object' } } : {}),
       }),
       responseExtractor: openAIExtractor,
@@ -291,7 +292,7 @@ export class TranslationApiService {
       }),
       buildBody: (model, messages) => ({
         model,
-        max_tokens: 4096,
+        max_tokens: 2000,
         messages,
       }),
       responseExtractor: anthropicExtractor,
@@ -306,7 +307,7 @@ export class TranslationApiService {
           parts: [{ text: m.content }],
         })),
         generationConfig: {
-          temperature: 0.3,
+          temperature: 0.1,
           ...(useJsonFormat ? { responseMimeType: 'application/json' } : { maxOutputTokens: 100 }),
         },
       }),
@@ -321,7 +322,7 @@ export class TranslationApiService {
       buildBody: (model, messages, useJsonFormat) => ({
         model,
         messages,
-        temperature: 0.3,
+        temperature: 0.1,
         ...(useJsonFormat ? {} : { max_tokens: 100 }),
       }),
       responseExtractor: openAIExtractor,
@@ -750,7 +751,7 @@ export class TranslationApiService {
               content: combinedPrompt,
             },
           ],
-          temperature: 0.3,
+          temperature: 0.1,
         }),
       });
 

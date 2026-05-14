@@ -492,6 +492,82 @@ export class EnhancedCacheManager {
   }
 
   /**
+   * 字符 n-gram 相似度（Jaccard 系数）
+   * 用于模糊匹配近似文本，提升缓存命中率
+   */
+  private textSimilarity(a: string, b: string): number {
+    const n = 3; // trigram
+    if (a.length < n || b.length < n) return 0;
+
+    const getTrigrams = (s: string): Set<string> => {
+      const trigrams = new Set<string>();
+      for (let i = 0; i <= s.length - n; i++) {
+        trigrams.add(s.substring(i, i + n));
+      }
+      return trigrams;
+    };
+
+    const setA = getTrigrams(a.toLowerCase().trim());
+    const setB = getTrigrams(b.toLowerCase().trim());
+
+    let intersection = 0;
+    for (const t of setA) {
+      if (setB.has(t)) intersection++;
+    }
+
+    const union = setA.size + setB.size - intersection;
+    return union === 0 ? 0 : intersection / union;
+  }
+
+  /**
+   * 模糊匹配缓存查找
+   * 精确匹配未命中时，尝试找到相似度 > 85% 的近似缓存
+   * 对于近似文本返回翻译结果，并标记为模糊匹配
+   */
+  async fuzzyGet(
+    text: string,
+    mode: TranslationMode,
+    threshold: number = 0.85
+  ): Promise<{ result: TranslationResult; similarity: number } | null> {
+    await this.initialize();
+
+    const hash = this.generateHash(text, mode);
+    // 先尝试精确匹配
+    const exact = await this.get(hash);
+    if (exact) return { result: exact, similarity: 1.0 };
+
+    // 精确未命中，模糊匹配
+    const normalizedText = text.toLowerCase().trim();
+    let bestMatch: { result: TranslationResult; similarity: number } | null = null;
+
+    for (const [cachedHash, entry] of this.memoryCache) {
+      // 跳过过期条目
+      const now = Date.now();
+      if (now - entry.createdAt > this.getCacheExpireTime(entry.source)) continue;
+      // 只匹配相同模式
+      if (entry.mode !== mode) continue;
+
+      // 从缓存 entry 中获取原始文本（textHash 包含模式前缀）
+      const cachedText = cachedHash.replace(`${mode}_`, '');
+
+      const sim = this.textSimilarity(normalizedText, cachedText.toLowerCase().trim());
+      if (sim >= threshold && (!bestMatch || sim > bestMatch.similarity)) {
+        const result = { ...entry.result, cached: true, _fuzzyMatch: true };
+        bestMatch = { result, similarity: sim };
+        // 更新 LRU
+        entry.lastAccessedAt = now;
+        this.moveToTail(cachedHash);
+      }
+    }
+
+    if (bestMatch) {
+      logger.info(`EnhancedCacheManager: 模糊匹配命中 (相似度 ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+    }
+
+    return bestMatch;
+  }
+
+  /**
    * 获取缓存统计信息
    */
   async getStats(): Promise<{

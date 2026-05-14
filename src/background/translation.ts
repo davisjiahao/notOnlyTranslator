@@ -207,7 +207,15 @@ export class TranslationService {
       return cached;
     }
 
-    // 记录缓存未命中
+    // 记录缓存未命中，尝试模糊匹配
+    const fuzzyMatch = await enhancedCache.fuzzyGet(text, mode);
+    if (fuzzyMatch) {
+      const duration = performance.now() - startTime;
+      recordMetric(MetricType.CACHE_OPERATION, 'cache_get_fuzzy', duration, true, { cacheHit: true, cacheKey: cacheKey + ':fuzzy', similarity: fuzzyMatch.similarity });
+      logger.info('TranslationService: Fuzzy cache hit', { similarity: `${(fuzzyMatch.similarity * 100).toFixed(1)}%`, duration: `${duration.toFixed(2)}ms` });
+      return fuzzyMatch.result;
+    }
+
     recordMetric(MetricType.CACHE_OPERATION, 'cache_get', 0, true, { cacheHit: false, cacheKey });
 
     // Get settings for API config

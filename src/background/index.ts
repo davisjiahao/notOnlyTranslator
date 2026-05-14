@@ -20,6 +20,7 @@ import { frequencyManager } from './frequencyManager';
 import { CacheMetrics } from './cacheMetrics';
 import { reviewReminderManager } from './reviewReminder';
 import { contextCaptureManager } from './contextCapture';
+import { pendingRequestQueue } from './pendingRequestQueue';
 import {
   getErrorStats,
   queryErrors,
@@ -68,6 +69,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     // Service worker stays alive as long as it has active event listeners
     // This alarm firing is enough to prevent termination
     logger.debug('NotOnlyTranslator: Keep-alive alarm fired');
+    // 每次唤醒检查过期请求
+    pendingRequestQueue.cleanupExpired().catch(err =>
+      logger.error('PendingRequestQueue: cleanup failed', err)
+    );
   } else if (alarm.name === 'review-reminder') {
     // 复习提醒闹钟
     reviewReminderManager.checkAndSendReminder().catch(err =>
@@ -86,6 +91,9 @@ Promise.all([
     await reviewReminderManager.scheduleReminderAlarm();
   }),
   contextCaptureManager.load().then(() => logger.info('NotOnlyTranslator: 语境捕获管理器已初始化')),
+  pendingRequestQueue.initialize().then(recovered =>
+    logger.info(`NotOnlyTranslator: 请求队列已初始化，恢复 ${recovered.length} 个未完成请求`)
+  ),
 ]).catch(err => logger.error('NotOnlyTranslator: 初始化失败', err));
 
 // Initialize context menus on install
@@ -251,10 +259,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 chrome.runtime.onMessage.addListener(
   (
     message: Message,
-    _sender: chrome.runtime.MessageSender,
+    sender: chrome.runtime.MessageSender,
     sendResponse: (response: MessageResponse) => void
   ) => {
-    handleMessage(message)
+    handleMessage(message, sender)
       .then((response) => sendResponse(response))
       .catch((error) =>
         sendResponse({
@@ -268,7 +276,7 @@ chrome.runtime.onMessage.addListener(
   }
 );
 
-async function handleMessage(message: Message): Promise<MessageResponse> {
+async function handleMessage(message: Message, sender: chrome.runtime.MessageSender): Promise<MessageResponse> {
   logger.info('NotOnlyTranslator: Received message:', message.type);
 
   switch (message.type) {
@@ -295,12 +303,29 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         const request = message.payload as BatchTranslationRequest;
         logger.info('NotOnlyTranslator: 批量翻译请求，段落数:', request.paragraphs?.length);
 
+        // 生成持久化请求 ID
+        const requestId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+        // 持久化翻译请求
+        await pendingRequestQueue.add({
+          id: requestId,
+          text: request.paragraphs.map(p => p.text.substring(0, 50)).join(' | '),
+          mode: request.mode,
+          createdAt: Date.now(),
+          retries: 0,
+          tabId: sender?.tab?.id,
+          source: 'batch',
+        });
+
         // 获取用户配置
         const userProfile = await StorageManager.getUserProfile();
         request.userLevel = userProfile;
 
         // 调用批量翻译服务
         const response = await BatchTranslationService.translateBatch(request);
+
+        // 请求完成，从持久化队列移除
+        await pendingRequestQueue.complete(requestId);
 
         logger.info('NotOnlyTranslator: 批量翻译完成', {
           total: response.results.length,
@@ -311,6 +336,8 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         return { success: true, data: response };
       } catch (error) {
         logger.error('NotOnlyTranslator: 批量翻译错误:', error);
+        // 请求失败，尝试重试或清除
+        await pendingRequestQueue.fail('batch_latest');
         return { success: false, error: (error as Error).message };
       }
     }

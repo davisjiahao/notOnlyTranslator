@@ -35,6 +35,7 @@ export type OperationType =
   | 'translate_total'
   | 'batch_translate'
   | 'cache_get'
+  | 'cache_get_fuzzy'
   | 'cache_set'
   | 'cache_evict'
   | 'storage_read'
@@ -102,6 +103,8 @@ export interface MetricMetadata {
   userLevel?: string;
   /** 缓存键 */
   cacheKey?: string;
+  /** 模糊匹配相似度（0-1） */
+  similarity?: number;
   /** 翻译引擎类型（混合翻译） */
   engine?: string;
   /** 翻译来源（deepl/llm/hybrid/free_google） */
