@@ -68,6 +68,12 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
   }, [apiKey, selectedProvider, apiUrl, secondaryApiKey, currentProviderConfig, modelName]);
 
   const handleTestConnection = async () => {
+    // 无需连接测试的 provider 直接跳到下一步
+    if (currentProviderConfig?.requiresConnectionTest === false) {
+      setCurrentStep('model');
+      return;
+    }
+
     setIsTesting(true);
     setTestResult(null);
     setTestError(null);
@@ -123,6 +129,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
   };
 
   const canProceedToTest = () => {
+    if (currentProviderConfig?.requiresConnectionTest === false) return true;
     if (!apiKey) return false;
     if (selectedProvider === 'custom' && !apiUrl) return false;
     if (requiresSecondaryKey(selectedProvider) && !secondaryApiKey) return false;
@@ -385,7 +392,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
           {/* API Key 输入 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              API 密钥 <span className="text-red-500">*</span>
+              API 密钥 {currentProviderConfig?.requiresConnectionTest !== false && <span className="text-red-500">*</span>}
             </label>
             <div className="relative">
               <input
@@ -396,7 +403,8 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                   setTestResult(null);
                 }}
                 placeholder={currentProviderConfig.apiKeyPlaceholder}
-                className="w-full px-4 py-3 pr-12 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                disabled={currentProviderConfig?.requiresConnectionTest === false}
+                className="w-full px-4 py-3 pr-12 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-900 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
