@@ -1131,6 +1131,11 @@ class NotOnlyTranslator {
             sendResponse({ success: true });
             break;
 
+          case 'TRANSLATE_PAGE':
+            this.handleTranslatePage();
+            sendResponse({ success: true });
+            break;
+
           default:
             sendResponse({ success: false, error: 'Unknown message type' });
         }
@@ -1725,6 +1730,69 @@ class NotOnlyTranslator {
     });
 
     logger.info(`翻译显示已${isHidden ? '开启' : '关闭'}`);
+  }
+
+  /**
+   * 处理右键菜单「翻译此页面」
+   * 收集页面中所有未翻译的段落，批量翻译并显示
+   */
+  private async handleTranslatePage(): Promise<void> {
+    const paragraphs = document.querySelectorAll<HTMLElement>(
+      'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption'
+    );
+
+    const eligible: HTMLElement[] = [];
+    paragraphs.forEach((p) => {
+      const text = p.textContent?.trim() || '';
+      if (
+        text.length >= TIMING.MIN_PARAGRAPH_LENGTH &&
+        !p.classList.contains('not-translator-processed') &&
+        !p.classList.contains('not-translator-translation-line') &&
+        !p.closest('.not-translator-tooltip') &&
+        !isInExcludedArea(p)
+      ) {
+        eligible.push(p);
+      }
+    });
+
+    if (eligible.length === 0) {
+      logger.info('没有可翻译的内容');
+      return;
+    }
+
+    logger.info(`开始翻译页面，共 ${eligible.length} 个段落`);
+
+    // 分批翻译（每批最多 15 个段落）
+    const batchSize = 15;
+    for (let i = 0; i < eligible.length; i += batchSize) {
+      const batch = eligible.slice(i, i + batchSize);
+      const texts = batch.map(p => p.textContent?.trim() || '');
+
+      try {
+        const response = await this.sendMessage({
+          type: 'BATCH_TRANSLATE_TEXT',
+          payload: { paragraphs: texts },
+        });
+
+        if (response.success && response.data) {
+          const batchResponse = response.data as { results: Array<{ result: TranslationResult }> };
+          batchResponse.results.forEach((item, index) => {
+            if (index < batch.length && item.result.fullText) {
+              TranslationDisplay.applyTranslation(
+                batch[index],
+                item.result,
+                this.settings?.translationMode || 'inline-only',
+                this.settings
+              );
+            }
+          });
+        }
+      } catch (error) {
+        logger.error(`批量翻译第 ${Math.floor(i / batchSize) + 1} 批失败:`, error);
+      }
+    }
+
+    logger.info('页面翻译完成');
   }
 
   /**
