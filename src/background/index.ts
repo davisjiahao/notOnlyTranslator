@@ -93,7 +93,7 @@ chrome.runtime.onInstalled.addListener(() => {
   // Create context menu items
   chrome.contextMenus.create({
     id: CONTEXT_MENU_IDS.TRANSLATE_SELECTION,
-    title: 'Translate Selection',
+    title: '翻译选中文本',
     contexts: ['selection'],
   });
 
@@ -174,9 +174,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       break;
 
     case CONTEXT_MENU_IDS.TRANSLATE_SELECTION:
-      // Send message to content script to show translation
+      // Send dedicated message to content script with selected text
+      // Uses CONTEXT_MENU_TRANSLATE to ensure text is passed directly,
+      // avoiding reliance on window.getSelection() which may be cleared
       chrome.tabs.sendMessage(tab.id, {
-        type: 'SHOW_TRANSLATION',
+        type: 'CONTEXT_MENU_TRANSLATE',
         payload: { text: selectedText },
       });
       break;

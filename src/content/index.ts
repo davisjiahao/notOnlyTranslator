@@ -1097,6 +1097,11 @@ class NotOnlyTranslator {
             sendResponse({ success: true });
             break;
 
+          case 'CONTEXT_MENU_TRANSLATE':
+            this.handleContextMenuTranslation(message.payload as { text: string });
+            sendResponse({ success: true });
+            break;
+
           case 'WORD_MARKED':
             this.handleWordMarked(
               message.payload as { word: string; isKnown: boolean }
@@ -1492,6 +1497,88 @@ class NotOnlyTranslator {
         }
       }, 100);
     });
+  }
+
+  /**
+   * Handle context menu translation request
+   * Robust against cleared selection — falls back to viewport center positioning
+   */
+  private async handleContextMenuTranslation(payload: { text: string }): Promise<void> {
+    // Try to use current selection for positioning
+    const selection = window.getSelection();
+    let targetElement: HTMLElement;
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      targetElement = document.createElement('span');
+      targetElement.style.position = 'absolute';
+      targetElement.style.left = `${rect.left + window.scrollX}px`;
+      targetElement.style.top = `${rect.bottom + window.scrollY}px`;
+    } else {
+      // Selection cleared — position at viewport center
+      targetElement = document.createElement('span');
+      targetElement.style.position = 'absolute';
+      targetElement.style.left = `${window.scrollX + window.innerWidth / 2}px`;
+      targetElement.style.top = `${window.scrollY + window.innerHeight / 2}px`;
+    }
+
+    targetElement.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(targetElement);
+
+    try {
+      // Show loading state immediately
+      this.tooltip.showLoading(targetElement, payload.text);
+
+      // Send translation request to background
+      const response = await chrome.runtime.sendMessage({
+        type: 'TRANSLATE_TEXT',
+        payload: {
+          text: payload.text,
+          context: payload.text,
+          userLevel: await this.getUserProfile(),
+          mode: 'inline-only' as TranslationMode,
+        },
+      });
+
+      if (!response.success || !response.data) {
+        this.tooltip.showError(targetElement, payload.text, '翻译失败，请稍后重试');
+        logger.warn('右键菜单翻译失败:', response.error);
+        return;
+      }
+
+      const result = response.data as TranslationResult;
+
+      // Display translation result
+      if (result.words?.[0]) {
+        this.tooltip.showWord(targetElement, result.words[0]);
+      } else if (result.fullText) {
+        // Fallback: construct a TranslatedWord from full text
+        this.tooltip.showWord(targetElement, {
+          original: payload.text,
+          translation: result.fullText,
+          position: [0, payload.text.length],
+          difficulty: 5,
+          isPhrase: false,
+        });
+      } else if (result.sentences?.[0]) {
+        this.tooltip.showSentence(targetElement, result.sentences[0]);
+      } else {
+        this.tooltip.showError(targetElement, payload.text, '未找到翻译');
+      }
+
+      logger.info('右键菜单翻译成功:', payload.text.substring(0, 50));
+    } catch (error) {
+      this.tooltip.showError(targetElement, payload.text, '翻译出错');
+      logger.error('右键菜单翻译出错:', error);
+    }
+
+    // Clean up temp element after user interaction
+    setTimeout(() => {
+      if (document.body.contains(targetElement)) {
+        document.body.removeChild(targetElement);
+      }
+    }, TIMING.TOOLTIP_HIDE_DELAY);
   }
 
   /**
