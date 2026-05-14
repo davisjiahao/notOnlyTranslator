@@ -45,7 +45,14 @@ export class TranslationService {
       return DeepLTranslationService.translate(request);
     }
 
-    // 策略3: 标准 LLM 翻译
+    // 策略3: 无 API Key 时回退到免费 Google 翻译
+    const hasApiKey = await this.hasAnyApiKey(settings);
+    if (!hasApiKey) {
+      logger.info('TranslationService: Using free Google Translate fallback');
+      return this.translateWithFreeGoogle(request, startTime);
+    }
+
+    // 策略4: 标准 LLM 翻译
     logger.info('TranslationService: Using standard LLM translation');
     return this.translateWithLLM(request, settings, startTime);
   }
@@ -65,6 +72,117 @@ export class TranslationService {
     );
 
     return !!deeplConfig?.apiKey;
+  }
+
+  /**
+   * 检查是否有任何已配置的 API Key（或 Ollama 本地服务）
+   */
+  private static async hasAnyApiKey(settings: UserSettings): Promise<boolean> {
+    // Ollama 不需要 API Key
+    if (settings.apiProvider === 'ollama') {
+      return true;
+    }
+
+    // 检查是否有已配置的 API Key
+    if (settings.apiConfigs?.length && settings.apiConfigs.some(c => c.apiKey)) {
+      return true;
+    }
+
+    // 兼容旧版：直接存储的 API Key
+    const legacyApiKey = await StorageManager.getApiKey();
+    return !!legacyApiKey;
+  }
+
+  /**
+   * 免费 Google 翻译回退（无需 API Key）
+   * 使用 Google Translate Web 端点进行简单文本翻译
+   */
+  private static async translateWithFreeGoogle(
+    request: TranslationRequest,
+    startTime: number
+  ): Promise<TranslationResult> {
+    const { text, mode } = request;
+    const cacheKey = generateCacheKey(text, mode);
+
+    // 检查缓存
+    const cached = await enhancedCache.get(cacheKey);
+    if (cached) {
+      recordMetric(MetricType.CACHE_OPERATION, 'cache_get', 0, true, { cacheHit: true, cacheKey });
+      return cached;
+    }
+
+    recordMetric(MetricType.CACHE_OPERATION, 'cache_get', 0, true, { cacheHit: false, cacheKey });
+
+    const apiStartTime = performance.now();
+
+    // 调用 Google Translate 免费端点
+    const url = 'https://translate.googleapis.com/translate_a/single';
+    const params = new URLSearchParams({
+      client: 'gtx',
+      sl: 'en',
+      tl: 'zh-CN',
+      dt: 't',
+      q: text,
+    });
+
+    const response = await fetch(`${url}?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`免费翻译引擎请求失败 (${response.status})`);
+    }
+
+    const data = await response.json();
+
+    // 响应格式: [[[["译文","原文",null,null,3]],null,"en",null,null,...]]
+    if (!Array.isArray(data) || !Array.isArray(data[0])) {
+      throw new Error('免费翻译引擎返回格式无效');
+    }
+
+    const sentences: string[] = [];
+    for (const sentenceGroup of data[0]) {
+      if (Array.isArray(sentenceGroup) && sentenceGroup[0]?.[0]) {
+        sentences.push(sentenceGroup[0][0]);
+      }
+    }
+
+    const fullText = sentences.join('');
+    if (!fullText) {
+      throw new Error('免费翻译引擎返回空响应');
+    }
+
+    const apiDuration = performance.now() - apiStartTime;
+    const totalDuration = performance.now() - startTime;
+
+    // 免费翻译只返回全文翻译，不做 JSON 解析和词汇提取
+    const result: TranslationResult = {
+      words: [],
+      sentences: [],
+      fullText,
+      _source: 'free_google',
+    };
+
+    // 缓存结果
+    const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
+    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'free_google');
+
+    recordMetric(MetricType.API_RESPONSE_TIME, 'translate_free', apiDuration, true, {
+      provider: 'free_google_translate',
+      textLength: text?.length,
+    });
+    recordMetric(MetricType.TRANSLATION_TOTAL_TIME, 'translate_total', totalDuration, true, {
+      provider: 'free_google_translate',
+      textLength: text?.length,
+    });
+
+    logger.info('TranslationService: Free Google Translate completed', {
+      apiDuration: `${apiDuration.toFixed(2)}ms`,
+      totalDuration: `${totalDuration.toFixed(2)}ms`,
+    });
+
+    return result;
   }
 
   /**

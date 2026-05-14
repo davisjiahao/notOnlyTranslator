@@ -122,7 +122,7 @@ export interface TranslationResult {
   fullText?: string;  // 完整译文（用于双文对照和全文翻译模式）
   cached?: boolean;
   /** 翻译来源（内部使用，用于调试和分析） */
-  _source?: 'deepl' | 'llm' | 'hybrid';
+  _source?: 'deepl' | 'llm' | 'hybrid' | 'free_google';
 }
 
 // API 配置（支持多个配置）
