@@ -506,11 +506,12 @@ function ApiStep({
       {/* 自定义 API URL (仅自定义提供商显示) */}
       {selectedProvider === 'custom' && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="welcome-api-url-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API 地址
             <span className="text-red-500 ml-1">*</span>
           </label>
           <input
+            id="welcome-api-url-input"
             type="text"
             value={customUrl}
             onChange={(e) => setCustomUrl(e.target.value)}
@@ -526,11 +527,12 @@ function ApiStep({
       {/* API Key 输入 (仅A、B组显示) */}
       {group !== 'C' && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label htmlFor="welcome-api-key-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API 密钥
           </label>
           <div className="relative">
             <input
+              id="welcome-api-key-input"
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
