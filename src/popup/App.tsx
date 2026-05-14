@@ -272,7 +272,7 @@ export default function App() {
                 {stats?.level || '未评估'}
               </div>
               {profile && (
-                <div className="text-xs text-gray-400 dark:text-gray-500">
+                <div className="text-xs text-gray-400 dark:text-gray-300">
                   {EXAM_DISPLAY_NAMES[profile.examType]}
                 </div>
               )}
@@ -299,7 +299,7 @@ export default function App() {
 
           {/* 置信度进度条 */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">置信度</span>
+            <span className="text-xs text-gray-500 dark:text-gray-300 flex-shrink-0">置信度</span>
             <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
               <div
                 className="bg-primary-500 h-1.5 rounded-full transition-all"
@@ -311,7 +311,7 @@ export default function App() {
                 style={{ width: `${confidencePercent}%` }}
               />
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">{confidencePercent}%</span>
+            <span className="text-xs text-gray-500 dark:text-gray-300 font-medium flex-shrink-0">{confidencePercent}%</span>
           </div>
         </div>
 
@@ -333,7 +333,7 @@ export default function App() {
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
                     settings.translationMode === 'inline-only'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      : 'text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -349,7 +349,7 @@ export default function App() {
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
                     settings.translationMode === 'bilingual'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      : 'text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -364,7 +364,7 @@ export default function App() {
                   className={`flex items-center justify-center gap-1 text-xs py-1.5 px-1 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
                     settings.translationMode === 'full-translate'
                       ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm font-medium'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      : 'text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -402,7 +402,7 @@ export default function App() {
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={currentHostname}>
                     {currentHostname}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-gray-500 dark:text-gray-300">
                     {isSiteTranslationEnabled ? '翻译已开启' : '翻译已禁用'}
                   </div>
                 </div>
@@ -435,7 +435,7 @@ export default function App() {
         <div className="grid grid-cols-2 gap-2 mt-auto">
           <button
             onClick={openOptions}
-            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -445,7 +445,7 @@ export default function App() {
           </button>
           <button
             onClick={openVocabulary}
-            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            className="flex items-center justify-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary-600 hover:border-primary-200 dark:hover:border-primary-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
