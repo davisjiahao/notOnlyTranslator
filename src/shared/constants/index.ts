@@ -151,6 +151,7 @@ export const STORAGE_KEYS = {
 // Context menu IDs
 export const CONTEXT_MENU_IDS = {
   TRANSLATE_SELECTION: 'translateSelection',
+  TRANSLATE_PAGE: 'translatePage',
   MARK_KNOWN: 'markKnown',
   MARK_UNKNOWN: 'markUnknown',
   ADD_TO_VOCABULARY: 'addToVocabulary',
