@@ -287,7 +287,7 @@ export default function GeneralSettings({
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   } disabled:opacity-50`}
                 >
-                  <div className="text-2xl mb-2">{mode.icon}</div>
+                  <div className="text-2xl mb-2" aria-hidden="true">{mode.icon}</div>
                   <div className={`font-medium ${
                     settings.theme === mode.value
                       ? 'text-primary-700 dark:text-primary-400'
