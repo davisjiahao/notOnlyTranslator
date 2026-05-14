@@ -360,10 +360,12 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <StepIndicator />
 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
-          输入 API 密钥
+          {currentProviderConfig?.requiresConnectionTest === false ? '无需密钥' : '输入 API 密钥'}
         </h2>
         <p className="text-gray-500 dark:text-gray-400 text-center mb-6">
-          输入您的 {currentProviderConfig.name} API 密钥
+          {currentProviderConfig?.requiresConnectionTest === false
+            ? `${currentProviderConfig.name} 无需 API Key，点击下一步继续`
+            : `输入您的 ${currentProviderConfig.name} API 密钥`}
         </p>
 
         {/* 获取密钥指引 */}
@@ -530,6 +532,8 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                 </svg>
                 测试中...
               </span>
+            ) : currentProviderConfig?.requiresConnectionTest === false ? (
+              '下一步'
             ) : (
               '测试连接'
             )}
