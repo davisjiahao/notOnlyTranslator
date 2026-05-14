@@ -175,8 +175,11 @@ class FrequencyManager {
     // 如果没有有效单词，不需要翻译
     if (validWordCount === 0) return false;
 
-    // 只要有 1 个难词就发起翻译（保证翻译覆盖率）
-    return difficultWordCount >= 1;
+    // 需要同时满足两个条件才发起翻译（减少不必要的 API 调用）：
+    // 1. 至少有 2 个难词（绝对数量）
+    // 2. 难词占比 >= 5%（相对比例）
+    const difficultRatio = difficultWordCount / validWordCount;
+    return difficultWordCount >= 2 && difficultRatio >= 0.05;
   }
 
   /**
