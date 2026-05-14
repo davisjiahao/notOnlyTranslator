@@ -108,12 +108,13 @@ export function AchievementGallery({ onClose }: AchievementGalleryProps) {
 
       {/* 筛选器 */}
       <div className="px-6 py-3 border-b border-gray-100">
-        <div className="flex gap-2">
+        <div className="flex gap-2" role="radiogroup" aria-label="成就筛选">
           {(['all', 'unlocked', 'locked'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              aria-pressed={filter === f}
+              role="radio"
+              aria-checked={filter === f}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 filter === f
                   ? 'bg-blue-100 text-blue-700'
