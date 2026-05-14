@@ -135,11 +135,14 @@ export class EnhancedCacheManager {
    * 根据翻译来源获取缓存过期时间
    * DeepL 翻译结果更稳定，缓存时间更长
    */
-  private getCacheExpireTime(source?: 'deepl' | 'llm' | 'hybrid'): number {
+  private getCacheExpireTime(source?: 'deepl' | 'llm' | 'hybrid' | 'free_google'): number {
     switch (source) {
       case 'deepl':
         // DeepL 翻译结果更稳定，缓存30天
         return DEEPL_CACHE_EXPIRE_TIME;
+      case 'free_google':
+        // 免费翻译缓存14天
+        return 14 * 24 * 60 * 60 * 1000;
       case 'hybrid':
         // 混合翻译缓存14天
         return 14 * 24 * 60 * 60 * 1000;
@@ -198,7 +201,7 @@ export class EnhancedCacheManager {
     result: TranslationResult,
     mode: TranslationMode,
     pageUrl: string,
-    source?: 'deepl' | 'llm' | 'hybrid'
+    source?: 'deepl' | 'llm' | 'hybrid' | 'free_google'
   ): Promise<void> {
     await this.initialize();
 
@@ -244,7 +247,7 @@ export class EnhancedCacheManager {
       mode: TranslationMode;
       pageUrl: string;
     }>,
-    source?: 'deepl' | 'llm' | 'hybrid'
+    source?: 'deepl' | 'llm' | 'hybrid' | 'free_google'
   ): Promise<void> {
     await this.initialize();
 

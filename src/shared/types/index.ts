@@ -417,8 +417,8 @@ export interface ParagraphCacheEntry {
   createdAt: number;
   /** 最后访问时间，用于LRU */
   lastAccessedAt: number;
-  /** 翻译来源：'deepl' | 'llm' | 'hybrid' */
-  source?: 'deepl' | 'llm' | 'hybrid';
+  /** 翻译来源：'deepl' | 'llm' | 'hybrid' | 'free_google' */
+  source?: 'deepl' | 'llm' | 'hybrid' | 'free_google';
 }
 
 /**

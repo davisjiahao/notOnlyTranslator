@@ -31,6 +31,7 @@ export enum MetricType {
  */
 export type OperationType =
   | 'translate'
+  | 'translate_free'
   | 'translate_total'
   | 'batch_translate'
   | 'cache_get'
@@ -103,8 +104,8 @@ export interface MetricMetadata {
   cacheKey?: string;
   /** 翻译引擎类型（混合翻译） */
   engine?: string;
-  /** 翻译来源（deepl/llm/hybrid） */
-  source?: 'deepl' | 'llm' | 'hybrid';
+  /** 翻译来源（deepl/llm/hybrid/free_google） */
+  source?: 'deepl' | 'llm' | 'hybrid' | 'free_google';
   /** 单词数量 */
   wordCount?: number;
   /** 短语数量 (CMP-106) */

@@ -17,7 +17,7 @@ const QUICK_PROVIDERS: Array<{ id: ApiProvider; name: string; description: strin
 ];
 
 export default function WelcomeModal({ settings, onComplete, onOpenSettings }: WelcomeModalProps) {
-  const [step, setStep] = useState<'welcome' | 'quick-setup' | 'success'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'quick-setup' | 'success' | 'free-success'>('welcome');
   const [selectedProvider, setSelectedProvider] = useState<ApiProvider>('openai');
   const [apiKey, setApiKey] = useState('');
   const [isTesting, setIsTesting] = useState(false);
@@ -91,6 +91,18 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
     }
   };
 
+  const handleFreeTrial = async () => {
+    // 设置默认使用免费翻译引擎
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        ...settings,
+        apiProvider: 'free_google_translate' as import('@/shared/types').ApiProvider,
+      },
+    });
+    setStep('free-success');
+  };
+
   const handleSkip = () => {
     // 标记引导已完成，但未配置
     onComplete();
@@ -139,6 +151,17 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                   <div className="text-xs text-gray-500 dark:text-gray-400">收集并复习生词</div>
                 </div>
               </div>
+              <div className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg aria-hidden="true" className="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">无需 API Key</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Google 免费翻译，开箱即用</div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -149,10 +172,19 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 开始配置
               </button>
               <button
+                onClick={handleFreeTrial}
+                className="w-full py-2 px-4 border-2 border-primary-200 dark:border-primary-800 text-primary-600 dark:text-primary-400 font-medium rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 flex items-center justify-center gap-2"
+              >
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                无需 API Key，立即体验
+              </button>
+              <button
                 onClick={handleSkip}
                 className="w-full py-2 px-4 text-gray-500 dark:text-gray-400 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-lg"
               >
-                稍后配置
+                稍后再说
               </button>
             </div>
           </div>
@@ -276,6 +308,31 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               你可以开始使用翻译功能了。打开任意英文网页试试吧！
+            </p>
+            <button
+              onClick={onComplete}
+              className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            >
+              开始使用
+            </button>
+          </div>
+        )}
+
+        {/* 免费试用成功页 */}
+        {step === 'free-success' && (
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg aria-hidden="true" className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              已开启免费翻译
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              你正在使用 Google 免费翻译引擎，无需 API Key。打开任意英文网页即可体验！
+              <br />
+              <span className="text-xs text-gray-400">（需要时可在设置中切换到 LLM 翻译引擎）</span>
             </p>
             <button
               onClick={onComplete}
