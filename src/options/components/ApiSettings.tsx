@@ -794,7 +794,9 @@ export default function ApiSettings({
           </div>
         )}
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {configTestResult === 'success'
+          {currentProviderConfig?.requiresConnectionTest === false
+            ? '使用默认模型，无需配置'
+            : configTestResult === 'success'
             ? '测试成功后可获取最新模型列表'
             : '请先测试连接以获取模型列表'}
         </p>
