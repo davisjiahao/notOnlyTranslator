@@ -182,7 +182,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               </button>
               <button
                 onClick={handleSkip}
-                className="w-full py-2 px-4 text-gray-500 dark:text-gray-400 text-sm hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-lg"
+                className="w-full py-2 px-4 text-gray-500 dark:text-gray-300 text-sm hover:text-gray-700 dark:hover:text-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-lg"
               >
                 稍后再说
               </button>
@@ -287,7 +287,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={onOpenSettings}
-                className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+                className="w-full text-center text-sm text-gray-500 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
               >
                 需要更多配置选项？
               </button>

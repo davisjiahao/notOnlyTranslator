@@ -14,7 +14,7 @@ interface StatsCardProps {
 export default function StatsCard({ stats }: StatsCardProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">学习统计</h2>
+      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-3">学习统计</h2>
 
       {/* Vocabulary size */}
       <div className="mb-4">
@@ -22,13 +22,13 @@ export default function StatsCard({ stats }: StatsCardProps) {
           <span className="text-3xl font-bold text-primary-600">
             {stats.estimatedVocabulary.toLocaleString()}
           </span>
-          <span className="text-sm text-gray-500 dark:text-gray-400">词汇量</span>
+          <span className="text-sm text-gray-500 dark:text-gray-300">词汇量</span>
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span className="px-2 py-0.5 text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded">
             {stats.level}
           </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-gray-500 dark:text-gray-300">
             置信度: {Math.round(stats.confidence * 100)}%
           </span>
         </div>
@@ -52,7 +52,7 @@ export default function StatsCard({ stats }: StatsCardProps) {
 
       {/* Progress bar */}
       <div className="mt-4">
-        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-300 mb-1">
           <span>学习进度</span>
           <span>
             {stats.knownWordsCount + stats.unknownWordsCount > 0
