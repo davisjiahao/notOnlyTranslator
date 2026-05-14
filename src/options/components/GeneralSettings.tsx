@@ -608,7 +608,9 @@ export default function GeneralSettings({
                 警告：此操作将永久删除所有数据，包括学习记录、生词本、所有设置。请输入 <code className="px-1 py-0.5 bg-red-100 dark:bg-red-800 rounded text-xs font-mono">DELETE</code> 确认。
               </p>
               <div className="flex gap-2 mb-3">
+                <label htmlFor="delete-confirmation-input" className="sr-only">输入 DELETE 确认删除</label>
                 <input
+                  id="delete-confirmation-input"
                   type="text"
                   value={deleteInput}
                   onChange={(e) => setDeleteInput(e.target.value)}

@@ -644,7 +644,7 @@ function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
           <p className="text-2xl font-bold mt-1">{value}</p>
           <p className="text-xs opacity-70 mt-1">{subtitle}</p>
         </div>
-        <span className="text-2xl" role="img" aria-label={title}>{icon}</span>
+        <span className="text-2xl" aria-hidden="true">{icon}</span>
       </div>
     </div>
   );
