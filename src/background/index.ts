@@ -155,6 +155,20 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
       }).catch(err => logger.error('Failed to send TOGGLE_TRANSLATION:', err));
       break;
 
+    case 'translate-full-page':
+      // 发送消息到 content script 触发全文翻译
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'TRANSLATE_PAGE',
+      }).catch(err => logger.error('Failed to send TRANSLATE_PAGE:', err));
+      break;
+
+    case 'toggle-mode':
+      // 发送消息到 content script 切换翻译模式
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'TOGGLE_MODE',
+      }).catch(err => logger.error('Failed to send TOGGLE_MODE:', err));
+      break;
+
     default:
       logger.warn(`Unknown command: ${command}`);
   }

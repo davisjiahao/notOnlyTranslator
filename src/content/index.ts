@@ -1141,6 +1141,11 @@ class NotOnlyTranslator {
             sendResponse({ success: true });
             break;
 
+          case 'TOGGLE_MODE':
+            this.handleToggleMode();
+            sendResponse({ success: true });
+            break;
+
           default:
             sendResponse({ success: false, error: 'Unknown message type' });
         }
@@ -1880,6 +1885,23 @@ class NotOnlyTranslator {
     }
 
     logger.info('页面翻译完成');
+  }
+
+  /**
+   * 处理 Alt+I 快捷键：切换 inline-only / bilingual 翻译模式
+   * 在当前两种模式之间循环切换
+   */
+  private handleToggleMode(): void {
+    if (!this.settings?.enabled) return;
+
+    // 在 inline-only 和 bilingual 之间切换
+    const newMode: TranslationMode =
+      this.settings.translationMode === 'inline-only' ? 'bilingual' : 'inline-only';
+
+    logger.info(`NotOnlyTranslator: 快捷键切换模式 ${this.settings.translationMode} -> ${newMode}`);
+
+    // 复用已有的模式切换逻辑
+    this.handleModeChange(newMode);
   }
 
   /**

@@ -312,6 +312,7 @@ export type MessageType =
   | 'TRANSLATE_PARAGRAPH'
   | 'TOGGLE_TRANSLATION'
   | 'TRANSLATE_PAGE'
+  | 'TOGGLE_MODE'
   // 语境学习消息类型
   | 'GET_CONTEXTUAL_WORDS'
   | 'CAPTURE_CONTEXT';

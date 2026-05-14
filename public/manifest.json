@@ -58,6 +58,20 @@
       },
       "description": "切换翻译显示"
     },
+    "translate-full-page": {
+      "suggested_key": {
+        "default": "Alt+F",
+        "mac": "Alt+F"
+      },
+      "description": "全文翻译当前页面"
+    },
+    "toggle-mode": {
+      "suggested_key": {
+        "default": "Alt+I",
+        "mac": "Alt+I"
+      },
+      "description": "切换行内/双栏翻译模式"
+    },
     "_execute_action": {
       "suggested_key": {
         "default": "Ctrl+Shift+Y",

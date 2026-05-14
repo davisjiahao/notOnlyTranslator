@@ -157,6 +157,14 @@ export const CONTEXT_MENU_IDS = {
   ADD_TO_VOCABULARY: 'addToVocabulary',
 };
 
+// Chrome 命令 ID（快捷键）
+export const COMMAND_IDS = {
+  TRANSLATE_PARAGRAPH: 'translate-paragraph',   // Alt+T: 翻译当前段落
+  TOGGLE_TRANSLATION: 'toggle-translation',      // Alt+Shift+T: 切换翻译显示
+  TRANSLATE_FULL_PAGE: 'translate-full-page',    // Alt+F: 全文翻译
+  TOGGLE_MODE: 'toggle-mode',                    // Alt+I: 切换 inline-only/bilingual 模式
+};
+
 // CSS class names for content script
 export const CSS_CLASSES = {
   HIGHLIGHT: 'not-translator-highlight',

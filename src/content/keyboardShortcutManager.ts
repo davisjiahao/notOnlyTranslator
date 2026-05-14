@@ -16,6 +16,8 @@ import { logger } from '@/shared/utils';
 export type ShortcutAction =
   | 'translate-paragraph'      // Alt+T: 快速翻译当前段落
   | 'toggle-translation'       // Alt+Shift+T: 切换翻译显示
+  | 'translate-full-page'      // Alt+F: 全文翻译
+  | 'toggle-mode'              // Alt+I: 切换 inline-only/bilingual 模式
   | 'close-tooltip'            // Esc: 关闭翻译/Tooltip
   | 'next-highlight'           // J/↓: 下一个高亮
   | 'prev-highlight'           // K/↑: 上一个高亮
@@ -70,6 +72,20 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     action: 'toggle-translation',
     defaultKey: 'Alt+Shift+T',
     description: '切换翻译显示',
+    isCommand: true,
+    ignoreInInput: false,
+  },
+  {
+    action: 'translate-full-page',
+    defaultKey: 'Alt+F',
+    description: '全文翻译当前页面',
+    isCommand: true,
+    ignoreInInput: false,
+  },
+  {
+    action: 'toggle-mode',
+    defaultKey: 'Alt+I',
+    description: '切换行内/双栏翻译模式',
     isCommand: true,
     ignoreInInput: false,
   },

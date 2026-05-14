@@ -67,6 +67,7 @@ export class HoverManager {
 
   /**
    * 处理鼠标悬停
+   * 当按住 Ctrl 键时，跳过延迟立即显示翻译
    */
   handleMouseOver(e: MouseEvent): void {
     const target = e.target as HTMLElement;
@@ -81,6 +82,12 @@ export class HoverManager {
     this.clearHoverTimer();
 
     this.hoverElement = validElement;
+
+    // Ctrl+悬停：立即显示翻译，跳过延迟
+    if (e.ctrlKey) {
+      this.onHoverShow(validElement);
+      return;
+    }
 
     // 设置新的悬停定时器
     this.hoverTimer = setTimeout(() => {
