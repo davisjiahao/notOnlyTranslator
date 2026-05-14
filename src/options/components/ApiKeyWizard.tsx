@@ -155,7 +155,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
                 index <= currentIndex
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300'
               }`}
             >
               {index + 1}
@@ -495,7 +495,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                 placeholder={`默认: ${currentProviderConfig.chatEndpoint}`}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
                 使用代理或自定义端点时填写
               </p>
             </div>
@@ -633,7 +633,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                           )}
                         </div>
                         {model.description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
                             {model.description}
                           </p>
                         )}

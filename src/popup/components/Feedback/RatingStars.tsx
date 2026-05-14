@@ -129,7 +129,7 @@ export default function RatingStars({
       </div>
 
       {showLabel && rating > 0 && (
-        <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+        <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
           {RATING_CONFIG.labels[rating - 1]}
         </span>
       )}

@@ -94,7 +94,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400">翻译服务</h2>
+        <h2 className="text-xs font-medium text-gray-500 dark:text-gray-300">翻译服务</h2>
         <button
           onClick={onOpenOptions}
           className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
@@ -199,7 +199,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                 ))
               ) : (
                 <div className="p-3 text-center">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-2">
                     还未配置翻译服务
                   </div>
                   <button

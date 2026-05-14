@@ -356,7 +356,7 @@ export default function ApiSettings({
 
           {testedConfigs.length > 0 ? (
             <ul className="space-y-3 list-none">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+              <p className="text-sm text-gray-500 dark:text-gray-300 mb-2">
                 点击选择要使用的 API 配置（仅显示测试通过的配置）
               </p>
               {testedConfigs.map((config) => (
@@ -387,7 +387,7 @@ export default function ApiSettings({
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-1">
                         {config.apiUrl || PROVIDER_CONFIGS[config.provider]?.defaultEndpoint || '默认端点'}
                         {config.modelName && ` · ${config.modelName}`}
                       </div>
@@ -573,13 +573,13 @@ export default function ApiSettings({
               </optgroup>
             ))}
           </select>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-300">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
           {currentProviderConfig.description}
         </p>
       </div>
@@ -616,7 +616,7 @@ export default function ApiSettings({
             placeholder={currentProviderConfig.chatEndpoint}
             className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
             留空使用官方 API，填写则覆盖默认端点（如使用代理）
           </p>
         </div>
@@ -661,7 +661,7 @@ export default function ApiSettings({
           </button>
         </div>
         {currentProviderConfig.docUrl && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
             获取密钥:{' '}
             <a
               href={currentProviderConfig.docUrl}
@@ -713,7 +713,7 @@ export default function ApiSettings({
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
             百度文心需要同时提供 API Key 和 Secret Key
           </p>
         </div>
@@ -735,7 +735,7 @@ export default function ApiSettings({
                 {isLoadingModels ? '加载中...' : '刷新列表'}
               </button>
             )}
-            <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-300">
               <input
                 type="checkbox"
                 checked={useCustomModel}
@@ -779,7 +779,7 @@ export default function ApiSettings({
                 </option>
               ))}
             </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-300">
               {isLoadingModels ? (
                 <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -793,7 +793,7 @@ export default function ApiSettings({
             </div>
           </div>
         )}
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
           {currentProviderConfig?.requiresConnectionTest === false
             ? '使用默认模型，无需配置'
             : configTestResult === 'success'
