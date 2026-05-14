@@ -439,7 +439,7 @@ export default function GeneralSettings({
                 </span>
               </div>
             </div>
-            <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-2">
+            <div className="flex justify-between text-xs text-gray-400 dark:text-gray-300 mt-2">
               <span>关闭 (0ms)</span>
               <span>快 (300ms)</span>
               <span>中等 (500ms)</span>
@@ -530,7 +530,7 @@ export default function GeneralSettings({
                   onClick={() => removeFromBlacklist(item)}
                   disabled={isSaving}
                   aria-label={`从黑名单移除：${item}`}
-                  className="p-1 text-gray-500 dark:text-gray-500 hover:text-red-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded disabled:opacity-50"
+                  className="p-1 text-gray-500 dark:text-gray-300 hover:text-red-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -540,7 +540,7 @@ export default function GeneralSettings({
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+          <div className="text-sm text-gray-400 dark:text-gray-300 text-center py-4">
             黑名单为空
           </div>
         )}

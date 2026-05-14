@@ -127,7 +127,7 @@ export default function ReviewReminderSettings({
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   每日复习上限
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
+                <p className="text-xs text-gray-400 dark:text-gray-300">
                   每次提醒最多显示的生词数量
                 </p>
               </div>
@@ -149,7 +149,7 @@ export default function ReviewReminderSettings({
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   最小提醒词汇数
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
+                <p className="text-xs text-gray-400 dark:text-gray-300">
                   待复习词汇达到此数量才发送提醒
                 </p>
               </div>
@@ -171,7 +171,7 @@ export default function ReviewReminderSettings({
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   掌握阈值
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
+                <p className="text-xs text-gray-400 dark:text-gray-300">
                   连续正确多少次视为已掌握
                 </p>
               </div>
@@ -195,7 +195,7 @@ export default function ReviewReminderSettings({
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   浏览器通知
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
+                <p className="text-xs text-gray-400 dark:text-gray-300">
                   显示桌面通知提醒你复习
                 </p>
               </div>

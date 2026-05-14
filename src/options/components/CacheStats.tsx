@@ -199,7 +199,7 @@ export default function CacheStatsPanel() {
             <div className={`text-2xl font-bold ${getHitRateColor(stats.hitRate)}`}>
               {stats.hitRate.toFixed(1)}%
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
               目标: ≥80%
             </div>
           </div>
@@ -210,7 +210,7 @@ export default function CacheStatsPanel() {
             <div className={`text-2xl font-bold ${getDurationColor(stats.avgTotalDuration)}`}>
               {stats.avgTotalDuration.toFixed(0)}ms
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
               目标: &lt;100ms
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function CacheStatsPanel() {
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {stats.totalEntries.toLocaleString()}
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
               最大: 1,000
             </div>
           </div>
@@ -232,7 +232,7 @@ export default function CacheStatsPanel() {
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {formatBytes(stats.memoryUsage)}
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
               估算值
             </div>
           </div>

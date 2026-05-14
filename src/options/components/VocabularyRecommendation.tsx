@@ -484,7 +484,7 @@ function WordCard({ recommendation, isSelected, onClick, compact = false }: Word
           )}
 
           <div className="flex items-center gap-3 mt-2">
-            <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-300">
               <span>难度:</span>
               <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
@@ -501,11 +501,11 @@ function WordCard({ recommendation, isSelected, onClick, compact = false }: Word
                 />
               </div>
             </div>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-gray-400 dark:text-gray-300">
               ~{recommendation.estimatedStudyTime}秒
             </span>
             {recommendation.mastery && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
+              <span className="text-xs text-gray-400 dark:text-gray-300">
                 {getMasteryLevelText(recommendation.mastery.level)}
               </span>
             )}
@@ -516,7 +516,7 @@ function WordCard({ recommendation, isSelected, onClick, compact = false }: Word
           <div className="text-lg font-bold text-blue-600">
             {Math.round(recommendation.recommendationScore)}
           </div>
-          <div className="text-xs text-gray-400 dark:text-gray-500">推荐分</div>
+          <div className="text-xs text-gray-400 dark:text-gray-300">推荐分</div>
         </div>
       </div>
     </button>

@@ -43,7 +43,7 @@ export default function ContextualLearningCard({
         <p className="text-gray-500 dark:text-gray-300">
           该词汇暂无上下文记录
         </p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+        <p className="text-sm text-gray-400 dark:text-gray-300 mt-2">
           在阅读时会自动捕获生词的上下文
         </p>
       </div>

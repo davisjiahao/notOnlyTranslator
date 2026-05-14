@@ -159,7 +159,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.temperature}
                 </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
                   控制输出的随机性
                 </div>
               </div>
@@ -169,7 +169,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.maxTokens}
                 </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
                   最大输出长度
                 </div>
               </div>
@@ -179,7 +179,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.topP}
                 </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
                   核采样概率
                 </div>
               </div>
@@ -189,7 +189,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.responseFormat === 'json' ? 'JSON' : 'Text'}
                 </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <div className="text-xs text-gray-400 dark:text-gray-300 mt-1">
                   输出格式类型
                 </div>
               </div>

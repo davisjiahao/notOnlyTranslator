@@ -321,7 +321,7 @@ function SummaryCards({ summary, budget }: { summary: CostSummary; budget: Budge
               <p className="text-xs text-gray-500 dark:text-gray-300">{card.label}</p>
               <p className="text-lg font-bold text-gray-900 dark:text-white truncate">{card.value}</p>
               {card.subValue && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{card.subValue}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-300 truncate">{card.subValue}</p>
               )}
             </div>
           </div>
@@ -536,7 +536,7 @@ function CostTrendChart({ trend }: { trend: Array<{ date: string; cost: number; 
                 style={{ height: `${Math.max(height, 2)}%` }}
               />
               {index % 7 === 0 && (
-                <span className="text-xs text-gray-400 dark:text-gray-500">{point.date}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-300">{point.date}</span>
               )}
             </div>
           );
@@ -579,7 +579,7 @@ function TopExpensiveRequests({
             className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
           >
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 dark:text-gray-500 w-8">
+              <span className="text-xs text-gray-400 dark:text-gray-300 w-8">
                 #{index + 1}
               </span>
               <div>
@@ -593,7 +593,7 @@ function TopExpensiveRequests({
               <p className="text-sm font-medium text-red-600 dark:text-red-400">
                 {formatCost(request.cost)}
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-400 dark:text-gray-300">
                 {formatTime(request.timestamp)}
               </p>
             </div>

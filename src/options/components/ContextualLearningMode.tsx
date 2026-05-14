@@ -212,7 +212,7 @@ export default function ContextualLearningMode() {
             className={`px-3 py-1.5 text-sm rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
               mode === 'contextual'
                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             📖 语境模式
@@ -223,7 +223,7 @@ export default function ContextualLearningMode() {
             className={`px-3 py-1.5 text-sm rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
               mode === 'flashcard'
                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             🎴 闪卡模式
@@ -256,7 +256,7 @@ export default function ContextualLearningMode() {
                 <p className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">
                   {currentWord.word}
                 </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">
+                <p className="text-sm text-gray-400 dark:text-gray-300">
                   点击查看释义
                 </p>
               </>
@@ -298,7 +298,7 @@ export default function ContextualLearningMode() {
       )}
 
       {/* 提示 */}
-      <div className="mt-4 text-center text-sm text-gray-400 dark:text-gray-500">
+      <div className="mt-4 text-center text-sm text-gray-400 dark:text-gray-300">
         {mode === 'contextual' ? (
           <span><span aria-hidden="true">💡</span> 在真实语境中学习单词用法，加深记忆</span>
         ) : (

@@ -322,7 +322,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                       <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                         {getModeLabel(entry.mode)}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(entry.timestamp)}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-300">{formatDate(entry.timestamp)}</span>
                       {entry.userLevel && (
                         <span className="text-xs text-primary-600 dark:text-primary-400">
                           {entry.userLevel.level}
@@ -338,7 +338,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                       </p>
                     )}
                     {entry.pageTitle && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 truncate">
+                      <p className="text-xs text-gray-400 dark:text-gray-300 mt-2 truncate">
                         来自: {entry.pageTitle}
                       </p>
                     )}
@@ -364,7 +364,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
               <button
                 onClick={handleLoadMore}
                 disabled={isLoading}
-                className="w-full py-3 text-sm text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                className="w-full py-3 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-200 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               >
                 {isLoading ? '加载中...' : '加载更多'}
               </button>
@@ -392,7 +392,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                   <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                     {getModeLabel(selectedEntry.mode)}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs text-gray-400 dark:text-gray-300">
                     {formatDate(selectedEntry.timestamp)}
                   </span>
                 </div>
@@ -489,7 +489,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
               >
                 取消
               </button>

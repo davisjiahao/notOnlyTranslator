@@ -491,7 +491,7 @@ export const ErrorDashboard: React.FC = () => {
           </select>
           <button
             onClick={() => setFilters({ category: '', severity: '', reported: '' })}
-            className="px-3 py-2 text-sm text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+            className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
           >
             重置过滤
           </button>

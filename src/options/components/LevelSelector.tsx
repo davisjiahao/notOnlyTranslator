@@ -114,7 +114,7 @@ export default function LevelSelector({
                 className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
               />
             </div>
-            <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-gray-400 dark:text-gray-300 mt-1">
               <span>{scoreRange.min}</span>
               <span>{scoreRange.max}</span>
             </div>
@@ -177,7 +177,7 @@ export default function LevelSelector({
               style={{ width: `${Math.min(100, (estimatedVocab / 15000) * 100)}%` }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-300 mt-1">
             <span>2000</span>
             <span>5000</span>
             <span>10000</span>
@@ -216,7 +216,7 @@ export default function LevelSelector({
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">能力分析</h2>
-          <span className="text-xs text-gray-400 dark:text-gray-500">数据实时更新</span>
+          <span className="text-xs text-gray-400 dark:text-gray-300">数据实时更新</span>
         </div>
         <StatsCharts
           vocabularySize={profile.estimatedVocabulary}

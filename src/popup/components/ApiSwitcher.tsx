@@ -123,7 +123,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                 {activeConfig?.name || '默认配置'}
               </span>
               {activeConfig && (
-                <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                <span className="text-xs text-gray-400 dark:text-gray-300 truncate">
                   {getProviderDisplayName(activeConfig.provider)}
                   {activeConfig.modelName && ` · ${activeConfig.modelName}`}
                 </span>
@@ -185,7 +185,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
                   >
                     <div className="flex flex-col min-w-0">
                       <span className="truncate">{config.name}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                      <span className="text-xs text-gray-400 dark:text-gray-300 truncate">
                         {getProviderDisplayName(config.provider)}
                         {config.modelName && ` · ${config.modelName}`}
                       </span>

@@ -27,13 +27,13 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
   if (words.length === 0) {
     return (
       <div className="text-center py-8">
-        <div className="text-gray-400 dark:text-gray-500 mb-2">
+        <div className="text-gray-400 dark:text-gray-300 mb-2">
           <svg aria-hidden="true" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-300">生词本为空</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+        <p className="text-xs text-gray-400 dark:text-gray-300 mt-1">
           阅读时标记不认识的词汇，它们会出现在这里
         </p>
       </div>
@@ -55,7 +55,7 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
             className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           />
           <svg aria-hidden="true"
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-300"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -104,7 +104,7 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
               </div>
               <button
                 onClick={() => onRemove(entry.word)}
-                className="ml-2 p-1 text-gray-500 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                className="ml-2 p-1 text-gray-500 dark:text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
                 aria-label={`移除词汇 ${entry.word}`}
               >
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

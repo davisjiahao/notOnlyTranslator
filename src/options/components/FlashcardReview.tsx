@@ -403,10 +403,10 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
               <div className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4 text-center">
                 {currentWord.word}
               </div>
-              <div className="text-sm text-gray-400 dark:text-gray-500 mb-6">
+              <div className="text-sm text-gray-400 dark:text-gray-300 mb-6">
                 点击卡片或按空格键查看释义
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-300">
                 <span>掌握度:</span>
                 <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
@@ -530,7 +530,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
       </div>
 
       {/* 键盘快捷键提示 */}
-      <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+      <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-gray-400 dark:text-gray-300">
         <span className="flex items-center gap-1">
           <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">空格</kbd>
           <span>翻转卡片</span>

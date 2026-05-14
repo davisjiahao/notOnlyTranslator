@@ -345,7 +345,7 @@ export default function HybridTranslationSettings({
                       </span>
                     </div>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-2">
+                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-300 mt-2">
                     <span>更倾向 LLM (5)</span>
                     <span>平衡 (20)</span>
                     <span>更倾向传统 (50)</span>

@@ -22,7 +22,7 @@ export default function QuickActions({ onOpenTab }: QuickActionsProps) {
             <div className="font-medium text-gray-900 dark:text-white">调整英语水平</div>
             <div className="text-xs text-gray-500 dark:text-gray-300">重新评估词汇量</div>
           </div>
-          <svg aria-hidden="true" className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" className="w-4 h-4 text-gray-400 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -40,7 +40,7 @@ export default function QuickActions({ onOpenTab }: QuickActionsProps) {
             <div className="font-medium text-gray-900 dark:text-white">快速测评</div>
             <div className="text-xs text-gray-500 dark:text-gray-300">20道题评估词汇水平</div>
           </div>
-          <svg aria-hidden="true" className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" className="w-4 h-4 text-gray-400 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -58,7 +58,7 @@ export default function QuickActions({ onOpenTab }: QuickActionsProps) {
             <div className="font-medium text-gray-900 dark:text-white">API 设置</div>
             <div className="text-xs text-gray-500 dark:text-gray-300">配置翻译 API 密钥</div>
           </div>
-          <svg aria-hidden="true" className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" className="w-4 h-4 text-gray-400 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>

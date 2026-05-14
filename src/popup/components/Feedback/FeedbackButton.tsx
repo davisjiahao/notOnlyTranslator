@@ -76,7 +76,7 @@ export default function FeedbackButton({
           onClick={handleOpen}
           className={`
             ${sizeClasses[size].icon}
-            text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200
+            text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-200
             rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
             ${className}
           `}
@@ -101,7 +101,7 @@ export default function FeedbackButton({
           onClick={handleOpen}
           className={`
             ${sizeClasses[size].minimal}
-            text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200
+            text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-200
             underline-offset-2 hover:underline
             transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded
             ${className}

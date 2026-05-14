@@ -336,7 +336,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
       </div>
 
       {/* Difficulty indicator — WCAG 1.3.1: 用 aria-label 描述难度等级 */}
-      <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+      <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-gray-300">
         <span>难度:</span>
         <div className="flex gap-0.5" role="img" aria-label={`难度等级：${currentQuestion.difficulty}/10`}>
           {Array.from({ length: 10 }).map((_, i) => (

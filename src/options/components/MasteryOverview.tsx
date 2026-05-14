@@ -279,7 +279,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     timeRange === days
                       ? 'bg-primary-600 text-white'
-                      : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   {days}天
@@ -416,7 +416,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500" role="status" aria-live="polite">
+            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-300" role="status" aria-live="polite">
               暂无数据
             </div>
           )}
@@ -467,7 +467,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </div>
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500" role="status" aria-live="polite">
+            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-300" role="status" aria-live="polite">
               暂无数据
             </div>
           )}
@@ -574,7 +574,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{word.translation}</p>
                   {word.context && (
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">
+                    <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 italic truncate">
                       "{word.context}"
                     </p>
                   )}
