@@ -98,6 +98,12 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 
   chrome.contextMenus.create({
+    id: CONTEXT_MENU_IDS.TRANSLATE_PAGE,
+    title: '翻译此页面',
+    contexts: ['page'],
+  });
+
+  chrome.contextMenus.create({
     id: CONTEXT_MENU_IDS.MARK_KNOWN,
     title: 'Mark as Known',
     contexts: ['selection'],
@@ -160,6 +166,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!selectedText || !tab?.id) return;
 
   switch (info.menuItemId) {
+    case CONTEXT_MENU_IDS.TRANSLATE_PAGE:
+      // Trigger full-page translation in content script
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'TRANSLATE_PAGE',
+      });
+      break;
+
     case CONTEXT_MENU_IDS.TRANSLATE_SELECTION:
       // Send message to content script to show translation
       chrome.tabs.sendMessage(tab.id, {
