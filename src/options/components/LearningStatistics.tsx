@@ -232,7 +232,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">学习统计仪表盘</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">追踪你的学习进度和成就</p>
+          <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">追踪你的学习进度和成就</p>
         </div>
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg" role="group" aria-label="时间范围">
           {[7, 30, 90, 365].map((days) => (
@@ -307,7 +307,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
 
         {/* CEFR 等级进度条 */}
         <div className="relative pt-4 pb-2">
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-300 mb-2">
             {CEFR_LEVELS.map((l) => (
               <span
                 key={l.level}
@@ -351,7 +351,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
                 >
                   {level.level}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{count} 词</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">{count} 词</div>
               </div>
             );
           })}
@@ -569,12 +569,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">日期</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-400">新学</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-400">复习</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-400">认识</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-400">不认识</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-400">时长</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">日期</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-300">新学</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-300">复习</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-300">认识</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-300">不认识</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-600 dark:text-gray-300">时长</th>
                 </tr>
               </thead>
               <tbody>
@@ -593,7 +593,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
                       <td className="py-3 px-4 text-center text-green-600 dark:text-green-400">{activity.reviewWords}</td>
                       <td className="py-3 px-4 text-center text-green-600 dark:text-green-400">{activity.knownCount}</td>
                       <td className="py-3 px-4 text-center text-red-600 dark:text-red-400">{activity.unknownCount}</td>
-                      <td className="py-3 px-4 text-center text-gray-600 dark:text-gray-400">{activity.studyMinutes} 分钟</td>
+                      <td className="py-3 px-4 text-center text-gray-600 dark:text-gray-300">{activity.studyMinutes} 分钟</td>
                     </tr>
                   ))}
               </tbody>

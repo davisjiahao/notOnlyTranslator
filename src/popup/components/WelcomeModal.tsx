@@ -124,7 +124,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <h2 id="welcome-modal-title" className="text-xl font-bold text-center text-gray-900 dark:text-gray-100 mb-2">
               欢迎使用 NotOnlyTranslator
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
+            <p className="text-sm text-gray-500 dark:text-gray-300 text-center mb-6">
               智能分级翻译助手，只翻译你不会的词
             </p>
 
@@ -137,7 +137,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">智能分级</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">根据你的水平翻译生词</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">根据你的水平翻译生词</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
@@ -148,7 +148,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">生词本</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">收集并复习生词</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">收集并复习生词</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
@@ -159,7 +159,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">无需 API Key</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Google 免费翻译，开箱即用</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">Google 免费翻译，开箱即用</div>
                 </div>
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
               快速配置 API
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
               选择一个翻译服务商并输入 API Key
             </p>
 
@@ -224,7 +224,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {provider.name}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs text-gray-500 dark:text-gray-300">
                         {provider.description}
                       </div>
                     </div>
@@ -306,7 +306,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               配置成功！
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-6">
               你可以开始使用翻译功能了。打开任意英文网页试试吧！
             </p>
             <button
@@ -329,7 +329,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               已开启免费翻译
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-6">
               你正在使用 Google 免费翻译引擎，无需 API Key。打开任意英文网页即可体验！
               <br />
               <span className="text-xs text-gray-400">（需要时可在设置中切换到 LLM 翻译引擎）</span>

@@ -238,19 +238,19 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalEntries}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">总记录</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">总记录</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-primary-600">{stats.totalCharacters.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">总字符数</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">总字符数</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-green-600">{stats.last7Days}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">近7天</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">近7天</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-blue-600">{stats.uniquePages}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">不同页面</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">不同页面</div>
           </div>
         </div>
       )}
@@ -298,7 +298,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
         ) : entries.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400" role="status">
+          <div className="text-center py-12 text-gray-500 dark:text-gray-300" role="status">
             <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
@@ -333,7 +333,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                       {truncateText(entry.originalText, 150)}
                     </p>
                     {entry.translation.fullText && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-300 line-clamp-1">
                         {truncateText(entry.translation.fullText, 100)}
                       </p>
                     )}
@@ -409,7 +409,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">原文</h3>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-1">原文</h3>
                   <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
                     {selectedEntry.originalText}
                   </p>
@@ -417,7 +417,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
 
                 {selectedEntry.translation.fullText && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">译文</h3>
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-1">译文</h3>
                     <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
                       {selectedEntry.translation.fullText}
                     </p>
@@ -426,7 +426,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
 
                 {selectedEntry.translation.words.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">生词</h3>
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-2">生词</h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedEntry.translation.words.map((word, idx) => (
                         <span
@@ -442,7 +442,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
 
                 {selectedEntry.pageTitle && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">来源页面</h3>
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-1">来源页面</h3>
                     <a
                       href={selectedEntry.pageUrl}
                       target="_blank"
@@ -455,7 +455,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                 )}
 
                 {selectedEntry.userLevel && (
-                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-300 pt-2 border-t border-gray-100 dark:border-gray-700">
                     <span>词汇量: {selectedEntry.userLevel.estimatedVocabulary.toLocaleString()}</span>
                     <span>等级: {selectedEntry.userLevel.level}</span>
                     <span>字符数: {selectedEntry.charCount}</span>
@@ -481,7 +481,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">确认删除</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
               {entryToDelete === 'all'
                 ? '确定要清空所有翻译历史记录吗？此操作不可恢复。'
                 : '确定要删除这条翻译记录吗？此操作不可恢复。'}

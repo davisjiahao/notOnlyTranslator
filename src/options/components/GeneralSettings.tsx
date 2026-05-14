@@ -137,7 +137,7 @@ export default function GeneralSettings({
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
               <div className="font-medium text-gray-900 dark:text-white">启用翻译</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 关闭后将停止自动翻译和高亮功能
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function GeneralSettings({
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
               <div className="font-medium text-gray-900 dark:text-white">自动高亮</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 自动识别并高亮页面中的生词
               </div>
             </div>
@@ -189,7 +189,7 @@ export default function GeneralSettings({
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
               <div className="font-medium text-gray-900 dark:text-white">词组翻译</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 识别并翻译常见短语和习语（如 take away, look forward to）
               </div>
             </div>
@@ -215,7 +215,7 @@ export default function GeneralSettings({
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
               <div className="font-medium text-gray-900 dark:text-white">语法翻译</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 识别并解释复杂语法结构（如虚拟语气、倒装句、从句等）
               </div>
             </div>
@@ -241,7 +241,7 @@ export default function GeneralSettings({
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
               <div className="font-medium text-gray-900 dark:text-white">显示难度等级</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 在翻译结果中显示词汇难度标签
               </div>
             </div>
@@ -300,7 +300,7 @@ export default function GeneralSettings({
                 </button>
               ))}
             </div>
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-300">
               选择「跟随系统」将自动根据操作系统的主题设置切换亮/暗色模式
             </p>
           </div>
@@ -332,7 +332,7 @@ export default function GeneralSettings({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium text-gray-900 dark:text-white">{mode.label}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{mode.description}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-300">{mode.description}</div>
                     </div>
                     {settings.translationMode === mode.value && (
                       <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0 ml-3">
@@ -405,7 +405,7 @@ export default function GeneralSettings({
               </div>
             </div>
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">预览效果:</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">预览效果:</div>
               <div style={{ fontSize: `${settings.fontSize}px` }} className="text-gray-900 dark:text-gray-100">
                 This is a sample text to preview font size. 这是预览字体大小的示例文本。
               </div>
@@ -415,7 +415,7 @@ export default function GeneralSettings({
           {/* 悬停触发延迟 */}
           <div>
             <label htmlFor="hover-delay-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">悬停触发延迟</label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">
               鼠标悬停在生词上多久后自动显示翻译。设为 0 毫秒可关闭悬停触发。
             </p>
             <div className="flex items-center gap-4">
@@ -459,7 +459,7 @@ export default function GeneralSettings({
       {/* 第 3 组：网站黑名单 */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">网站黑名单</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
           在黑名单中的网站将不会自动翻译。支持域名和通配符模式（如 *.example.com）。
         </p>
 
@@ -468,7 +468,7 @@ export default function GeneralSettings({
           <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="text-sm">
-                <span className="text-gray-600 dark:text-gray-400">当前页面：</span>
+                <span className="text-gray-600 dark:text-gray-300">当前页面：</span>
                 <span className="font-medium text-gray-900 dark:text-gray-100">{currentTabUrl}</span>
               </div>
               {isCurrentPageBlacklisted() ? (
@@ -673,7 +673,7 @@ export default function GeneralSettings({
         </div>
 
         <div className="p-6">
-          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
             <div className="flex justify-between">
               <span>版本</span>
               <span className="font-medium text-gray-900 dark:text-white">0.1.0</span>

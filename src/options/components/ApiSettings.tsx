@@ -425,7 +425,7 @@ export default function ApiSettings({
                 </svg>
               </div>
               <p className="text-gray-500 dark:text-gray-300 text-base mb-1">还没有配置 API</p>
-              <p className="text-gray-400 dark:text-gray-400 text-sm mb-6">添加您的第一个 API 配置以开始使用</p>
+              <p className="text-gray-400 dark:text-gray-300 text-sm mb-6">添加您的第一个 API 配置以开始使用</p>
               <button
                 onClick={() => {
                   resetConfigForm();
@@ -446,7 +446,7 @@ export default function ApiSettings({
         {!activeApiConfigId && apiKey && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">当前 API 设置</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
               您有一个未保存为配置的 API 设置。可以继续使用，或保存为配置以便快速切换。
             </p>
 

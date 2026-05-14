@@ -57,7 +57,7 @@ export default function ReviewReminderSettings({
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">
             <span aria-hidden="true">📚</span> 复习提醒
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
             基于间隔重复算法，在最佳时机提醒你复习生词
           </p>
         </div>
@@ -109,7 +109,7 @@ export default function ReviewReminderSettings({
                   </option>
                 ))}
               </select>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+              <span className="text-sm text-gray-500 dark:text-gray-300 ml-2">
                 每天提醒
               </span>
             </div>
@@ -124,7 +124,7 @@ export default function ReviewReminderSettings({
             {/* 每日复习上限 */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   每日复习上限
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -146,7 +146,7 @@ export default function ReviewReminderSettings({
             {/* 最小待复习词汇 */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   最小提醒词汇数
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -168,7 +168,7 @@ export default function ReviewReminderSettings({
             {/* 掌握阈值 */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   掌握阈值
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">

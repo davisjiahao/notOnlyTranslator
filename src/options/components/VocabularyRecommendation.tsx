@@ -176,7 +176,7 @@ export default function VocabularyRecommendation({
     return (
       <div className="flex flex-col items-center justify-center h-64" role="status">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
-        <p className="text-gray-500 dark:text-gray-400">加载推荐词汇...</p>
+        <p className="text-gray-500 dark:text-gray-300">加载推荐词汇...</p>
       </div>
     );
   }
@@ -267,7 +267,7 @@ export default function VocabularyRecommendation({
           {recommendations.length === 0 ? (
             <div className="text-center py-12" role="status">
               <div className="text-4xl mb-4" aria-hidden="true">📚</div>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-500 dark:text-gray-300">
                 暂无推荐词汇。继续浏览英文内容，系统会自动为你推荐适合的词汇。
               </p>
             </div>
@@ -303,7 +303,7 @@ export default function VocabularyRecommendation({
                     <h3 className="font-semibold text-gray-800 dark:text-gray-200">
                       今日学习计划
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                       新词 {dailyPlan.newWords.length} 个 · 复习 {dailyPlan.reviewWords.length} 个
                     </p>
                   </div>
@@ -311,7 +311,7 @@ export default function VocabularyRecommendation({
                     <div className="text-2xl font-bold text-blue-600">
                       {Math.round(dailyPlan.totalEstimatedTime / 60)}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">分钟</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-300">分钟</div>
                   </div>
                 </div>
               </div>
@@ -359,7 +359,7 @@ export default function VocabularyRecommendation({
           ) : (
             <div className="text-center py-12" role="status">
               <div className="text-4xl mb-4" aria-hidden="true">📅</div>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-500 dark:text-gray-300">
                 加载今日计划中...
               </p>
             </div>
@@ -417,7 +417,7 @@ export default function VocabularyRecommendation({
                 </div>
 
                 <div className="pt-2">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
                     💡 <strong>邻近难度</strong>：刚好超出当前水平的词汇，学习效果最好
                     <br />
                     💡 <strong>间隔复习</strong>：根据遗忘曲线安排复习，巩固记忆
@@ -478,7 +478,7 @@ function WordCard({ recommendation, isSelected, onClick, compact = false }: Word
           </div>
 
           {!compact && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
               {recommendation.reason}
             </p>
           )}

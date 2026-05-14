@@ -201,14 +201,14 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {currentLevelInfo?.label || '未知等级'}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-gray-500 dark:text-gray-300">
                 {currentLevelInfo?.description || ''}
               </span>
             </div>
 
             {/* 置信度 — WCAG 4.1.2: 进度条添加 role + aria 值 */}
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm text-gray-600 dark:text-gray-400">置信度:</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">置信度:</span>
               <div className="flex-1 max-w-[150px] h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary-500 rounded-full transition-all duration-500"
@@ -226,7 +226,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             </div>
 
             {/* 词汇量估算 */}
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               估计词汇量:{' '}
               <span className="font-semibold text-gray-900 dark:text-white">
                 {vocabularyEstimate.toLocaleString()}
@@ -238,7 +238,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
         {/* CEFR 进度条 — WCAG 4.1.2: 添加 role="progressbar" + aria 值 */}
         <div className="relative pt-2">
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-300 mb-1">
             {CEFR_LEVELS.map((l) => (
               <span
                 key={l.level}
@@ -293,10 +293,10 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-green-500" role="img" aria-label="已掌握"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">已掌握</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">已掌握</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.masteredWords}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-gray-500 dark:text-gray-300">
                 {stats.totalWords > 0
                   ? ((stats.masteredWords / stats.totalWords) * 100).toFixed(1)
                   : '0'}
@@ -307,10 +307,10 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-blue-500" role="img" aria-label="学习中"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">学习中</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">学习中</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.learningWords}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-gray-500 dark:text-gray-300">
                 {stats.totalWords > 0
                   ? ((stats.learningWords / stats.totalWords) * 100).toFixed(1)
                   : '0'}
@@ -321,10 +321,10 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-red-500" role="img" aria-label="需加强"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">需加强</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">需加强</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.strugglingWords}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-gray-500 dark:text-gray-300">
                 {stats.totalWords > 0
                   ? ((stats.strugglingWords / stats.totalWords) * 100).toFixed(1)
                   : '0'}
@@ -335,10 +335,10 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-amber-500" role="img" aria-label="待复习"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">待复习</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">待复习</span>
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.dueForReview}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-gray-500 dark:text-gray-300">
                 {stats.dueForReview > 0 ? '今日需复习' : '暂无待复习'}
               </div>
             </div>
@@ -350,37 +350,37 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-3 h-3 rounded-full bg-purple-500" role="img" aria-label="当前连续"></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">当前连续</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">当前连续</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.currentStreak}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">天</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">天</div>
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-3 h-3 rounded-full bg-indigo-500" role="img" aria-label="最长连续"></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">最长连续</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">最长连续</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.longestStreak}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">天</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">天</div>
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-3 h-3 rounded-full bg-teal-500" role="img" aria-label="学习天数"></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">学习天数</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">学习天数</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.totalStudyDays}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{timeRange}天内</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">{timeRange}天内</div>
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-3 h-3 rounded-full bg-cyan-500" role="img" aria-label="日均学习"></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">日均学习</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">日均学习</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.averageDailyWords}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">词/天</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">词/天</div>
               </div>
             </div>
           )}
@@ -459,7 +459,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-xs text-gray-600 dark:text-gray-300">
                       {item.name}: {item.value}
                     </span>
                   </div>
@@ -481,7 +481,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">{timeRange} 天学习趋势</h3>
             {trend?.masteryChangeRate !== undefined && (
               <div className="text-sm">
-                <span className="text-gray-500 dark:text-gray-400">增长率: </span>
+                <span className="text-gray-500 dark:text-gray-300">增长率: </span>
                 <span
                   className={`font-medium ${
                     trend.masteryChangeRate >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -572,7 +572,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                       {word.daysOverdue > 0 ? `逾期 ${word.daysOverdue} 天` : '今日'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{word.translation}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{word.translation}</p>
                   {word.context && (
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">
                       "{word.context}"
@@ -580,7 +580,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                   )}
                 </div>
                 <div className="ml-4 text-right">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">掌握度</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">掌握度</div>
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
                     {(word.masteryLevel * 100).toFixed(0)}%
                   </div>

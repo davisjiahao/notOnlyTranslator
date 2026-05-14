@@ -123,7 +123,7 @@ export default function ContextualLearningMode() {
     return (
       <div className="flex flex-col items-center justify-center h-96" role="status">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
-        <p className="text-gray-500 dark:text-gray-400">加载语境词汇...</p>
+        <p className="text-gray-500 dark:text-gray-300">加载语境词汇...</p>
       </div>
     );
   }
@@ -135,7 +135,7 @@ export default function ContextualLearningMode() {
         <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
           暂无语境词汇
         </h3>
-        <p className="text-gray-500 dark:text-gray-400 max-w-md">
+        <p className="text-gray-500 dark:text-gray-300 max-w-md">
           在阅读网页时，系统会自动捕获生词的上下文。
           继续浏览英文内容，积累语境素材吧！
         </p>
@@ -151,7 +151,7 @@ export default function ContextualLearningMode() {
           <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
             语境学习完成！
           </h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-600 dark:text-gray-300">
             本次学习了 {stats.totalReviewed} 个词汇的语境用法
           </p>
         </div>
@@ -162,13 +162,13 @@ export default function ContextualLearningMode() {
               <div className="text-2xl font-bold text-blue-600">
                 {stats.totalReviewed}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">学习词汇</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">学习词汇</div>
             </div>
             <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <div className="text-2xl font-bold text-green-600">
                 {stats.correctCount}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">熟练掌握</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">熟练掌握</div>
             </div>
             <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
@@ -177,7 +177,7 @@ export default function ContextualLearningMode() {
                   : 0}
                 %
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">掌握率</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">掌握率</div>
             </div>
           </div>
         </div>
@@ -201,7 +201,7 @@ export default function ContextualLearningMode() {
       {/* 模式切换 */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-gray-500 dark:text-gray-300">
             进度: {currentIndex + 1} / {words.length}
           </span>
         </div>

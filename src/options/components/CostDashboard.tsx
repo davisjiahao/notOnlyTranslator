@@ -95,7 +95,7 @@ export default function CostDashboard() {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">成本监控</h2>
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400" role="status">
+        <div className="text-center py-12 text-gray-500 dark:text-gray-300" role="status">
           暂无数据
         </div>
       </div>
@@ -318,7 +318,7 @@ function SummaryCards({ summary, budget }: { summary: CostSummary; budget: Budge
               {card.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{card.label}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-300">{card.label}</p>
               <p className="text-lg font-bold text-gray-900 dark:text-white truncate">{card.value}</p>
               {card.subValue && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{card.subValue}</p>
@@ -351,11 +351,11 @@ function BudgetSection({
 
       <div className="flex items-end gap-4">
         <div className="flex-1">
-          <label htmlFor="monthly-budget" className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+          <label htmlFor="monthly-budget" className="block text-sm text-gray-500 dark:text-gray-300 mb-1">
             月度预算 (美元)
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-gray-500 dark:text-gray-400">$</span>
+            <span className="text-gray-500 dark:text-gray-300">$</span>
             <input
               id="monthly-budget"
               type="number"
@@ -380,7 +380,7 @@ function BudgetSection({
       {/* 预算进度条 */}
       {budget.monthlyBudget > 0 && (
         <div className="mt-4">
-          <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+          <div className="flex justify-between text-sm text-gray-500 dark:text-gray-300 mb-1">
             <span>已使用 {budget.usagePercent.toFixed(1)}%</span>
             <span>
               ${budget.used.toFixed(4)} / ${budget.monthlyBudget}
@@ -424,7 +424,7 @@ function ProviderDetailsSection({ details }: { details: ProviderCostDetail[] }) 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">各提供商成本详情</h3>
-        <p className="text-gray-500 dark:text-gray-400 text-center py-8" role="status">
+        <p className="text-gray-500 dark:text-gray-300 text-center py-8" role="status">
           暂无使用记录
         </p>
       </div>
@@ -444,7 +444,7 @@ function ProviderDetailsSection({ details }: { details: ProviderCostDetail[] }) 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+            <tr className="text-left text-gray-500 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
               <th className="py-3 px-2">提供商</th>
               <th className="py-3 px-2">类型</th>
               <th className="py-3 px-2 text-right">请求数</th>
@@ -586,7 +586,7 @@ function TopExpensiveRequests({
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {request.provider}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{request.details}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">{request.details}</p>
               </div>
             </div>
             <div className="text-right">

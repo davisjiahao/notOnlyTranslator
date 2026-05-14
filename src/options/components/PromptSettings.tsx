@@ -40,7 +40,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
       {/* 页面标题 */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">提示词设置</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
           管理翻译提示词版本和参数配置
         </p>
       </div>
@@ -49,7 +49,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">提示词版本</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
             选择适合您需求的提示词模板版本
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
                 系统提示词
               </label>
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
+                <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
                   {selectedTemplate.systemPrompt}
                 </pre>
               </div>
@@ -133,7 +133,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
                 输出格式要求
               </label>
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
+                <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
                   {JSON.stringify(selectedTemplate.outputSchema, null, 2)}
                 </pre>
               </div>
@@ -147,7 +147,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">模型参数</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
               当前版本的提示词配置参数（只读）
             </p>
           </div>
@@ -155,7 +155,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Temperature</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">Temperature</div>
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.temperature}
                 </div>
@@ -165,7 +165,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
               </div>
 
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Max Tokens</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">Max Tokens</div>
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.maxTokens}
                 </div>
@@ -175,7 +175,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
               </div>
 
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Top P</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">Top P</div>
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.topP}
                 </div>
@@ -185,7 +185,7 @@ export default function PromptSettings({ settings, onUpdate, isSaving }: PromptS
               </div>
 
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div className="text-xs text-gray-500 dark:text-gray-400">响应格式</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">响应格式</div>
                 <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
                   {selectedTemplate.config.responseFormat === 'json' ? 'JSON' : 'Text'}
                 </div>

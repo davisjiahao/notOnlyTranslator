@@ -137,7 +137,7 @@ export default function LevelSelector({
               onChange={(e) => setCustomVocabulary(Number(e.target.value))}
               className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
               输入您估计的词汇量 (1000-20000)
             </p>
           </div>
@@ -145,12 +145,12 @@ export default function LevelSelector({
 
         {/* 估计词汇量展示 */}
         <div className="mb-6 p-5 bg-gradient-to-br from-primary-50 to-indigo-50 dark:from-primary-900/20 dark:to-indigo-900/20 rounded-xl border border-primary-100 dark:border-primary-800">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">估计词汇量</div>
+          <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">估计词汇量</div>
           <div className="text-4xl font-bold text-primary-600 mb-2">
             {estimatedVocab.toLocaleString()}
           </div>
           {examType !== 'custom' && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-300">
               {EXAM_DISPLAY_NAMES[examType]} 基准: {EXAM_VOCABULARY_SIZES[examType].toLocaleString()} 词
             </div>
           )}
@@ -158,7 +158,7 @@ export default function LevelSelector({
 
         {/* 词汇水平进度条 — WCAG 4.1.2: 添加 role="progressbar" + aria-valuenow/min/max */}
         <div className="mb-6">
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-300 mb-2">
             <span>初级</span>
             <span>中级</span>
             <span>高级</span>

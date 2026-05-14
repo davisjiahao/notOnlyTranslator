@@ -211,7 +211,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
     return (
       <div className="flex flex-col items-center justify-center h-96" role="status">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
-        <p className="text-gray-500 dark:text-gray-400">加载复习单词...</p>
+        <p className="text-gray-500 dark:text-gray-300">加载复习单词...</p>
       </div>
     );
   }
@@ -228,7 +228,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
         <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
           没有需要复习的单词
         </h3>
-        <p className="text-gray-500 dark:text-gray-400 max-w-md">
+        <p className="text-gray-500 dark:text-gray-300 max-w-md">
           太棒了！你当前的单词都还没到复习时间。继续浏览网页学习新单词吧。
         </p>
       </div>
@@ -247,7 +247,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
           <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
             复习完成！
           </h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-600 dark:text-gray-300">
             本次复习了 {stats.totalReviewed} 个单词
           </p>
         </div>
@@ -259,19 +259,19 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
               <div className="text-2xl font-bold text-blue-600">
                 {stats.totalReviewed}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">总复习数</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">总复习数</div>
             </div>
             <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <div className="text-2xl font-bold text-green-600">
                 {stats.correctCount}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">熟练掌握</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">熟练掌握</div>
             </div>
             <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <div className="text-2xl font-bold text-yellow-600">
                 {Math.round(stats.averageRating * 10) / 10}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">平均评分</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">平均评分</div>
             </div>
             <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
@@ -280,7 +280,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                   : 0}
                 %
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">掌握率</div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">掌握率</div>
             </div>
           </div>
 
@@ -295,7 +295,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
               const { label, color } = RATING_LABELS[rating];
               return (
                 <div key={rating} className="flex items-center gap-3">
-                  <div className="w-20 text-sm text-gray-600 dark:text-gray-400">{label}</div>
+                  <div className="w-20 text-sm text-gray-600 dark:text-gray-300">{label}</div>
                   <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
@@ -310,7 +310,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                       }}
                     />
                   </div>
-                  <div className="w-12 text-right text-sm text-gray-600 dark:text-gray-400">
+                  <div className="w-12 text-right text-sm text-gray-600 dark:text-gray-300">
                     {count}
                   </div>
                 </div>
@@ -347,10 +347,10 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
       {/* 进度条 */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-gray-500 dark:text-gray-300">
             卡片 {currentIndex + 1} / {reviewWords.length}
           </span>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-gray-500 dark:text-gray-300">
             {Math.round(progress)}%
           </span>
         </div>
@@ -448,13 +448,13 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                 <div className="text-xl text-blue-700 dark:text-blue-400 mb-4">
                   {currentWord.translation}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 italic mb-2">
+                <div className="text-sm text-gray-600 dark:text-gray-300 italic mb-2">
                   &ldquo;{currentWord.context}&rdquo;
                 </div>
               </div>
 
               {lastUpdateResult && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-4 p-3 bg-white/50 dark:bg-black/20 rounded-lg">
+                <div className="text-xs text-gray-500 dark:text-gray-300 mt-4 p-3 bg-white/50 dark:bg-black/20 rounded-lg">
                   <div className="flex items-center gap-2">
                     <span>下次复习:</span>
                     <span className="font-medium text-blue-600 dark:text-blue-400">
@@ -482,7 +482,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
       {/* 评分按钮 */}
       {isFlipped && (
         <div className="mb-6">
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-3">
+          <p className="text-center text-sm text-gray-500 dark:text-gray-300 mb-3">
             你对这个单词的掌握程度如何？（按数字键 1-5）
           </p>
           <div className="flex justify-center gap-2">
@@ -507,7 +507,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
                   >
                     {rating}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">
+                  <span className="text-xs text-gray-500 dark:text-gray-300 mt-1 hidden sm:block">
                     {label}
                   </span>
                 </button>

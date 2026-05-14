@@ -221,17 +221,17 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">测评完成</h2>
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-gray-500 dark:text-gray-300">
             答对 {result.correctCount} / {result.totalQuestions} 题
           </p>
         </div>
 
         <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 mb-6 text-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">估计词汇量</div>
+          <div className="text-sm text-gray-500 dark:text-gray-300 mb-2">估计词汇量</div>
           <div className="text-4xl font-bold text-primary-600">
             {result.estimatedVocabulary.toLocaleString()}
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">
             正确率: {Math.round(result.accuracy * 100)}%
           </div>
         </div>
@@ -260,7 +260,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">快速测评</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-300">
             第 {currentIndex + 1} / {questions.length} 题
           </p>
         </div>
@@ -297,7 +297,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
             {currentQuestion.word}
           </span>
         </div>
-        <p className="text-center text-gray-500 dark:text-gray-400">选择正确的中文释义</p>
+        <p className="text-center text-gray-500 dark:text-gray-300">选择正确的中文释义</p>
       </div>
 
       {/* Options */}
@@ -326,7 +326,7 @@ export default function QuickTest({ onComplete, onCancel }: QuickTestProps) {
               disabled={selectedAnswer !== null}
               className={`w-full p-4 border rounded-lg text-left font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${buttonClass}`}
             >
-              <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded-full text-sm text-gray-500 dark:text-gray-400 mr-3">
+              <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded-full text-sm text-gray-500 dark:text-gray-300 mr-3">
                 {String.fromCharCode(65 + index)}
               </span>
               {option}

@@ -187,7 +187,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
             设置 API 密钥
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
             NotOnlyTranslator 需要调用 AI 翻译服务来提供智能翻译功能。
             <br />
             让我们一步步完成设置。
@@ -262,7 +262,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           选择翻译服务商
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-center mb-6">
+        <p className="text-gray-500 dark:text-gray-300 text-center mb-6">
           推荐：国内用户选 DeepSeek，海外用户选 OpenAI
         </p>
 
@@ -279,7 +279,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <div className="space-y-4 mb-8" role="radiogroup" aria-label="选择翻译服务商">
           {PROVIDER_GROUPS.map((group) => (
             <div key={group.label}>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 px-1">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-3 px-1">
                 {group.label}
               </h3>
               <div className="space-y-2">
@@ -317,7 +317,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                           <div className="font-medium text-gray-900 dark:text-white">
                             {config.name}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                          <div className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
                             {config.description}
                           </div>
                           {currentProviderConfig.docUrl && (
@@ -362,7 +362,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           {currentProviderConfig?.requiresConnectionTest === false ? '无需密钥' : '输入 API 密钥'}
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-center mb-6">
+        <p className="text-gray-500 dark:text-gray-300 text-center mb-6">
           {currentProviderConfig?.requiresConnectionTest === false
             ? `${currentProviderConfig.name} 无需 API Key，点击下一步继续`
             : `输入您的 ${currentProviderConfig.name} API 密钥`}
@@ -552,13 +552,13 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           选择翻译模型
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-center mb-8">
+        <p className="text-gray-500 dark:text-gray-300 text-center mb-8">
           选择要使用的 AI 模型进行翻译
         </p>
 
         <div className="space-y-4 mb-8">
           {/* 自定义模型选项 */}
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-4">
             <input
               type="checkbox"
               checked={useCustomModel}
@@ -592,7 +592,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <p className="text-gray-500 dark:text-gray-400 mt-2">加载模型列表...</p>
+                  <p className="text-gray-500 dark:text-gray-300 mt-2">加载模型列表...</p>
                 </div>
               ) : (
                 models.map((model) => (
@@ -678,7 +678,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
           设置完成！
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
+        <p className="text-gray-600 dark:text-gray-300 mb-8">
           API 配置已成功保存。现在您可以开始使用 NotOnlyTranslator 进行智能翻译了。
         </p>
 
@@ -688,19 +688,19 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
           </h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">服务商</span>
+              <span className="text-gray-500 dark:text-gray-300">服务商</span>
               <span className="text-gray-900 dark:text-white font-medium">
                 {getProviderDisplayName(selectedProvider)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">模型</span>
+              <span className="text-gray-500 dark:text-gray-300">模型</span>
               <span className="text-gray-900 dark:text-white font-medium">
                 {modelName || '默认'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">API Key</span>
+              <span className="text-gray-500 dark:text-gray-300">API Key</span>
               <span className="text-gray-900 dark:text-white font-medium">
                 {apiKey.slice(0, 8)}...{apiKey.slice(-4)}
               </span>

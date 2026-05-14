@@ -303,7 +303,7 @@ export default function DataManager() {
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
               导出备份
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
               将所有用户数据导出为 JSON 文件，包括用户配置、词汇列表、掌握度数据等。
               可用于数据备份或迁移到其他设备。
             </p>
@@ -320,7 +320,7 @@ export default function DataManager() {
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
               导出词汇列表
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
               将词汇列表导出为 CSV 文件，可在 Excel 或其他表格软件中查看和编辑。
             </p>
             <button
@@ -394,7 +394,7 @@ export default function DataManager() {
                   type="file"
                   accept=".json"
                   onChange={handleFileSelect}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400
+                  className="block w-full text-sm text-gray-500 dark:text-gray-300
                              file:mr-4 file:py-2 file:px-4
                              file:rounded-lg file:border-0
                              file:text-sm file:font-medium
@@ -473,7 +473,7 @@ export default function DataManager() {
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">同步存储</span>
+                    <span className="text-gray-600 dark:text-gray-300">同步存储</span>
                     <span className="text-gray-800 dark:text-gray-200">
                       {formatBytes(storageStats.syncUsed)} / {formatBytes(storageStats.syncQuota)}
                     </span>
@@ -494,7 +494,7 @@ export default function DataManager() {
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">本地存储</span>
+                    <span className="text-gray-600 dark:text-gray-300">本地存储</span>
                     <span className="text-gray-800 dark:text-gray-200">
                       {formatBytes(storageStats.localUsed)} / {formatBytes(storageStats.localQuota)}
                     </span>

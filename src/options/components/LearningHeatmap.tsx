@@ -43,15 +43,15 @@ export default function LearningHeatmap({ data, weeks = 26 }: LearningHeatmapPro
       {/* 统计摘要 */}
       <div className="flex items-center gap-6 text-sm">
         <div>
-          <span className="text-gray-500 dark:text-gray-400">总活动:</span>{' '}
+          <span className="text-gray-500 dark:text-gray-300">总活动:</span>{' '}
           <span className="font-semibold text-gray-900 dark:text-white">{totalActivity}</span>
         </div>
         <div>
-          <span className="text-gray-500 dark:text-gray-400">活跃天数:</span>{' '}
+          <span className="text-gray-500 dark:text-gray-300">活跃天数:</span>{' '}
           <span className="font-semibold text-gray-900 dark:text-white">{activeDays}</span>
         </div>
         <div>
-          <span className="text-gray-500 dark:text-gray-400">最长连续:</span>{' '}
+          <span className="text-gray-500 dark:text-gray-300">最长连续:</span>{' '}
           <span className="font-semibold text-gray-900 dark:text-white">{maxStreak} 天</span>
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function LearningHeatmap({ data, weeks = 26 }: LearningHeatmapPro
               {monthLabels.map((label, index) => (
                 <div
                   key={index}
-                  className="absolute text-xs text-gray-500 dark:text-gray-400"
+                  className="absolute text-xs text-gray-500 dark:text-gray-300"
                   style={{ left: `${label.position}%` }}
                 >
                   {label.month}
@@ -82,7 +82,7 @@ export default function LearningHeatmap({ data, weeks = 26 }: LearningHeatmapPro
               {WEEKDAY_LABELS.map((day, index) => (
                 <div
                   key={day}
-                  className={`text-xs text-gray-500 dark:text-gray-400 h-3 flex items-center ${
+                  className={`text-xs text-gray-500 dark:text-gray-300 h-3 flex items-center ${
                     index % 2 === 0 ? 'invisible' : ''
                   }`}
                 >
@@ -113,7 +113,7 @@ export default function LearningHeatmap({ data, weeks = 26 }: LearningHeatmapPro
           </div>
 
           {/* 图例 */}
-          <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-300">
             <span>少</span>
             {[0, 1, 2, 3, 4].map((level) => (
               <div

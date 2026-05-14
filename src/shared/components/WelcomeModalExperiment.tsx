@@ -243,7 +243,7 @@ function WelcomeStep({
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
         {titles[group]}
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-8">
+      <p className="text-gray-600 dark:text-gray-300 mb-8">
         {subtitles[group]}
       </p>
 
@@ -269,7 +269,7 @@ function WelcomeStep({
             <div className="font-medium text-gray-900 dark:text-white">
               智能分级翻译
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-300">
               只翻译超出你词汇量的单词
             </div>
           </div>
@@ -295,7 +295,7 @@ function WelcomeStep({
             <div className="font-medium text-gray-900 dark:text-white">
               自然积累词汇
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-300">
               在阅读中不知不觉提升词汇量
             </div>
           </div>
@@ -321,7 +321,7 @@ function WelcomeStep({
             <div className="font-medium text-gray-900 dark:text-white">
               隐私保护
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-300">
               使用你自己的 API Key，数据完全私有
             </div>
           </div>
@@ -368,7 +368,7 @@ function LevelStep({
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
         选择你的英语水平
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-8 text-center">
+      <p className="text-gray-600 dark:text-gray-300 mb-8 text-center">
         这将帮助我们决定哪些单词需要翻译
       </p>
 
@@ -388,7 +388,7 @@ function LevelStep({
                 <div className="font-medium text-gray-900 dark:text-white">
                   {level.name}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-gray-500 dark:text-gray-300">
                   {level.desc}
                 </div>
               </div>
@@ -449,7 +449,7 @@ function ApiStep({
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
         {group === 'C' ? '快速开始' : '配置翻译服务'}
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-8 text-center">
+      <p className="text-gray-600 dark:text-gray-300 mb-8 text-center">
         {group === 'C'
           ? '选择服务商，稍后在设置中添加密钥'
           : '选择并配置你的翻译服务提供商'}
@@ -496,7 +496,7 @@ function ApiStep({
                 )}
               </div>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-7">
+            <div className="text-sm text-gray-500 dark:text-gray-300 mt-1 ml-7">
               {provider.desc}
             </div>
           </button>
@@ -518,7 +518,7 @@ function ApiStep({
             placeholder="https://api.example.com/v1/chat/completions"
             className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
             输入兼容 OpenAI API 格式的自定义服务端点地址
           </p>
         </div>
@@ -573,7 +573,7 @@ function ApiStep({
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
             密钥仅存储在本地浏览器中，我们不会也无法访问。
           </p>
         </div>
@@ -635,13 +635,13 @@ function DemoStep({
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
         设置完成！
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-8">
+      <p className="text-gray-600 dark:text-gray-300 mb-8">
         让我们试一下吧
       </p>
 
       {/* 演示卡片 */}
       <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-8 text-left">
-        <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <div className="text-sm text-gray-500 dark:text-gray-300 mb-2">
           试着访问任意英文网页，比如：
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -678,7 +678,7 @@ function DemoStep({
           <span className="w-5 h-5 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center flex-shrink-0 text-xs text-primary-600">
             1
           </span>
-          <span className="text-gray-600 dark:text-gray-400">
+          <span className="text-gray-600 dark:text-gray-300">
             点击页面上的
             <span className="px-1.5 py-0.5 mx-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded text-xs">
               高亮单词
@@ -690,7 +690,7 @@ function DemoStep({
           <span className="w-5 h-5 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center flex-shrink-0 text-xs text-primary-600">
             2
           </span>
-          <span className="text-gray-600 dark:text-gray-400">
+          <span className="text-gray-600 dark:text-gray-300">
             标记
             <span className="px-1.5 py-0.5 mx-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded text-xs">
               已知
@@ -706,7 +706,7 @@ function DemoStep({
           <span className="w-5 h-5 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center flex-shrink-0 text-xs text-primary-600">
             3
           </span>
-          <span className="text-gray-600 dark:text-gray-400">
+          <span className="text-gray-600 dark:text-gray-300">
             点击扩展图标查看学习统计
           </span>
         </div>

@@ -100,19 +100,19 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">{words.length}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">总词汇</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">总词汇</div>
           </div>
           <div className="text-center p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {words.filter(w => w.reviewCount > 0).length}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">已复习</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">已复习</div>
           </div>
           <div className="text-center p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {words.filter(w => Date.now() - w.markedAt < 7 * 24 * 60 * 60 * 1000).length}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">本周新增</div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">本周新增</div>
           </div>
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             </div>
-            <p className="text-gray-500 dark:text-gray-400 mb-1">生词本为空</p>
+            <p className="text-gray-500 dark:text-gray-300 mb-1">生词本为空</p>
             <p className="text-sm text-gray-400 dark:text-gray-500">
               阅读时标记不认识的词汇，它们会出现在这里
             </p>
@@ -189,7 +189,7 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
                       </div>
                       <p className="text-gray-600 dark:text-gray-300 mt-1">{entry.translation}</p>
                       {entry.context && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 italic truncate">
+                        <p className="text-sm text-gray-500 dark:text-gray-300 mt-2 italic truncate">
                           "{entry.context}"
                         </p>
                       )}
@@ -212,7 +212,7 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
               ))}
 
               {filteredWords.length === 0 && searchTerm && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400" role="status">
+                <div className="text-center py-8 text-gray-500 dark:text-gray-300" role="status">
                   未找到匹配的词汇
                 </div>
               )}
@@ -220,7 +220,7 @@ export default function VocabularySettings({ isSaving }: VocabularySettingsProps
 
             {/* 底部操作 */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-gray-500 dark:text-gray-300">
                 共 {filteredWords.length} 个词汇
                 {searchTerm && ` (筛选自 ${words.length} 个)`}
               </span>

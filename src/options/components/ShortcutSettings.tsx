@@ -203,7 +203,7 @@ export default function ShortcutSettings({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">快捷键设置</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
           配置键盘快捷键，提升使用效率
         </p>
       </div>
@@ -218,7 +218,7 @@ export default function ShortcutSettings({
               <div className="font-medium text-gray-900 dark:text-white">
                 {shortcut.description}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 {isChromeCommand(shortcut.action) ? (
                   <span className="text-blue-600 dark:text-blue-400">
                     全局快捷键（可在 Chrome 扩展设置中修改）

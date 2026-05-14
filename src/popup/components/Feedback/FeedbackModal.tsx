@@ -161,7 +161,7 @@ export default function FeedbackModal({
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               提交成功！
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-600 dark:text-gray-300">
               {submitResult.message}
             </p>
           </div>
@@ -236,7 +236,7 @@ export default function FeedbackModal({
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                   maxLength={2000}
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-300 text-right">
                   {formData.description.length}/2000
                 </p>
               </div>

@@ -195,7 +195,7 @@ export default function CacheStatsPanel() {
         <div className="grid grid-cols-2 gap-4">
           {/* 缓存命中率 */}
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">缓存命中率</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">缓存命中率</div>
             <div className={`text-2xl font-bold ${getHitRateColor(stats.hitRate)}`}>
               {stats.hitRate.toFixed(1)}%
             </div>
@@ -206,7 +206,7 @@ export default function CacheStatsPanel() {
 
           {/* 平均响应时间 */}
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">平均响应时间</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">平均响应时间</div>
             <div className={`text-2xl font-bold ${getDurationColor(stats.avgTotalDuration)}`}>
               {stats.avgTotalDuration.toFixed(0)}ms
             </div>
@@ -217,7 +217,7 @@ export default function CacheStatsPanel() {
 
           {/* 缓存条目数 */}
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">缓存条目数</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">缓存条目数</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {stats.totalEntries.toLocaleString()}
             </div>
@@ -228,7 +228,7 @@ export default function CacheStatsPanel() {
 
           {/* 内存占用 */}
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">内存占用</div>
+            <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">内存占用</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {formatBytes(stats.memoryUsage)}
             </div>
@@ -243,25 +243,25 @@ export default function CacheStatsPanel() {
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">详细统计</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">总请求数</span>
+              <span className="text-gray-500 dark:text-gray-300">总请求数</span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {stats.totalRequests.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">缓存命中</span>
+              <span className="text-gray-500 dark:text-gray-300">缓存命中</span>
               <span className="font-medium text-green-600 dark:text-green-400">
                 {stats.hits.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">缓存未命中</span>
+              <span className="text-gray-500 dark:text-gray-300">缓存未命中</span>
               <span className="font-medium text-yellow-600 dark:text-yellow-400">
                 {stats.misses.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">平均 API 耗时</span>
+              <span className="text-gray-500 dark:text-gray-300">平均 API 耗时</span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {stats.avgApiDuration.toFixed(0)}ms
               </span>

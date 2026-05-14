@@ -95,7 +95,7 @@ export default function HybridTranslationSettings({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">混合翻译引擎</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
           配置 LLM 和传统翻译引擎的混合使用策略
         </p>
       </div>
@@ -105,7 +105,7 @@ export default function HybridTranslationSettings({
         <div className="px-6 py-4 flex items-center justify-between">
           <div>
             <div className="font-medium text-gray-900 dark:text-white">启用混合翻译</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-300">
               开启后可选择使用传统翻译引擎或混合模式
             </div>
           </div>
@@ -152,7 +152,7 @@ export default function HybridTranslationSettings({
                       <span className="text-2xl">{engine.icon}</span>
                       <div className="flex-1">
                         <div className="font-medium text-gray-900 dark:text-white">{engine.label}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{engine.description}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-300">{engine.description}</div>
                       </div>
                       {hybridConfig.defaultEngine === engine.value && (
                         <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -193,7 +193,7 @@ export default function HybridTranslationSettings({
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="font-medium text-gray-900 dark:text-white">{provider.label}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <div className="text-sm text-gray-500 dark:text-gray-300 mt-1">
                               {provider.description}
                             </div>
                             <div className="flex flex-wrap gap-2 mt-2">
@@ -272,7 +272,7 @@ export default function HybridTranslationSettings({
                     </button>
                   </div>
                   {PROVIDER_CONFIGS[hybridConfig.traditionalProvider]?.docUrl && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
                       获取密钥:{' '}
                       <a
                         href={PROVIDER_CONFIGS[hybridConfig.traditionalProvider].docUrl}
@@ -294,7 +294,7 @@ export default function HybridTranslationSettings({
                 <div className="px-6 py-4 flex items-center justify-between">
                   <div>
                     <div className="font-medium text-gray-900 dark:text-white">智能路由</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-gray-500 dark:text-gray-300">
                       根据文本特征自动选择最佳翻译引擎
                     </div>
                   </div>
@@ -321,7 +321,7 @@ export default function HybridTranslationSettings({
                   <label htmlFor="threshold-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     简单文本阈值
                   </label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">
                     词数低于此阈值的简单文本将使用传统翻译引擎，复杂文本使用 LLM
                   </p>
                   <div className="flex items-center gap-4">
@@ -371,7 +371,7 @@ export default function HybridTranslationSettings({
                         } disabled:opacity-50`}
                       >
                         <div className="font-medium text-gray-900 dark:text-white">{priority.label}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{priority.description}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">{priority.description}</div>
                       </button>
                     ))}
                   </div>

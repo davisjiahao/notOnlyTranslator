@@ -40,7 +40,7 @@ export default function ContextualLearningCard({
   if (contexts.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
-        <p className="text-gray-500 dark:text-gray-400">
+        <p className="text-gray-500 dark:text-gray-300">
           该词汇暂无上下文记录
         </p>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
@@ -97,7 +97,7 @@ export default function ContextualLearningCard({
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
       {/* 语境来源标签 */}
       {currentContext.source && (
-        <div className="bg-gray-50 dark:bg-gray-700 px-4 py-2 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between">
+        <div className="bg-gray-50 dark:bg-gray-700 px-4 py-2 text-sm text-gray-500 dark:text-gray-300 flex items-center justify-between">
           <span className="flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -201,7 +201,7 @@ export default function ContextualLearningCard({
       {/* 评分按钮 */}
       {showAnswer && (
         <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-3">
+          <p className="text-sm text-gray-500 dark:text-gray-300 text-center mb-3">
             你认识这个单词吗？
           </p>
           <div className="flex justify-center gap-2">

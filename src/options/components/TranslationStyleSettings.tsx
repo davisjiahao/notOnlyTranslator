@@ -85,7 +85,7 @@ export default function TranslationStyleSettings({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">翻译样式</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
           自定义翻译显示效果，打造个性化阅读体验
         </p>
       </div>
@@ -118,7 +118,7 @@ export default function TranslationStyleSettings({
                   )}
                 </div>
                 <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{option.description}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">{option.description}</div>
               </button>
             ))}
           </div>
@@ -129,7 +129,7 @@ export default function TranslationStyleSettings({
           <label htmlFor="highlight-opacity-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             高亮透明度
           </label>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">
             调整生词高亮的透明度，数值越低越透明
           </p>
           <div className="flex items-center gap-4">
@@ -160,7 +160,7 @@ export default function TranslationStyleSettings({
           <label htmlFor="translation-opacity-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             译文行透明度
           </label>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">
             调整双语对照模式下译文行的背景透明度
           </p>
           <div className="flex items-center gap-4">
@@ -191,7 +191,7 @@ export default function TranslationStyleSettings({
           <label htmlFor="translation-indent-slider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             译文行缩进
           </label>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">
             双语对照模式下译文行的左侧缩进距离
           </p>
           <div className="flex items-center gap-4">
@@ -241,7 +241,7 @@ export default function TranslationStyleSettings({
         <div className="px-6 py-4 flex items-center justify-between">
           <div>
             <div className="font-medium text-gray-900 dark:text-white">显示原文标注</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-300">
               在译文中显示生词对应的原文
             </div>
           </div>
@@ -268,7 +268,7 @@ export default function TranslationStyleSettings({
           <div className="flex items-center justify-between mb-3">
             <div>
               <label htmlFor="custom-css-input" className="font-medium text-gray-900 dark:text-white">自定义 CSS</label>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-300">
                 使用自定义 CSS 实现高级样式定制
               </div>
             </div>
@@ -335,7 +335,7 @@ export default function TranslationStyleSettings({
                 sentence with a highlighted word.
               </p>
               <div
-                className="text-gray-500 dark:text-gray-400 text-sm mt-2 p-2 rounded"
+                className="text-gray-500 dark:text-gray-300 text-sm mt-2 p-2 rounded"
                 style={{
                   opacity: styleConfig.translationLineOpacity / 100 + 0.3,
                   paddingLeft: `${styleConfig.translationLineIndent}px`,

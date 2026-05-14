@@ -467,7 +467,7 @@ export default function VocabularyExportImport({
             {exportOptions.filter === 'date' && (
               <div className="mb-4 space-y-2">
                 <div>
-                  <label htmlFor="export-start-date" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="export-start-date" className="block text-xs text-gray-500 dark:text-gray-300 mb-1">
                     开始日期
                   </label>
                   <input
@@ -481,7 +481,7 @@ export default function VocabularyExportImport({
                   />
                 </div>
                 <div>
-                  <label htmlFor="export-end-date" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="export-end-date" className="block text-xs text-gray-500 dark:text-gray-300 mb-1">
                     结束日期
                   </label>
                   <input
@@ -501,7 +501,7 @@ export default function VocabularyExportImport({
             {exportOptions.filter === 'mastery' && (
               <div className="mb-4 space-y-2">
                 <div>
-                  <label htmlFor="min-mastery-range" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="min-mastery-range" className="block text-xs text-gray-500 dark:text-gray-300 mb-1">
                     最小掌握度: {Math.round((exportOptions.minMasteryLevel || 0) * 100)}%
                   </label>
                   <input
@@ -523,7 +523,7 @@ export default function VocabularyExportImport({
                   />
                 </div>
                 <div>
-                  <label htmlFor="max-mastery-range" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <label htmlFor="max-mastery-range" className="block text-xs text-gray-500 dark:text-gray-300 mb-1">
                     最大掌握度: {Math.round((exportOptions.maxMasteryLevel || 1) * 100)}%
                   </label>
                   <input
@@ -600,7 +600,7 @@ export default function VocabularyExportImport({
             />
 
             {isImporting && (
-              <div className="mb-4 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400">
+              <div className="mb-4 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300">
                 <div className="w-5 h-5 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
                 <span className="text-sm">正在导入...</span>
               </div>

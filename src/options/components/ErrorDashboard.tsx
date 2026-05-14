@@ -73,13 +73,13 @@ const ErrorDetailModal: React.FC<{
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">错误消息</label>
+              <label className="text-sm font-medium text-gray-500 dark:text-gray-300">错误消息</label>
               <p className="mt-1 text-gray-900 dark:text-white break-all">{error.message}</p>
             </div>
 
             {error.stack && (
               <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">堆栈追踪</label>
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-300">堆栈追踪</label>
                 <pre className="mt-1 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs text-gray-700 dark:text-gray-300 overflow-auto max-h-48">
                   {error.stack}
                 </pre>
@@ -88,7 +88,7 @@ const ErrorDetailModal: React.FC<{
 
             {error.context && (
               <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">上下文信息</label>
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-300">上下文信息</label>
                 <div className="mt-1 space-y-1 text-sm">
                   {error.context.component && (
                     <p className="text-gray-700 dark:text-gray-300">
@@ -111,23 +111,23 @@ const ErrorDetailModal: React.FC<{
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <label className="text-gray-500 dark:text-gray-400">发生时间</label>
+                <label className="text-gray-500 dark:text-gray-300">发生时间</label>
                 <p className="text-gray-900 dark:text-white">
                   {new Date(error.timestamp).toLocaleString('zh-CN')}
                 </p>
               </div>
               <div>
-                <label className="text-gray-500 dark:text-gray-400">首次发生</label>
+                <label className="text-gray-500 dark:text-gray-300">首次发生</label>
                 <p className="text-gray-900 dark:text-white">
                   {new Date(error.firstOccurredAt).toLocaleString('zh-CN')}
                 </p>
               </div>
               <div>
-                <label className="text-gray-500 dark:text-gray-400">发生次数</label>
+                <label className="text-gray-500 dark:text-gray-300">发生次数</label>
                 <p className="text-gray-900 dark:text-white">{error.count}</p>
               </div>
               <div>
-                <label className="text-gray-500 dark:text-gray-400">上报状态</label>
+                <label className="text-gray-500 dark:text-gray-300">上报状态</label>
                 <p className="text-gray-900 dark:text-white">
                   {error.reported ? '已上报' : '未上报'}
                   {error.reportedAt && ` (${new Date(error.reportedAt).toLocaleString('zh-CN')})`}
@@ -137,8 +137,8 @@ const ErrorDetailModal: React.FC<{
 
             {error.browserInfo && (
               <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">浏览器信息</label>
-                <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-300">浏览器信息</label>
+                <div className="mt-1 text-xs text-gray-600 dark:text-gray-300 space-y-1">
                   <p>User Agent: {error.browserInfo.userAgent}</p>
                   <p>语言: {error.browserInfo.language}</p>
                   <p>平台: {error.browserInfo.platform}</p>
@@ -339,21 +339,21 @@ export const ErrorDashboard: React.FC = () => {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">总错误数</p>
+            <p className="text-sm text-gray-500 dark:text-gray-300">总错误数</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalErrors}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">未上报</p>
+            <p className="text-sm text-gray-500 dark:text-gray-300">未上报</p>
             <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {stats.unreportedErrors}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">最近24小时</p>
+            <p className="text-sm text-gray-500 dark:text-gray-300">最近24小时</p>
             <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.last24Hours}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">最近7天</p>
+            <p className="text-sm text-gray-500 dark:text-gray-300">最近7天</p>
             <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.last7Days}</p>
           </div>
         </div>
@@ -366,7 +366,7 @@ export const ErrorDashboard: React.FC = () => {
           <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
             {(Object.keys(stats.byCategory) as ErrorCategory[]).map(category => (
               <div key={category} className="text-center p-2 rounded bg-gray-50 dark:bg-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-300">
                   {ERROR_CATEGORIES[category]?.label || category}
                 </p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -507,7 +507,7 @@ export const ErrorDashboard: React.FC = () => {
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {errors.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400" role="status">
+            <div className="p-8 text-center text-gray-500 dark:text-gray-300" role="status">
               <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -529,7 +529,7 @@ export const ErrorDashboard: React.FC = () => {
                       <SeverityBadge severity={error.severity} />
                       <CategoryBadge category={error.category} />
                       {error.count > 1 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-gray-500 dark:text-gray-300">
                           ×{error.count}
                         </span>
                       )}
@@ -542,7 +542,7 @@ export const ErrorDashboard: React.FC = () => {
                     <p className="text-sm text-gray-900 dark:text-white truncate">
                       {error.message}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
                       {error.context?.component && `${error.context.component} · `}
                       {new Date(error.timestamp).toLocaleString('zh-CN')}
                     </p>

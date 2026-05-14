@@ -262,7 +262,7 @@ export default function App() {
         <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">词汇量估算</div>
+              <div className="text-xs text-gray-500 dark:text-gray-300 mb-0.5">词汇量估算</div>
               <div className="text-xl font-bold text-gray-800 dark:text-gray-100">
                 {stats?.estimatedVocabulary.toLocaleString() || '---'}
               </div>
@@ -323,7 +323,7 @@ export default function App() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
             {/* 模式选择器 */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">翻译模式</label>
+              <label className="text-xs text-gray-500 dark:text-gray-300 font-medium">翻译模式</label>
               {/* WCAG 4.1.2: 翻译模式按钮组 — 使用 radiogroup 角色，让屏幕阅读器识别当前选中项 */}
               <div className="grid grid-cols-3 gap-1.5 bg-gray-50 dark:bg-gray-700/50 p-1 rounded-lg" role="radiogroup" aria-label="翻译模式">
                 <button
@@ -426,7 +426,7 @@ export default function App() {
             )}
           </div>
         ) : (
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center text-gray-500 dark:text-gray-400 text-xs">
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center text-gray-500 dark:text-gray-300 text-xs">
             当前页面不支持翻译
           </div>
         )}

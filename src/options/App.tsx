@@ -415,7 +415,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">NotOnlyTranslator</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">根据您的英语水平智能翻译</p>
+            <p className="text-xs text-gray-500 dark:text-gray-300">根据您的英语水平智能翻译</p>
           </div>
         </div>
       </header>
