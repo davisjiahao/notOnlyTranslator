@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   getExperimentGroup,
   trackExperimentProgress,
   type ExperimentGroup,
   type ExperimentStep,
 } from './welcomeModalUtils';
-import type { ApiProvider } from '@/shared/types';
+import type { ApiProvider, ApiConfig } from '@/shared/types';
+import { PROVIDER_CONFIGS } from '@/shared/constants';
 import { useFocusTrap } from '@/shared/hooks';
 
 /** 从欢迎模态框返回的API配置 */
@@ -437,31 +438,92 @@ function ApiStep({
   const providers = [
     { id: 'openai', name: 'OpenAI', desc: 'GPT-4o-mini, GPT-4', recommended: true },
     { id: 'anthropic', name: 'Anthropic', desc: 'Claude 3 Haiku, Sonnet' },
-    { id: 'custom', name: '自定义', desc: '使用其他 API 服务' },
+    { id: 'deepseek', name: 'DeepSeek', desc: '国产之光，性价比高' },
+    { id: 'gemini', name: 'Google Gemini', desc: 'Gemini 2.0，免费额度充足' },
+    { id: 'custom', name: '自定义', desc: '兼容 OpenAI 格式的其他服务' },
   ];
 
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [customUrl, setCustomUrl] = useState('');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+
+  const providerConfig = PROVIDER_CONFIGS[selectedProvider as ApiProvider];
+  const placeholder = providerConfig?.apiKeyPlaceholder || '输入 API Key';
+  const docUrl = providerConfig?.docUrl;
+  const isCustom = selectedProvider === 'custom';
+  const needsKey = group !== 'C' && selectedProvider !== 'free_google';
+
+  const isValid = needsKey
+    ? (isCustom ? apiKey.trim() && customUrl.trim() : apiKey.trim())
+    : true;
+
+  const handleTestAndSave = useCallback(async () => {
+    if (!isValid) return;
+    setIsTesting(true);
+    setTestResult(null);
+
+    const payload = isCustom
+      ? { provider: 'openai' as ApiProvider, apiKey: apiKey.trim(), customUrl: customUrl.trim() }
+      : { provider: selectedProvider as ApiProvider, apiKey: apiKey.trim() };
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'TEST_API_CONNECTION',
+        payload,
+      });
+
+      if (response?.success) {
+        setTestResult('success');
+        const configId = `${selectedProvider}-${Date.now()}`;
+        const newConfig: ApiConfig = {
+          id: configId,
+          name: isCustom ? '自定义 API' : (providerConfig?.name || selectedProvider),
+          provider: isCustom ? ('custom' as ApiProvider) : (selectedProvider as ApiProvider),
+          apiKey: apiKey.trim(),
+          apiUrl: isCustom ? customUrl.trim() : undefined,
+          tested: true,
+          lastTestedAt: Date.now(),
+          createdAt: Date.now(),
+        };
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_SETTINGS',
+          payload: {
+            apiConfigs: [newConfig],
+            activeApiConfigId: configId,
+            apiProvider: newConfig.provider,
+          },
+        });
+        setTimeout(() => onNext(), 800);
+      } else {
+        setTestResult('error');
+      }
+    } catch {
+      setTestResult('error');
+    } finally {
+      setIsTesting(false);
+    }
+  }, [isValid, isCustom, selectedProvider, apiKey, customUrl, providerConfig, onNext]);
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
         {group === 'C' ? '快速开始' : '配置翻译服务'}
       </h2>
-      <p className="text-gray-600 dark:text-gray-300 mb-8 text-center">
+      <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
         {group === 'C'
-          ? '选择服务商，稍后在设置中添加密钥'
-          : '选择并配置你的翻译服务提供商'}
+          ? '选择服务商，即可开始使用'
+          : '选择你的翻译服务提供商'}
       </p>
 
       {/* 服务商选择 */}
-      <div className="space-y-3 mb-6">
+      <div className="space-y-2 mb-5">
         {providers.map((provider) => (
           <button
             key={provider.id}
-            onClick={() => onSelect(provider.id)}
-            className={`w-full p-4 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
+            onClick={() => { onSelect(provider.id); setTestResult(null); }}
+            className={`w-full p-3 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
               selectedProvider === provider.id
                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                 : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
@@ -486,7 +548,7 @@ function ApiStep({
                     </svg>
                   )}
                 </div>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="font-medium text-gray-900 dark:text-white text-sm">
                   {provider.name}
                 </span>
                 {provider.recommended && (
@@ -496,38 +558,46 @@ function ApiStep({
                 )}
               </div>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-300 mt-1 ml-7">
+            <div className="text-xs text-gray-500 dark:text-gray-300 mt-0.5 ml-7">
               {provider.desc}
             </div>
           </button>
         ))}
       </div>
 
-      {/* 自定义 API URL (仅自定义提供商显示) */}
-      {selectedProvider === 'custom' && (
-        <div className="mb-6">
-          <label htmlFor="welcome-api-url-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            API 地址
-            <span className="text-red-500 ml-1">*</span>
+      {/* 获取 API Key 链接 */}
+      {docUrl && needsKey && (
+        <a
+          href={docUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-xs text-primary-600 dark:text-primary-400 hover:underline mb-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+        >
+          如何获取 API Key？→
+        </a>
+      )}
+
+      {/* 自定义 API URL */}
+      {isCustom && (
+        <div className="mb-4">
+          <label htmlFor="welcome-api-url-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            API 地址 <span className="text-red-500">*</span>
           </label>
           <input
             id="welcome-api-url-input"
             type="text"
             value={customUrl}
-            onChange={(e) => setCustomUrl(e.target.value)}
+            onChange={(e) => { setCustomUrl(e.target.value); setTestResult(null); }}
             placeholder="https://api.example.com/v1/chat/completions"
-            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
-            输入兼容 OpenAI API 格式的自定义服务端点地址
-          </p>
         </div>
       )}
 
-      {/* API Key 输入 (仅A、B组显示) */}
-      {group !== 'C' && (
-        <div className="mb-6">
-          <label htmlFor="welcome-api-key-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+      {/* API Key 输入 */}
+      {needsKey && (
+        <div className="mb-4">
+          <label htmlFor="welcome-api-key-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             API 密钥
           </label>
           <div className="relative">
@@ -535,70 +605,66 @@ function ApiStep({
               id="welcome-api-key-input"
               type={showKey ? 'text' : 'password'}
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full px-4 py-3 pr-12 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+              onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
+              placeholder={placeholder}
+              className="w-full px-3 py-2 pr-12 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm"
             />
             <button
               type="button"
               onClick={() => setShowKey(!showKey)}
               aria-label={showKey ? '隐藏 API 密钥' : '显示 API 密钥'}
               aria-pressed={showKey}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
             >
               {showKey ? (
-                <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                  />
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                 </svg>
               ) : (
-                <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
-            密钥仅存储在本地浏览器中，我们不会也无法访问。
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            密钥仅存储在本地，我们不会也无法访问
           </p>
+          {testResult === 'error' && (
+            <p role="alert" className="mt-1 text-xs text-red-500">连接测试失败，请检查 API Key 或网络</p>
+          )}
+          {testResult === 'success' && (
+            <p role="status" className="mt-1 text-xs text-green-500">✓ 连接成功，正在保存配置...</p>
+          )}
         </div>
       )}
 
       <div className="flex gap-3">
         <button
           onClick={onBack}
-          className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+          className="flex-1 py-2.5 px-4 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 text-sm"
         >
           上一步
         </button>
         <button
-          onClick={onNext}
-          disabled={group !== 'C' && (!apiKey || (selectedProvider === 'custom' && !customUrl))}
-          className="flex-1 py-3 px-4 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+          onClick={handleTestAndSave}
+          disabled={!isValid || isTesting}
+          className="flex-1 py-2.5 px-4 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 text-sm"
         >
-          {group === 'C' ? '进入演示' : '下一步'}
+          {isTesting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" role="status" aria-label="测试中" />
+              测试中...
+            </>
+          ) : group === 'C' ? '进入演示' : '测试并保存'}
         </button>
       </div>
 
       {group === 'C' && (
         <button
           onClick={onSkip}
-          className="w-full mt-3 py-2 text-sm text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+          className="w-full mt-3 py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
         >
           跳过，稍后配置
         </button>
