@@ -614,7 +614,7 @@ function ApiStep({
               onClick={() => setShowKey(!showKey)}
               aria-label={showKey ? '隐藏 API 密钥' : '显示 API 密钥'}
               aria-pressed={showKey}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
             >
               {showKey ? (
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -628,7 +628,7 @@ function ApiStep({
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
             密钥仅存储在本地，我们不会也无法访问
           </p>
           {testResult === 'error' && (
@@ -664,7 +664,7 @@ function ApiStep({
       {group === 'C' && (
         <button
           onClick={onSkip}
-          className="w-full mt-3 py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+          className="w-full mt-3 py-2 text-sm text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
         >
           跳过，稍后配置
         </button>

@@ -344,7 +344,7 @@ export default function TranslationStyleSettings({
               >
                 这是一个带有高亮词汇的示例句子。
                 {styleConfig.showOriginalAnnotation && (
-                  <span className="text-xs text-gray-400 ml-1">(example: 示例)</span>
+                  <span className="text-xs text-gray-500 ml-1">(example: 示例)</span>
                 )}
               </div>
             </div>

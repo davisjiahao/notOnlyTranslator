@@ -142,7 +142,7 @@ export default function FeedbackModal({
             onClick={handleClose}
             disabled={isSubmitting}
             aria-label="关闭"
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            className="p-2 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -244,7 +244,7 @@ export default function FeedbackModal({
               {/* 邮箱（可选） */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  联系邮箱 <span className="text-gray-400">（可选）</span>
+                  联系邮箱 <span className="text-gray-500">（可选）</span>
                 </label>
                 <input
                   type="email"

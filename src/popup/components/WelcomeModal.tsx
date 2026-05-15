@@ -332,7 +332,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
             <p className="text-sm text-gray-500 dark:text-gray-300 mb-6">
               你正在使用 Google 免费翻译引擎，无需 API Key。打开任意英文网页即可体验！
               <br />
-              <span className="text-xs text-gray-400">（需要时可在设置中切换到 LLM 翻译引擎）</span>
+              <span className="text-xs text-gray-500">（需要时可在设置中切换到 LLM 翻译引擎）</span>
             </p>
             <button
               onClick={onComplete}

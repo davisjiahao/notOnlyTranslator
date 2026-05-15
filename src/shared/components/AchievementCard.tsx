@@ -58,7 +58,7 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
           <span className={isUnlocked ? colors.text : 'text-gray-500'}>
             {isUnlocked ? '已解锁' : `${progress.currentValue}/${progress.targetValue}`}
           </span>
-          <span className="text-gray-400">{achievement.points} 积分</span>
+          <span className="text-gray-500">{achievement.points} 积分</span>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
@@ -87,7 +87,7 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
           {TIER_NAMES[achievement.tier]}
         </span>
         {isUnlocked && achievement.unlockedAt && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-500">
             {new Date(achievement.unlockedAt).toLocaleDateString('zh-CN')}
           </span>
         )}

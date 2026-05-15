@@ -269,7 +269,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
             className="w-full px-4 py-2 pl-10 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white"
           />
           <svg
-            className="absolute left-3 top-2.5 w-4 h-4 text-gray-400"
+            className="absolute left-3 top-2.5 w-4 h-4 text-gray-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -322,7 +322,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                       <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                         {getModeLabel(entry.mode)}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-300">{formatDate(entry.timestamp)}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-300">{formatDate(entry.timestamp)}</span>
                       {entry.userLevel && (
                         <span className="text-xs text-primary-600 dark:text-primary-400">
                           {entry.userLevel.level}
@@ -338,7 +338,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                       </p>
                     )}
                     {entry.pageTitle && (
-                      <p className="text-xs text-gray-400 dark:text-gray-300 mt-2 truncate">
+                      <p className="text-xs text-gray-500 dark:text-gray-300 mt-2 truncate">
                         来自: {entry.pageTitle}
                       </p>
                     )}
@@ -392,7 +392,7 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                   <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                     {getModeLabel(selectedEntry.mode)}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-300">
+                  <span className="text-xs text-gray-500 dark:text-gray-300">
                     {formatDate(selectedEntry.timestamp)}
                   </span>
                 </div>
