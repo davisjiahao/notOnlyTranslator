@@ -391,6 +391,8 @@ export class OptimizedHighlighter {
       const mark = document.createElement('mark');
       mark.className = CSS_CLASSES.HIGHLIGHT;
       mark.textContent = match.word.original;
+      mark.title = `${match.word.original} — ${match.word.translation}`;
+      mark.tabIndex = 0;
       mark.dataset.word = match.word.original;
       mark.dataset.translation = match.word.translation;
       mark.dataset.difficulty = String(match.word.difficulty);

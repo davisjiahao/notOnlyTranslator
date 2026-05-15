@@ -356,6 +356,8 @@ export class VocabularyHighlighter {
     const mark = document.createElement('mark');
     mark.className = 'not-translator-vocab-highlight';
     mark.textContent = originalText;
+    mark.title = `${wordData.word} (${wordData.level})`;
+    mark.tabIndex = 0;
 
     // 添加数据属性
     mark.dataset.word = wordData.word;

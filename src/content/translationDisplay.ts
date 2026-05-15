@@ -236,6 +236,8 @@ export class TranslationDisplay {
       // WCAG 1.3.1: 使用 <mark> 语义元素表示高亮译文
       const highlightMark = document.createElement('mark');
       highlightMark.className = 'not-translator-highlighted-translation';
+      highlightMark.title = highlight.word;
+      highlightMark.tabIndex = 0;
       highlightMark.dataset.index = String(highlight.index);
       highlightMark.dataset.word = highlight.word;
       highlightMark.textContent = matched;
@@ -291,6 +293,8 @@ export class TranslationDisplay {
       // WCAG 1.3.1: 使用 <mark> 语义元素表示高亮译文
       const highlightMark2 = document.createElement('mark');
       highlightMark2.className = 'not-translator-highlighted-translation';
+      highlightMark2.title = `${highlight.word} → ${highlight.translation}`;
+      highlightMark2.tabIndex = 0;
       highlightMark2.dataset.index = String(highlight.index);
       highlightMark2.dataset.word = highlight.word;
       highlightMark2.textContent = highlight.translation;
@@ -668,6 +672,8 @@ export class TranslationDisplay {
           // WCAG 1.3.1: 使用 <mark> 语义元素表示高亮内容
           const highlightMark = document.createElement('mark');
           highlightMark.className = CSS_CLASSES.HIGHLIGHT;
+          highlightMark.title = `${word.original} — ${word.translation}`;
+          highlightMark.tabIndex = 0;
           highlightMark.setAttribute('data-difficulty', String(word.difficulty));
           highlightMark.setAttribute('data-translation', word.translation);
           highlightMark.setAttribute('data-word', word.original);
