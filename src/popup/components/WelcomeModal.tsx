@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { UserSettings, ApiProvider } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants';
 import { useFocusTrap } from '@/shared/hooks';
@@ -13,6 +13,7 @@ interface WelcomeModalProps {
 const QUICK_PROVIDERS: Array<{ id: ApiProvider; name: string; description: string; region: string }> = [
   { id: 'openai', name: 'OpenAI', description: 'GPT-4o-mini，稳定可靠', region: 'international' },
   { id: 'anthropic', name: 'Anthropic', description: 'Claude 系列，翻译质量高', region: 'international' },
+  { id: 'gemini', name: 'Google Gemini', description: 'Gemini 2.0 Flash，快速高效', region: 'international' },
   { id: 'deepseek', name: 'DeepSeek', description: '国产之光，性价比高', region: 'domestic' },
 ];
 
@@ -20,6 +21,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   const [step, setStep] = useState<'welcome' | 'quick-setup' | 'success' | 'free-success'>('welcome');
   const [selectedProvider, setSelectedProvider] = useState<ApiProvider>('openai');
   const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
 
@@ -28,14 +30,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
     !settings.apiConfigs.some(c => c.tested) ||
     !settings.activeApiConfigId;
 
-  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
-  const modalRef = useFocusTrap<HTMLDivElement>({ active: needsSetup });
-
-  if (!needsSetup) {
-    return null;
-  }
-
-  const handleQuickSetup = async () => {
+  const handleQuickSetup = useCallback(async () => {
     if (!apiKey.trim()) {
       setTestResult('error');
       return;
@@ -89,7 +84,14 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
     } finally {
       setIsTesting(false);
     }
-  };
+  }, [apiKey, selectedProvider, settings]);
+
+  // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
+  const modalRef = useFocusTrap<HTMLDivElement>({ active: needsSetup });
+
+  if (!needsSetup) {
+    return null;
+  }
 
   const handleFreeTrial = async () => {
     // 设置默认使用免费翻译引擎
@@ -205,7 +207,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               {QUICK_PROVIDERS.map(provider => (
                 <button
                   key={provider.id}
-                  onClick={() => setSelectedProvider(provider.id)}
+                  onClick={() => { setSelectedProvider(provider.id); setTestResult(null); }}
                   role="radio"
                   aria-checked={selectedProvider === provider.id}
                   className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
@@ -238,19 +240,52 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               ))}
             </div>
 
+            {/* 获取 API Key 帮助链接 */}
+            {PROVIDER_CONFIGS[selectedProvider]?.docUrl && (
+              <div className="mb-3">
+                <a
+                  href={PROVIDER_CONFIGS[selectedProvider]!.docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded px-1 py-0.5"
+                >
+                  如何获取 {PROVIDER_CONFIGS[selectedProvider]!.name} API Key？→
+                </a>
+              </div>
+            )}
+
             {/* API Key 输入 */}
             <div className="mb-4">
               <label htmlFor="welcome-api-key-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 API Key
               </label>
-              <input
-                id="welcome-api-key-input"
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={PROVIDER_CONFIGS[selectedProvider]?.apiKeyPlaceholder || '输入 API Key'}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <input
+                  id="welcome-api-key-input"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
+                  placeholder={PROVIDER_CONFIGS[selectedProvider]?.apiKeyPlaceholder || '输入 API Key'}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+                  aria-label={showApiKey ? '隐藏 API Key' : '显示 API Key'}
+                >
+                  {showApiKey ? (
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.11 6.11m3.768 3.768l4.242 4.242m0 0l3.768 3.768M6.11 6.11L3 3m3.11 3.11l4.242 4.242" />
+                    </svg>
+                  ) : (
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               {testResult === 'error' && (
                 <p role="status" className="mt-1 text-xs text-red-500">连接测试失败，请检查 API Key</p>
               )}
