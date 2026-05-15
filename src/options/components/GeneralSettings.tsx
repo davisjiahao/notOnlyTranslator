@@ -276,13 +276,27 @@ export default function GeneralSettings({
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">主题模式</label>
             <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="主题模式">
-              {themeModes.map((mode) => (
+              {themeModes.map((mode, idx) => (
                 <button
                   key={mode.value}
                   onClick={() => onUpdate({ theme: mode.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowRight') {
+                      e.preventDefault();
+                      const next = (idx + 1) % themeModes.length;
+                      (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+                      onUpdate({ theme: themeModes[next].value });
+                    } else if (e.key === 'ArrowLeft') {
+                      e.preventDefault();
+                      const prev = (idx - 1 + themeModes.length) % themeModes.length;
+                      (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+                      onUpdate({ theme: themeModes[prev].value });
+                    }
+                  }}
                   disabled={isSaving}
                   role="radio"
                   aria-checked={settings.theme === mode.value}
+                  tabIndex={settings.theme === mode.value ? 0 : -1}
                   className={`p-4 border rounded-lg text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     settings.theme === mode.value
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 ring-2 ring-primary-200 dark:ring-primary-800'

@@ -109,12 +109,28 @@ export function AchievementGallery({ onClose }: AchievementGalleryProps) {
       {/* 筛选器 */}
       <div className="px-6 py-3 border-b border-gray-100">
         <div className="flex gap-2" role="radiogroup" aria-label="成就筛选">
-          {(['all', 'unlocked', 'locked'] as const).map(f => (
+          {(['all', 'unlocked', 'locked'] as const).map((f, idx) => {
+            const filters = ['all', 'unlocked', 'locked'] as const;
+            return (
             <button
               key={f}
               onClick={() => setFilter(f)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  const next = (idx + 1) % filters.length;
+                  (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+                  setFilter(filters[next]);
+                } else if (e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  const prev = (idx - 1 + filters.length) % filters.length;
+                  (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+                  setFilter(filters[prev]);
+                }
+              }}
               role="radio"
               aria-checked={filter === f}
+              tabIndex={filter === f ? 0 : -1}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                 filter === f
                   ? 'bg-blue-100 text-blue-700'
@@ -125,7 +141,8 @@ export function AchievementGallery({ onClose }: AchievementGalleryProps) {
               {f === 'unlocked' && '已解锁'}
               {f === 'locked' && '未解锁'}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
