@@ -120,6 +120,9 @@ export const TIMING = {
   MODE_SWITCH_TRANSITION: 150,   // 模式切换 CSS 过渡时间
   NAVIGATION_HIGHLIGHT_DURATION: 2000, // 导航高亮持续时间
 
+  // UI transition delays (ms)
+  COMPLETION_TRANSITION_DELAY: 800, // 完成状态切换动画延迟
+
   // Message timeouts (ms)
   DEFAULT_MESSAGE_TIMEOUT: 5000, // 默认消息超时
   TRANSLATION_MESSAGE_TIMEOUT: 30000, // 翻译消息超时

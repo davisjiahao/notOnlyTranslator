@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReviewReminder, MasteryUpdateResult } from '@/shared/types/mastery';
 import { logger } from '@/shared/utils';
+import { TIMING } from '@/shared/constants';
 
 interface FlashcardReviewProps {
   isSaving: boolean;
@@ -172,7 +173,7 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
           setLastUpdateResult(null);
         }
         setIsSubmitting(false);
-      }, 800);
+      }, TIMING.COMPLETION_TRANSITION_DELAY);
     } catch (error) {
       logger.error('Failed to update word mastery:', error);
       setIsSubmitting(false);
