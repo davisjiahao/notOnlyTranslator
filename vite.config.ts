@@ -27,6 +27,7 @@ export default defineConfig({
     crx({ manifest }),
     copyContentCss(),
   ],
+  cacheDir: 'node_modules/.vite-cache',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
