@@ -19,6 +19,8 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
     <button
       onClick={onClick}
       type="button"
+      aria-label={`${achievement.name}${isUnlocked ? '，已解锁' : '，未解锁'}`}
+      aria-describedby={`achievement-desc-${achievement.id || achievement.name}`}
       className={`
         relative p-4 rounded-xl border-2 transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2
         ${isUnlocked
@@ -46,7 +48,7 @@ export function AchievementCard({ achievement, progress, onClick }: AchievementC
           <h3 className={`font-bold text-sm ${isUnlocked ? colors.text : 'text-gray-600'}`}>
             {achievement.name}
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+          <p id={`achievement-desc-${achievement.id || achievement.name}`} className="text-xs text-gray-500 mt-0.5 line-clamp-2">
             {achievement.description}
           </p>
         </div>

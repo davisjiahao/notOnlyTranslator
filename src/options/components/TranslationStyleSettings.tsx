@@ -96,12 +96,13 @@ export default function TranslationStyleSettings({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             高亮样式
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="高亮样式">
             {highlightStyleOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => updateStyleConfig({ highlightStyle: option.value })}
-                aria-pressed={styleConfig.highlightStyle === option.value}
+                role="radio"
+                aria-checked={styleConfig.highlightStyle === option.value}
                 disabled={isSaving}
                 className={`p-4 border rounded-lg text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                   styleConfig.highlightStyle === option.value
@@ -274,6 +275,7 @@ export default function TranslationStyleSettings({
             </div>
             <button
               onClick={() => setShowCustomCss(!showCustomCss)}
+              aria-expanded={showCustomCss}
               className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             >
               {showCustomCss ? '收起' : '展开'}

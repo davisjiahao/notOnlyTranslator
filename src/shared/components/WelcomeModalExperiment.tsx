@@ -373,11 +373,13 @@ function LevelStep({
         这将帮助我们决定哪些单词需要翻译
       </p>
 
-      <div className="space-y-3 mb-8">
+      <div className="space-y-3 mb-8" role="radiogroup" aria-label="选择英语水平">
         {levels.map((level) => (
           <button
             key={level.id}
             onClick={() => onSelect(level.id)}
+            role="radio"
+            aria-checked={selectedLevel === level.id}
             className={`w-full p-4 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
               selectedLevel === level.id
                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
@@ -518,11 +520,13 @@ function ApiStep({
       </p>
 
       {/* 服务商选择 */}
-      <div className="space-y-2 mb-5">
+      <div className="space-y-2 mb-5" role="radiogroup" aria-label="选择翻译服务商">
         {providers.map((provider) => (
           <button
             key={provider.id}
             onClick={() => { onSelect(provider.id); setTestResult(null); }}
+            role="radio"
+            aria-checked={selectedProvider === provider.id}
             className={`w-full p-3 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
               selectedProvider === provider.id
                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
