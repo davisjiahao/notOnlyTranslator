@@ -5,7 +5,7 @@
  * withErrorHandling, ERROR_ACTIONS 等 API
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import {
   classifyTranslationError,
   TranslationError,
@@ -206,10 +206,20 @@ describe('isOffline', () => {
 });
 
 describe('withErrorHandling', () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it('returns result on success', async () => {
     const fn = vi.fn().mockResolvedValue('success');
     const wrapped = withErrorHandling(fn);
-    const result = await wrapped();
+    const promise = wrapped();
+    await vi.advanceTimersByTimeAsync(0);
+    const result = await promise;
     expect(result).toBe('success');
     expect(fn).toHaveBeenCalledTimes(1);
   });
@@ -217,7 +227,15 @@ describe('withErrorHandling', () => {
   it('retries on retryable errors', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
     const wrapped = withErrorHandling(fn, undefined, 2);
-    await expect(wrapped()).rejects.toThrow('无法连接到翻译服务');
+
+    // Capture rejection to prevent unhandled rejection warning
+    let caught: unknown;
+    const promise = wrapped().catch((e) => { caught = e; });
+    await vi.advanceTimersByTimeAsync(3000);
+    await promise;
+
+    expect(caught).toBeInstanceOf(TranslationError);
+    expect((caught as TranslationError).message).toContain('无法连接到翻译服务');
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
