@@ -22,10 +22,13 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentHostname, setCurrentHostname] = useState<string>('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  /** 网站刷新确认对话框 */
+  const [showConfirmRefresh, setShowConfirmRefresh] = useState(false);
+  /** 待确认的站点名（取消时用于回滚设置） */
+  const [pendingHostname, setPendingHostname] = useState<string>('');
 
   // 初始化主题
   useTheme(settings?.theme ?? 'system');
@@ -145,16 +148,31 @@ export default function App() {
 
     await updateSettings({ blacklist: newBlacklist });
 
-    // 显示刷新提示
-    setIsRefreshing(true);
+    // 弹出确认对话框，而不是自动刷新
+    setPendingHostname(currentHostname);
+    setShowConfirmRefresh(true);
+  };
 
-    // 延迟刷新，让用户看到提示
-    setTimeout(async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.id) {
-        chrome.tabs.reload(tab.id);
-      }
-    }, 800);
+  /** 确认刷新页面 */
+  const confirmPageReload = async () => {
+    setShowConfirmRefresh(false);
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      chrome.tabs.reload(tab.id);
+    }
+  };
+
+  /** 取消刷新：回滚网站黑名单设置 */
+  const cancelPageReload = async () => {
+    setShowConfirmRefresh(false);
+    if (!settings || !pendingHostname) return;
+
+    const isCurrentlyBlacklisted = settings.blacklist?.includes(pendingHostname);
+    const restoredBlacklist = isCurrentlyBlacklisted
+      ? settings.blacklist.filter(h => h !== pendingHostname)
+      : [...(settings.blacklist || []), pendingHostname];
+
+    await updateSettings({ blacklist: restoredBlacklist });
   };
 
   const updateSettings = async (newSettingsPart: Partial<UserSettings>) => {
@@ -389,11 +407,29 @@ export default function App() {
         {/* 网站开关 */}
         {currentHostname ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-            {isRefreshing ? (
-              /* 刷新提示 */
-              <div className="flex items-center justify-center gap-2 py-1" role="status" aria-live="polite">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent" aria-hidden="true"></div>
-                <span className="text-sm text-primary-600 font-medium">页面即将刷新...</span>
+            {showConfirmRefresh ? (
+              /* 刷新确认对话框 */
+              <div role="dialog" aria-label="刷新页面确认" className="py-2">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                  刷新页面以应用更改？
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-300 mb-3">
+                  切换网站翻译设置后需要刷新页面才能生效
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={cancelPageReload}
+                    className="flex-1 py-2 px-3 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    取消，下次生效
+                  </button>
+                  <button
+                    onClick={confirmPageReload}
+                    className="flex-1 py-2 px-3 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    确认刷新
+                  </button>
+                </div>
               </div>
             ) : (
               /* 正常显示 */
@@ -408,13 +444,12 @@ export default function App() {
                 </div>
                 <button
                   onClick={toggleSiteTranslation}
-                  disabled={isRefreshing}
                   role="switch"
                   aria-checked={isSiteTranslationEnabled ? 'true' : 'false'}
                   aria-label={`${currentHostname} 网站翻译`}
                   className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
                     isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
-                  } ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  }`}
                 >
                   <div
                     className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
