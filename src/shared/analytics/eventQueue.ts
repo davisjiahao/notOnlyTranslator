@@ -74,7 +74,13 @@ async function getLocalQueue(): Promise<LocalEventQueue> {
  */
 async function saveLocalQueue(queue: LocalEventQueue): Promise<void> {
   try {
-    await chrome.storage.local.set({ [STORAGE_KEY]: queue });
+    // 深拷贝 events，防止后续 flushEvents 清空时影响保存数据
+    const snapshot = {
+      events: [...queue.events],
+      lastSync: queue.lastSync,
+      deviceId: queue.deviceId,
+    };
+    await chrome.storage.local.set({ [STORAGE_KEY]: snapshot });
   } catch (error) {
     console.error('[Analytics] Failed to save event queue:', error);
   }
@@ -139,25 +145,20 @@ export async function flushEvents(): Promise<boolean> {
   // 复制要发送的事件
   const eventsToSend = [...queue.events];
 
-  // TODO: 实现实际的服务器发送逻辑
-  // 目前仅模拟发送成功
+  // 通过 background service worker 发送事件
   try {
-    // 在实际实现中，这里会调用后端API
-    // const response = await fetch('/api/analytics/events', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ events: eventsToSend, deviceId: queue.deviceId }),
-    // });
+    const response = await chrome.runtime.sendMessage({
+      type: 'FLUSH_ANALYTICS_EVENTS',
+      payload: { events: eventsToSend, deviceId: queue.deviceId },
+    });
 
-    // 模拟发送成功
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // 清除已发送的事件
-    queue.events = queue.events.slice(eventsToSend.length);
-    queue.lastSync = Date.now();
-    await saveLocalQueue(queue);
-
-    return true;
+    if (response?.success) {
+      queue.events = [];
+      queue.lastSync = Date.now();
+      await saveLocalQueue(queue);
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error('[Analytics] Failed to flush events:', error);
     return false;
