@@ -703,7 +703,7 @@ export class Tooltip {
   /**
    * 显示撤销操作栏：3 秒倒计时内可撤销
    */
-  private showUndoBar(_word: string, message: string): void {
+  private showUndoBar(word: string, message: string): void {
     if (!this.element) return;
 
     // 清除之前的撤销定时器
@@ -725,7 +725,7 @@ export class Tooltip {
     bar.setAttribute('aria-live', 'polite');
     bar.innerHTML = `
       <span class="${CSS_CLASSES.TOOLTIP}-undo-msg">${message}</span>
-      <button type="button" class="${CSS_CLASSES.TOOLTIP}-undo-btn" aria-label="撤销操作">
+      <button type="button" class="${CSS_CLASSES.TOOLTIP}-undo-btn" aria-label="撤销对「${word}」的标记">
         撤销
       </button>
     `;

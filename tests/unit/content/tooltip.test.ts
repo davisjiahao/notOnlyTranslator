@@ -977,7 +977,7 @@ describe('Tooltip', () => {
       knownBtn?.click();
 
       const undoBtn = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`);
-      expect(undoBtn?.getAttribute('aria-label')).toBe('撤销操作');
+      expect(undoBtn?.getAttribute('aria-label')).toBe('撤销对「test」的标记');
     });
   });
 
