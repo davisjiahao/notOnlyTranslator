@@ -20,6 +20,7 @@ import {
   Line,
   ComposedChart,
 } from 'recharts';
+import EmptyState from '@/shared/components/EmptyState';
 
 interface CEFRLevelData {
   level: CEFRLevel;
@@ -453,7 +454,11 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart message="暂无词汇趋势数据" />
+                  <EmptyState
+                    icon="chart"
+                    title="暂无词汇趋势数据"
+                    className="h-full flex flex-col justify-center"
+                  />
                 )}
               </div>
             </div>
@@ -500,7 +505,11 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart message="暂无学习活动数据" />
+                  <EmptyState
+                    icon="chart"
+                    title="暂无学习活动数据"
+                    className="h-full flex flex-col justify-center"
+                  />
                 )}
               </div>
             </div>
@@ -553,7 +562,11 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart message="暂无等级进度数据" />
+                  <EmptyState
+                    icon="chart"
+                    title="暂无等级进度数据"
+                    className="h-full flex flex-col justify-center"
+                  />
                 )}
               </div>
             </div>
@@ -687,27 +700,3 @@ function ChartTabButton({ id, controls, active, onClick, onKeyDown, icon, label,
   );
 }
 
-/**
- * 空图表占位
- */
-function EmptyChart({ message }: { message: string }) {
-  return (
-    <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-300" role="status">
-      <svg
-        className="w-12 h-12 mb-3 opacity-50"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-        />
-      </svg>
-      <p className="text-sm">{message}</p>
-    </div>
-  );
-}

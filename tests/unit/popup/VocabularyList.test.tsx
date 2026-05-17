@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
@@ -23,17 +23,6 @@ function createWord(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-
-beforeEach(() => {
-  // Mock formatDate to avoid locale differences
-  vi.mock('@/shared/utils', async (importOriginal) => {
-    const actual = await importOriginal() as Record<string, unknown>;
-    return {
-      ...actual,
-      formatDate: () => '2026-05-26',
-    };
-  });
-});
 
 describe('VocabularyList', () => {
   // --- Empty state ---

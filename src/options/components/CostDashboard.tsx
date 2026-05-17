@@ -13,6 +13,7 @@ import {
 } from '@/shared/cost/types';
 import { getCostTracker, getCostDashboardData } from '@/shared/cost/tracker';
 import { logger } from '@/shared/utils';
+import EmptyState from '@/shared/components/EmptyState';
 
 /**
  * 成本监控面板组件
@@ -95,9 +96,11 @@ export default function CostDashboard() {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">成本监控</h2>
-        <div className="text-center py-12 text-gray-500 dark:text-gray-300" role="status">
-          暂无数据
-        </div>
+        <EmptyState
+          icon="chart"
+          title="暂无成本数据"
+          description="使用翻译服务后会自动记录成本信息"
+        />
       </div>
     );
   }
@@ -424,9 +427,11 @@ function ProviderDetailsSection({ details }: { details: ProviderCostDetail[] }) 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">各提供商成本详情</h3>
-        <p className="text-gray-500 dark:text-gray-300 text-center py-8" role="status">
-          暂无使用记录
-        </p>
+        <EmptyState
+          icon="chart"
+          title="暂无使用记录"
+          description="调用翻译或 LLM API 后会显示各提供商的成本明细"
+        />
       </div>
     );
   }

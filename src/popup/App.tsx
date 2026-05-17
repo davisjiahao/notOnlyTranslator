@@ -29,6 +29,8 @@ export default function App() {
   const [showConfirmRefresh, setShowConfirmRefresh] = useState(false);
   /** 待确认的站点名（取消时用于回滚设置） */
   const [pendingHostname, setPendingHostname] = useState<string>('');
+  /** 翻译模式切换视觉反馈 */
+  const [showModeTransition, setShowModeTransition] = useState(false);
 
   // 初始化主题
   useTheme(settings?.theme ?? 'system');
@@ -185,6 +187,13 @@ export default function App() {
     });
     setSettings(newSettings);
 
+    if (newSettingsPart.translationMode && newSettingsPart.translationMode !== settings.translationMode) {
+      // 触发模式切换动画
+      setShowModeTransition(true);
+      // 短暂延迟后隐藏（0.5 秒）
+      setTimeout(() => setShowModeTransition(false), 500);
+    }
+
     if (newSettingsPart.translationMode) {
       const modeNames: Record<string, string> = {
         'inline-only': '生词高亮',
@@ -241,6 +250,22 @@ export default function App() {
           }`}
         >
           {toast.message}
+        </div>
+      )}
+
+      {/* 翻译模式切换视觉反馈 — 模式图标动画 */}
+      {showModeTransition && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center"
+        >
+          <div className="animate-ping absolute w-32 h-32 bg-primary-500/10 dark:bg-primary-400/10 rounded-full" />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-xl border border-primary-200 dark:border-primary-700 animate-bounce">
+            <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+          </div>
         </div>
       )}
 
@@ -330,6 +355,21 @@ export default function App() {
               />
             </div>
             <span className="text-xs text-gray-500 dark:text-gray-300 font-medium flex-shrink-0">{confidencePercent}%</span>
+            <span className="relative group flex-shrink-0">
+              <button
+                type="button"
+                aria-label="置信度说明"
+                className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+              >
+                <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <div className="absolute bottom-full right-0 mb-1 w-64 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-opacity z-50">
+                置信度反映系统对你词汇量估算的可靠程度。标记的词汇越多越准确，建议达到 70% 以上。
+                <div className="absolute top-full right-3 -mt-px w-3 h-3 bg-gray-900 dark:bg-gray-700 transform rotate-45" />
+              </div>
+            </span>
           </div>
         </div>
 
@@ -355,8 +395,8 @@ export default function App() {
                   }`}
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M4 7h16M4 7v0M7 7V4h10v3" />
-                    <path d="M6 17h12" strokeWidth="2.5" />
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                   </svg>
                   生词高亮
                 </button>
@@ -371,7 +411,12 @@ export default function App() {
                   }`}
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    <path d="M5 8l6 6" />
+                    <path d="M4 14l6-6 2-3" />
+                    <path d="M2 5h12" />
+                    <path d="M7 2h1" />
+                    <path d="M14 16l4-4" />
+                    <path d="M14 12l4 4" />
                   </svg>
                   双语对照
                 </button>
@@ -386,8 +431,14 @@ export default function App() {
                   }`}
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M4 5h16v14H4z" />
-                    <path d="M7 9h10M7 12h10M7 15h6" />
+                    <path d="M4 5h7" />
+                    <path d="M9 3v2c0 4.418-2.239 8-5 8" />
+                    <path d="M4 9c2.239 0 4-3.582 4-8" />
+                    <path d="M14 9h6" />
+                    <path d="M17 3v2c0 4.418-2.239 8-5 8" />
+                    <path d="M14 9c2.239 0 4-3.582 4-8" />
+                    <path d="M4 17h16" />
+                    <path d="M4 21h16" />
                   </svg>
                   全文翻译
                 </button>

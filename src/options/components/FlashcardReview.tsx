@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReviewReminder, MasteryUpdateResult } from '@/shared/types/mastery';
 import { logger } from '@/shared/utils';
 import { TIMING } from '@/shared/constants';
+import EmptyState from '@/shared/components/EmptyState';
 
 interface FlashcardReviewProps {
   isSaving: boolean;
@@ -219,20 +220,11 @@ export default function FlashcardReview({ isSaving: _isSaving }: FlashcardReview
 
   if (reviewWords.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-center px-4" role="status">
-        <div className="text-4xl mb-4" aria-hidden="true">🎉</div>
-        <div className="w-16 h-16 mb-4 text-green-500">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-          没有需要复习的单词
-        </h3>
-        <p className="text-gray-500 dark:text-gray-300 max-w-md">
-          太棒了！你当前的单词都还没到复习时间。继续浏览网页学习新单词吧。
-        </p>
-      </div>
+      <EmptyState
+        icon="check"
+        title="没有需要复习的单词"
+        description="太棒了！所有单词都还没到复习时间。继续浏览网页学习新单词吧。"
+      />
     );
   }
 

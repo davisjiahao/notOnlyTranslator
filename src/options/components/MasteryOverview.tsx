@@ -22,6 +22,7 @@ import {
   Cell,
 } from 'recharts';
 import LearningHeatmap from './LearningHeatmap';
+import EmptyState from '@/shared/components/EmptyState';
 
 interface CEFRLevelData {
   level: CEFRLevel;
@@ -416,9 +417,11 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-300" role="status" aria-live="polite">
-              暂无数据
-            </div>
+            <EmptyState
+              icon="chart"
+              title="暂无等级分布数据"
+              description="标记一定数量的单词后会自动显示分布"
+            />
           )}
         </div>
 
@@ -467,9 +470,11 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
               </div>
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-300" role="status" aria-live="polite">
-              暂无数据
-            </div>
+            <EmptyState
+              icon="chart"
+              title="暂无掌握度分布数据"
+              description="开始标记单词后会显示掌握度统计"
+            />
           )}
         </div>
       </div>

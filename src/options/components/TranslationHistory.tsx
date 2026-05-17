@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { TranslationHistoryEntry, HistoryQueryResult, HistoryStats } from '@/background/translationHistory';
 import { logger } from '@/shared/utils';
+import EmptyState from '@/shared/components/EmptyState';
 
 interface TranslationHistoryProps {
   // 组件不需要外部props
@@ -298,13 +299,11 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
         ) : entries.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-300" role="status">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <p>暂无翻译记录</p>
-            <p className="text-sm mt-1">浏览网页时自动保存翻译历史</p>
-          </div>
+          <EmptyState
+            icon="translate"
+            title="暂无翻译记录"
+            description="浏览网页时自动保存翻译历史"
+          />
         ) : (
           <>
             {entries.map((entry) => (

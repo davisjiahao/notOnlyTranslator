@@ -9,6 +9,7 @@ import type {
   ErrorQueryParams
 } from '@/shared/error-tracking/types';
 import { ERROR_CATEGORIES } from '@/shared/error-tracking/types';
+import EmptyState from '@/shared/components/EmptyState';
 
 // 错误严重程度配置
 const ERROR_SEVERITIES: Record<ErrorSeverity, { label: string; color: string; bgColor: string }> = {
@@ -507,12 +508,11 @@ export const ErrorDashboard: React.FC = () => {
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {errors.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-300" role="status">
-              <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p>暂无错误记录</p>
-            </div>
+            <EmptyState
+              icon="check"
+              title="暂无错误记录"
+              description="系统运行稳定，未检测到错误"
+            />
           ) : (
             errors.map(error => (
               <div

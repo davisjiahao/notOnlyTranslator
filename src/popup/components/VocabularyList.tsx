@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { UnknownWordEntry } from '@/shared/types';
 import { formatDate } from '@/shared/utils';
+import EmptyState from '@/shared/components/EmptyState';
 
 interface VocabularyListProps {
   words: UnknownWordEntry[];
@@ -47,17 +48,11 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
 
   if (words.length === 0) {
     return (
-      <div className="text-center py-8">
-        <div className="text-gray-400 dark:text-gray-300 mb-2">
-          <svg aria-hidden="true" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-300">生词本为空</p>
-        <p className="text-xs text-gray-400 dark:text-gray-300 mt-1">
-          阅读时标记不认识的词汇，它们会出现在这里
-        </p>
-      </div>
+      <EmptyState
+        icon="book"
+        title="生词本为空"
+        description="阅读时标记不认识的词汇，它们会出现在这里"
+      />
     );
   }
 
@@ -161,9 +156,11 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
         ))}
 
         {filteredWords.length === 0 && searchTerm && (
-          <div className="text-center py-4 text-sm text-gray-500 dark:text-gray-300">
-            未找到匹配的词汇
-          </div>
+          <EmptyState
+            icon="search"
+            title="未找到匹配的词汇"
+            description="尝试使用其他关键词搜索"
+          />
         )}
       </div>
     </div>
