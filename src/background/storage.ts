@@ -164,6 +164,30 @@ export class StorageManager {
   }
 
   /**
+   * Remove a word from known words
+   */
+  static async removeKnownWord(word: string): Promise<void> {
+    const profile = await this.getUserProfile();
+    const lowerWord = word.toLowerCase();
+
+    profile.knownWords = profile.knownWords.filter((w) => w !== lowerWord);
+    await this.saveUserProfile(profile);
+  }
+
+  /**
+   * Remove a word from unknown words
+   */
+  static async removeUnknownWord(word: string): Promise<void> {
+    const profile = await this.getUserProfile();
+    const lowerWord = word.toLowerCase();
+
+    profile.unknownWords = profile.unknownWords.filter(
+      (w) => w.word.toLowerCase() !== lowerWord
+    );
+    await this.saveUserProfile(profile);
+  }
+
+  /**
    * Add a word to unknown words (vocabulary)
    */
   static async addUnknownWord(entry: UnknownWordEntry): Promise<void> {

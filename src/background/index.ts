@@ -405,6 +405,27 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       return { success: true, data: profile };
     }
 
+    case 'REMOVE_MARK': {
+      const { word, originalAction } = message.payload as {
+        word: string;
+        originalAction: 'known' | 'unknown' | 'add';
+      };
+
+      switch (originalAction) {
+        case 'known':
+          await StorageManager.removeKnownWord(word);
+          break;
+        case 'unknown':
+          await StorageManager.removeUnknownWord(word);
+          break;
+        case 'add':
+          await StorageManager.removeUnknownWord(word);
+          break;
+      }
+
+      return { success: true };
+    }
+
     case 'GET_USER_PROFILE': {
       const profile = await StorageManager.getUserProfile();
       return { success: true, data: profile };
@@ -846,6 +867,39 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
         return { success: true, data: result };
       } catch (error) {
         logger.error('NotOnlyTranslator: 导入历史数据失败', error);
+        return { success: false, error: (error as Error).message };
+      }
+    }
+
+    // 分析事件消息处理
+    case 'FLUSH_ANALYTICS_EVENTS': {
+      try {
+        const { events, deviceId } = message.payload as {
+          events: Array<{ event: string; properties: Record<string, unknown>; timestamp: number; user_id: string; session_id: string; device_id: string }>;
+          deviceId: string;
+        };
+
+        // 存储到本地供 UI 查询使用
+        const existing = await chrome.storage.local.get('analytics_sent_events');
+        const storedEvents = (existing.analytics_sent_events as Array<unknown>) || [];
+        storedEvents.push(...events);
+
+        // 限制存储量
+        const maxStored = 5000;
+        if (storedEvents.length > maxStored) {
+          storedEvents.splice(0, storedEvents.length - maxStored);
+        }
+
+        await chrome.storage.local.set({
+          analytics_sent_events: storedEvents,
+          analytics_last_sync: Date.now(),
+          analytics_device_id: deviceId,
+        });
+
+        logger.info(`NotOnlyTranslator: Flushed ${events.length} analytics events`);
+        return { success: true, data: { flushedCount: events.length } };
+      } catch (error) {
+        logger.error('NotOnlyTranslator: 刷新分析事件失败', error);
         return { success: false, error: (error as Error).message };
       }
     }

@@ -63,9 +63,14 @@ describe('EventQueue', () => {
 
   describe('enqueueEvent', () => {
     it('应该添加单个事件到队列', async () => {
-      // 预存 deviceId，避免 getDeviceId 触发额外的 set 调用
+      // 预存 deviceId + 空队列，避免 getDeviceId 触发额外的 set 调用
       mockStorage.local.get.mockResolvedValue({
         analytics_device_id: 'test-device-id',
+        analytics_event_queue: {
+          events: [],
+          lastSync: 0,
+          deviceId: 'test-device-id',
+        },
       });
 
       const event = createEvent();
@@ -117,9 +122,14 @@ describe('EventQueue', () => {
 
   describe('enqueueEvents', () => {
     it('应该批量添加事件到队列', async () => {
-      // 预存 deviceId，避免 getDeviceId 触发额外的 set 调用
+      // 预存 deviceId + 空队列，避免 getDeviceId 触发额外的 set 调用
       mockStorage.local.get.mockResolvedValue({
         analytics_device_id: 'test-device-id',
+        analytics_event_queue: {
+          events: [],
+          lastSync: 0,
+          deviceId: 'test-device-id',
+        },
       });
 
       const events = [createEvent({ event: 'event_a' }), createEvent({ event: 'event_b' })];

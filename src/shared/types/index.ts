@@ -261,6 +261,7 @@ export type MessageType =
   | 'BATCH_TRANSLATE_TEXT'  // 批量翻译请求
   | 'MARK_WORD_KNOWN'
   | 'MARK_WORD_UNKNOWN'
+  | 'REMOVE_MARK'  // 撤销标记
   | 'GET_USER_PROFILE'
   | 'UPDATE_USER_PROFILE'
   | 'GET_SETTINGS'
@@ -314,8 +315,11 @@ export type MessageType =
   | 'TRANSLATE_PAGE'
   | 'TOGGLE_MODE'
   // 语境学习消息类型
+  // 语境学习消息类型
   | 'GET_CONTEXTUAL_WORDS'
-  | 'CAPTURE_CONTEXT';
+  | 'CAPTURE_CONTEXT'
+  // 分析消息类型
+  | 'FLUSH_ANALYTICS_EVENTS';
 
 export interface Message<T = unknown> {
   type: MessageType;

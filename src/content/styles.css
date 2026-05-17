@@ -370,6 +370,54 @@ mark.not-translator-vocab-highlight {
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
+/* Undo bar - 标记后的撤销操作栏 */
+.not-translator-tooltip-undo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.not-translator-tooltip-undo-msg {
+  font-size: 13px;
+  color: #166534;
+  font-weight: 500;
+}
+
+.not-translator-tooltip-undo-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.not-translator-tooltip-undo-btn:hover {
+  background: #bbf7d0;
+  border-color: #4ade80;
+}
+
+.not-translator-tooltip-undo-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* Loading state */
 .not-translator-tooltip-loading {
   display: flex;
@@ -619,6 +667,27 @@ mark.not-translator-vocab-highlight {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.15);
     color: inherit;
+  }
+
+  /* 暗色模式下 undo bar */
+  .not-translator-tooltip-undo-bar {
+    background: #052e16;
+    border-color: #166534;
+  }
+
+  .not-translator-tooltip-undo-msg {
+    color: #86efac;
+  }
+
+  .not-translator-tooltip-undo-btn {
+    color: #86efac;
+    background: #14532d;
+    border-color: #166534;
+  }
+
+  .not-translator-tooltip-undo-btn:hover {
+    background: #166534;
+    border-color: #22c55e;
   }
 }
 

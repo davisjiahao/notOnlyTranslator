@@ -11,6 +11,8 @@ export interface TooltipCallbacks {
   onMarkKnown: (word: string) => void;
   onMarkUnknown: (word: string, translation: string) => void;
   onAddToVocabulary: (word: string, translation: string) => void;
+  /** 撤销最近一次标记操作（认识/不认识/生词本） */
+  onUndoLastMark: () => void;
 }
 
 /**
@@ -34,6 +36,10 @@ export class Tooltip {
   private scrollHideTimeout: ReturnType<typeof setTimeout> | null = null;
   /** 快捷键帮助面板 */
   private helpPanel: HTMLElement | null = null;
+  /** 撤销操作栏的定时器 */
+  private undoTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** 撤销操作栏的 DOM 引用 */
+  private undoBar: HTMLElement | null = null;
 
   /** 保存事件监听器引用，用于清理 */
   private boundHandlers: {
@@ -139,6 +145,9 @@ export class Tooltip {
         <div class="not-translator-help-item">
           <kbd>Esc</kbd> <span>关闭弹窗</span>
         </div>
+        <div class="not-translator-help-item">
+          <kbd>⌘/Ctrl+Z</kbd> <span>撤销上次标记（3 秒内）</span>
+        </div>
         <div class="not-translator-help-footer">
           <span>⌘/Ctrl + 悬停 可快速显示翻译</span>
         </div>
@@ -218,6 +227,15 @@ export class Tooltip {
       },
       documentScroll: () => this.handleScroll(),
       documentKeydown: (e: KeyboardEvent) => {
+        // Ctrl+Z 撤销：即使 tooltip 不可见，只要撤销栏存在就触发
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && this.undoBar) {
+          e.preventDefault();
+          this.callbacks.onUndoLastMark();
+          this.removeUndoBar();
+          this.hide();
+          return;
+        }
+
         if (!this.isVisible()) return;
 
         if (e.key === 'Escape') {
@@ -588,6 +606,9 @@ export class Tooltip {
       // 隐藏帮助面板
       this.hideHelpPanel();
 
+      // 清理撤销栏
+      this.removeUndoBar();
+
       // 清除滚动隐藏定时器
       if (this.scrollHideTimeout) {
         clearTimeout(this.scrollHideTimeout);
@@ -659,19 +680,88 @@ export class Tooltip {
         switch (action) {
           case 'known':
             this.callbacks.onMarkKnown(data.original);
-            this.hide();
+            this.showUndoBar(data.original, '已标记为认识');
             break;
           case 'unknown':
             this.callbacks.onMarkUnknown(data.original, data.translation);
-            this.hide();
+            this.showUndoBar(data.original, '已标记为不认识');
             break;
           case 'add':
             this.callbacks.onAddToVocabulary(data.original, data.translation);
-            this.hide();
+            this.showUndoBar(data.original, '已加入生词本');
             break;
         }
       });
     });
+  }
+
+  /**
+   * 显示撤销操作栏：3 秒倒计时内可撤销
+   */
+  private showUndoBar(_word: string, message: string): void {
+    if (!this.element) return;
+
+    // 清除之前的撤销定时器
+    if (this.undoTimeout) {
+      clearTimeout(this.undoTimeout);
+      this.undoTimeout = null;
+    }
+
+    // 隐藏原来的操作按钮
+    const actionsDiv = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-actions`);
+    if (actionsDiv) {
+      (actionsDiv as HTMLElement).style.display = 'none';
+    }
+
+    // 创建撤销栏
+    const bar = document.createElement('div');
+    bar.className = `${CSS_CLASSES.TOOLTIP}-undo-bar`;
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    bar.innerHTML = `
+      <span class="${CSS_CLASSES.TOOLTIP}-undo-msg">${message}</span>
+      <button type="button" class="${CSS_CLASSES.TOOLTIP}-undo-btn" aria-label="撤销操作">
+        撤销
+      </button>
+    `;
+
+    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
+    content?.appendChild(bar);
+    this.undoBar = bar;
+
+    const undoBtn = bar.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`);
+    undoBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.callbacks.onUndoLastMark();
+      this.removeUndoBar();
+      this.hide();
+    });
+
+    // 3 秒后自动消失
+    this.undoTimeout = setTimeout(() => {
+      this.removeUndoBar();
+      this.hide();
+    }, 3000);
+  }
+
+  /**
+   * 移除撤销栏
+   */
+  private removeUndoBar(): void {
+    if (this.undoTimeout) {
+      clearTimeout(this.undoTimeout);
+      this.undoTimeout = null;
+    }
+    if (this.undoBar) {
+      this.undoBar.remove();
+      this.undoBar = null;
+    }
+    // 恢复原来的操作按钮
+    if (!this.element) return;
+    const actionsDiv = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-actions`);
+    if (actionsDiv) {
+      (actionsDiv as HTMLElement).style.display = '';
+    }
   }
 
   /**
@@ -866,6 +956,16 @@ export class Tooltip {
     if (this.scrollHideTimeout) {
       clearTimeout(this.scrollHideTimeout);
       this.scrollHideTimeout = null;
+    }
+
+    // 清理撤销相关资源
+    if (this.undoTimeout) {
+      clearTimeout(this.undoTimeout);
+      this.undoTimeout = null;
+    }
+    if (this.undoBar) {
+      this.undoBar.remove();
+      this.undoBar = null;
     }
 
     // 移除 DOM 元素

@@ -40,6 +40,9 @@ class NotOnlyTranslator {
   private isEnabled: boolean = true;
   private observer: MutationObserver | null = null;
 
+  /** 最近一次标记操作记录，用于撤销 */
+  private lastMarkAction: { type: 'known' | 'unknown' | 'add'; word: string; translation: string } | null = null;
+
   /** 可视区域观察器 - 用于批量翻译 */
   private viewportObserver: ViewportObserver | null = null;
 
@@ -380,6 +383,7 @@ class NotOnlyTranslator {
         this.handleMarkUnknown(word, translation),
       onAddToVocabulary: (word, translation) =>
         this.handleAddToVocabulary(word, translation),
+      onUndoLastMark: () => this.handleUndoLastMark(),
     });
 
     // 初始化管理器
@@ -1436,6 +1440,7 @@ class NotOnlyTranslator {
    */
   private async handleMarkKnown(word: string): Promise<void> {
     try {
+      this.lastMarkAction = { type: 'known', word, translation: '' };
       await this.marker.markKnown(word);
       this.highlighter.markAsKnown(word);
     } catch (error) {
@@ -1452,6 +1457,7 @@ class NotOnlyTranslator {
   ): Promise<void> {
     try {
       const context = this.marker.getSelectionContext();
+      this.lastMarkAction = { type: 'unknown', word, translation };
       await this.marker.markUnknown(word, translation, { context });
       this.highlighter.markAsUnknown(word);
     } catch (error) {
@@ -1468,10 +1474,40 @@ class NotOnlyTranslator {
   ): Promise<void> {
     try {
       const context = this.marker.getSelectionContext();
+      this.lastMarkAction = { type: 'add', word, translation };
       await this.marker.addToVocabulary(word, translation, context);
       this.highlighter.markAsUnknown(word);
     } catch (error) {
       logger.error('Failed to add to vocabulary:', error);
+    }
+  }
+
+  /**
+   * 撤销最近一次标记操作
+   */
+  private async handleUndoLastMark(): Promise<void> {
+    if (!this.lastMarkAction) return;
+
+    try {
+      const { type, word } = this.lastMarkAction;
+      // 同步到 background 移除标记
+      await chrome.runtime.sendMessage({
+        type: 'REMOVE_MARK',
+        payload: { word, originalAction: type },
+      });
+
+      // 清除本地标记状态
+      this.marker.unmark(word);
+
+      // 根据操作类型恢复高亮状态
+      if (type === 'add') {
+        // 加入生词本前，该词原本是未标记状态，恢复为非高亮
+        this.highlighter.removeHighlight(word);
+      }
+
+      this.lastMarkAction = null;
+    } catch (error) {
+      logger.error('Failed to undo mark:', error);
     }
   }
 
