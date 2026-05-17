@@ -154,7 +154,7 @@ ${attentionList}
  * In production, would use nodemailer or similar.
  * Returns a delivery log with status for each email.
  */
-export async function sendDistributionEmailes(emails, config) {
+export async function sendDistributionEmails(emails, config) {
   const results = [];
 
   for (const email of emails) {

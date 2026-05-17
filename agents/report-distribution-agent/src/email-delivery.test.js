@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   buildRepEmail,
   buildExecutiveEmail,
-  sendDistributionEmailes,
+  sendDistributionEmails,
   sendWithRetry,
   calculateRetryDelay,
 } from './email-delivery.js';
@@ -176,7 +176,7 @@ async function testSendDistributionEmails() {
     { to: 'rep-002', from: 'reports@notonlytranslator.com', subject: 'Test 2', body: 'Test 2', html: false },
   ];
 
-  const results = await sendDistributionEmailes(emails, testConfig);
+  const results = await sendDistributionEmails(emails, testConfig);
 
   assert.strictEqual(results.length, 2);
   assert.strictEqual(results[0].status, 'simulated');
