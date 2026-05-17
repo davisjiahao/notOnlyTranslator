@@ -463,6 +463,20 @@ export default function App() {
                 </li>
               ))}
             </ul>
+            {/* 帮助链接 — F10.2 帮助与文档 */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <a
+                href="https://github.com/yourusername/notOnlyTranslator#readme"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5"
+              >
+                <svg aria-hidden="true" className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.534-3.006 2.904-.26.056-.506.146-.722.262L12 13.282V17m-4 2h8a1 1 0 001-1v-4.5a5.5 5.5 0 00-5.5-5.5A5.5 5.5 0 006 11.5V18a1 1 0 001 1z" />
+                </svg>
+                帮助文档
+              </a>
+            </div>
           </nav>
 
           {/* 主内容区 — WCAG 4.1.2: tabpanel 角色 + aria-labelledby 关联到当前 tab */}

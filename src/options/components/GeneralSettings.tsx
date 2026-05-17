@@ -704,6 +704,17 @@ export default function GeneralSettings({
               </a>
             </div>
             <div className="flex justify-between">
+              <span>帮助</span>
+              <a
+                href="https://github.com/yourusername/notOnlyTranslator#readme"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 dark:text-primary-400 hover:underline"
+              >
+                帮助文档
+              </a>
+            </div>
+            <div className="flex justify-between">
               <span>反馈</span>
               <a
                 href="https://github.com/yourusername/notOnlyTranslator/issues"

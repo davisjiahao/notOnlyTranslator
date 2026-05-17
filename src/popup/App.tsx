@@ -552,9 +552,17 @@ export default function App() {
           </button>
         </div>
 
-        {/* 反馈按钮 */}
-        <div className="flex justify-center">
+        {/* 反馈按钮 + 帮助链接 */}
+        <div className="flex items-center justify-center gap-3">
           <FeedbackButton variant="minimal" size="sm" />
+          <a
+            href="https://github.com/yourusername/notOnlyTranslator#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            帮助文档
+          </a>
         </div>
       </main>
 
