@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { UnknownWordEntry } from '@/shared/types';
 import { formatDate } from '@/shared/utils';
 
@@ -10,6 +10,27 @@ interface VocabularyListProps {
 export default function VocabularyList({ words, onRemove }: VocabularyListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'alpha'>('recent');
+  /** 待删除的词（点击删除后显示撤销提示，2 秒后真正删除） */
+  const [pendingDelete, setPendingDelete] = useState<{ word: string; entry: UnknownWordEntry } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleRequestDelete = useCallback((word: string, entry: UnknownWordEntry) => {
+    // 先标记待删除，显示撤销提示
+    setPendingDelete({ word, entry });
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => {
+      onRemove(word);
+      setPendingDelete(null);
+    }, 2000);
+  }, [onRemove]);
+
+  const handleUndo = useCallback(() => {
+    if (undoTimer.current) {
+      clearTimeout(undoTimer.current);
+      undoTimer.current = null;
+    }
+    setPendingDelete(null);
+  }, []);
 
   // Filter and sort words
   const filteredWords = words
@@ -78,41 +99,65 @@ export default function VocabularyList({ words, onRemove }: VocabularyListProps)
       {/* Word list */}
       <div className="space-y-2 max-h-[280px] overflow-y-auto">
         {filteredWords.map((entry) => (
-          <div
-            key={entry.word}
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900 dark:text-white">{entry.word}</span>
-                  {entry.reviewCount > 0 && (
-                    <span className="text-xs text-gray-500 dark:text-gray-300">
-                      复习 {entry.reviewCount} 次
-                    </span>
-                  )}
+          pendingDelete?.word === entry.word ? (
+            /* 删除确认 + 撤销栏 */
+            <div
+              key={entry.word}
+              className="bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800 p-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-red-700 dark:text-red-300">
+                    已删除：{entry.word}
+                  </div>
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">点击「撤销」恢复</p>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{entry.translation}</p>
-                {entry.context && (
-                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 truncate">
-                    "{entry.context}"
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
-                  {formatDate(entry.markedAt)}
-                </p>
+                <button
+                  onClick={handleUndo}
+                  className="ml-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  aria-label="撤销删除"
+                >
+                  撤销
+                </button>
               </div>
-              <button
-                onClick={() => onRemove(entry.word)}
-                className="ml-2 p-1 text-gray-500 dark:text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                aria-label={`移除词汇 ${entry.word}`}
-              >
-                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
             </div>
-          </div>
+          ) : (
+            <div
+              key={entry.word}
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">{entry.word}</span>
+                    {entry.reviewCount > 0 && (
+                      <span className="text-xs text-gray-500 dark:text-gray-300">
+                        复习 {entry.reviewCount} 次
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{entry.translation}</p>
+                  {entry.context && (
+                    <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 truncate">
+                      "{entry.context}"
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
+                    {formatDate(entry.markedAt)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleRequestDelete(entry.word, entry)}
+                  className="ml-2 p-1 text-gray-500 dark:text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  aria-label={`移除词汇 ${entry.word}`}
+                >
+                  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )
         ))}
 
         {filteredWords.length === 0 && searchTerm && (
