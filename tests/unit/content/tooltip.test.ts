@@ -18,6 +18,7 @@ describe('Tooltip', () => {
     onMarkKnown: ReturnType<typeof vi.fn>;
     onMarkUnknown: ReturnType<typeof vi.fn>;
     onAddToVocabulary: ReturnType<typeof vi.fn>;
+    onUndoLastMark: ReturnType<typeof vi.fn>;
   };
   let mockTarget: HTMLElement;
 
@@ -33,6 +34,7 @@ describe('Tooltip', () => {
       onMarkKnown: vi.fn(),
       onMarkUnknown: vi.fn(),
       onAddToVocabulary: vi.fn(),
+      onUndoLastMark: vi.fn(),
     };
 
     // Create tooltip instance
@@ -664,6 +666,318 @@ describe('Tooltip', () => {
       document.body.click();
 
       expect(tooltip.isVisible()).toBe(true);
+    });
+  });
+
+  describe('undo bar', () => {
+    it('should show undo bar after marking word as known', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      const undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar).not.toBeNull();
+    });
+
+    it('should show undo bar after marking word as unknown', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const unknownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.unknown`) as HTMLElement;
+      unknownBtn?.click();
+
+      const undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar).not.toBeNull();
+    });
+
+    it('should show undo bar after adding word to vocabulary', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const addBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.add`) as HTMLElement;
+      addBtn?.click();
+
+      const undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar).not.toBeNull();
+    });
+
+    it('should call onUndoLastMark when undo button clicked', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      const undoBtn = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`) as HTMLElement;
+      undoBtn?.click();
+
+      expect(mockCallbacks.onUndoLastMark).toHaveBeenCalled();
+    });
+
+    it('should hide tooltip and remove undo bar when undo button clicked', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      const undoBtn = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`) as HTMLElement;
+      undoBtn?.click();
+
+      expect(tooltip.isVisible()).toBe(false);
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).toBeNull();
+    });
+
+    it('should auto-hide after 3 seconds via timer', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      // Undo bar should be present
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).not.toBeNull();
+
+      // Advance timers by 3 seconds
+      vi.advanceTimersByTime(3000);
+
+      expect(tooltip.isVisible()).toBe(false);
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).toBeNull();
+    });
+
+    it('should have correct message for each action type', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      // Known
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+      let undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar?.textContent).toContain('已标记为认识');
+
+      tooltip.hide();
+      // Need to show again to reset
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      // Unknown
+      const unknownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.unknown`) as HTMLElement;
+      unknownBtn?.click();
+      undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar?.textContent).toContain('已标记为不认识');
+
+      tooltip.hide();
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      // Add to vocabulary
+      const addBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.add`) as HTMLElement;
+      addBtn?.click();
+      undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar?.textContent).toContain('已加入生词本');
+    });
+
+    it('should restore action buttons when undo bar is removed', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      // Action buttons should be hidden
+      const actionsDiv = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-actions`) as HTMLElement;
+      expect(actionsDiv?.style.display).toBe('none');
+
+      // Click undo
+      const undoBtn = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`) as HTMLElement;
+      undoBtn?.click();
+
+      // Show tooltip again to verify buttons restored
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const actionsDivAfter = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-actions`) as HTMLElement;
+      expect(actionsDivAfter?.style.display).toBe('');
+    });
+
+    it('should trigger onUndoLastMark via Ctrl+Z keyboard shortcut', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      // Undo bar exists but tooltip is still visible (undo bar is inside)
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).not.toBeNull();
+
+      // Ctrl+Z should trigger undo even if tooltip isn't "visible" in the traditional sense
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+
+      expect(mockCallbacks.onUndoLastMark).toHaveBeenCalled();
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).toBeNull();
+    });
+
+    it('should trigger onUndoLastMark via Meta+Z keyboard shortcut', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true }));
+
+      expect(mockCallbacks.onUndoLastMark).toHaveBeenCalled();
+    });
+
+    it('should hide tooltip on Ctrl+Z undo', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+
+      expect(tooltip.isVisible()).toBe(false);
+    });
+
+    it('should not process Ctrl+Z when undo bar is not present', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      // No mark action taken, so no undo bar
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+
+      expect(mockCallbacks.onUndoLastMark).not.toHaveBeenCalled();
+    });
+
+    it('should remove undo bar when tooltip is hidden', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).not.toBeNull();
+
+      tooltip.hide();
+
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).toBeNull();
+    });
+
+    it('should have role=status and aria-live=polite for accessibility', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      const undoBar = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`);
+      expect(undoBar?.getAttribute('role')).toBe('status');
+      expect(undoBar?.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('should have aria-label on undo button', () => {
+      tooltip.showWord(mockTarget, {
+        original: 'test',
+        translation: '测试',
+        position: [0, 4],
+        difficulty: 5,
+        isPhrase: false,
+      });
+
+      const knownBtn = document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement;
+      knownBtn?.click();
+
+      const undoBtn = document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`);
+      expect(undoBtn?.getAttribute('aria-label')).toBe('撤销操作');
     });
   });
 
