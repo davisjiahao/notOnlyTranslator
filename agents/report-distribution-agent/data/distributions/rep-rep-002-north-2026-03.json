@@ -1,0 +1,28 @@
+{
+  "representative": "Sarah Johnson",
+  "repId": "rep-002",
+  "territory": "North",
+  "status": "exceeding",
+  "period": "2026-03",
+  "metrics": {
+    "mtd": "$52K",
+    "ytd": "$385K",
+    "yearEnd": "$650K",
+    "quota": "$600K",
+    "pipeline": "$150K",
+    "deals": 15,
+    "quotaAttainment": "108.3%",
+    "pipelineCoverage": "25.0%"
+  },
+  "territorySummary": {
+    "territory": "North",
+    "territoryMTD": "$97K",
+    "territoryYTD": "$705K",
+    "territoryQuotaAttainment": "58.8%",
+    "territoryPipelineCoverage": "54.5%",
+    "totalReps": 2,
+    "totalDeals": 27
+  },
+  "pipelineHealth": null,
+  "generatedAt": "2026-05-17T16:09:09.663Z"
+}

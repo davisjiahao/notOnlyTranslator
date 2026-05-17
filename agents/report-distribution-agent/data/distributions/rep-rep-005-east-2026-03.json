@@ -1,0 +1,28 @@
+{
+  "representative": "Robert Wilson",
+  "repId": "rep-005",
+  "territory": "East",
+  "status": "exceeding",
+  "period": "2026-03",
+  "metrics": {
+    "mtd": "$48K",
+    "ytd": "$340K",
+    "yearEnd": "$610K",
+    "quota": "$580K",
+    "pipeline": "$135K",
+    "deals": 14,
+    "quotaAttainment": "105.2%",
+    "pipelineCoverage": "23.3%"
+  },
+  "territorySummary": {
+    "territory": "East",
+    "territoryMTD": "$48K",
+    "territoryYTD": "$340K",
+    "territoryQuotaAttainment": "58.6%",
+    "territoryPipelineCoverage": "56.3%",
+    "totalReps": 1,
+    "totalDeals": 14
+  },
+  "pipelineHealth": null,
+  "generatedAt": "2026-05-17T16:09:09.665Z"
+}

@@ -1,0 +1,28 @@
+{
+  "representative": "Lisa Anderson",
+  "repId": "rep-006",
+  "territory": "West",
+  "status": "on-track",
+  "period": "2026-03",
+  "metrics": {
+    "mtd": "$35K",
+    "ytd": "$265K",
+    "yearEnd": "$490K",
+    "quota": "$550K",
+    "pipeline": "$85K",
+    "deals": 9,
+    "quotaAttainment": "89.1%",
+    "pipelineCoverage": "15.5%"
+  },
+  "territorySummary": {
+    "territory": "West",
+    "territoryMTD": "$35K",
+    "territoryYTD": "$265K",
+    "territoryQuotaAttainment": "48.2%",
+    "territoryPipelineCoverage": "29.8%",
+    "totalReps": 1,
+    "totalDeals": 9
+  },
+  "pipelineHealth": null,
+  "generatedAt": "2026-05-17T16:09:09.665Z"
+}

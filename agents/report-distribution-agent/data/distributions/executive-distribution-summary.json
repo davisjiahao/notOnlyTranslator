@@ -1,0 +1,84 @@
+{
+  "period": "2026-03",
+  "generatedAt": "2026-05-17T16:09:09.662Z",
+  "totalMTD": "$260K",
+  "totalYTD": "$1.9M",
+  "totalPipeline": "$695K",
+  "totalDeals": 71,
+  "territories": [
+    {
+      "id": "north",
+      "name": "North",
+      "mtd": "$97K",
+      "ytd": "$705K",
+      "quotaAttainment": "58.8%",
+      "pipelineCoverage": "54.5%",
+      "deals": 27,
+      "reps": 2
+    },
+    {
+      "id": "south",
+      "name": "South",
+      "mtd": "$80K",
+      "ytd": "$600K",
+      "quotaAttainment": "54.5%",
+      "pipelineCoverage": "41.0%",
+      "deals": 21,
+      "reps": 2
+    },
+    {
+      "id": "east",
+      "name": "East",
+      "mtd": "$48K",
+      "ytd": "$340K",
+      "quotaAttainment": "58.6%",
+      "pipelineCoverage": "56.3%",
+      "deals": 14,
+      "reps": 1
+    },
+    {
+      "id": "west",
+      "name": "West",
+      "mtd": "$35K",
+      "ytd": "$265K",
+      "quotaAttainment": "48.2%",
+      "pipelineCoverage": "29.8%",
+      "deals": 9,
+      "reps": 1
+    }
+  ],
+  "topPerformers": [
+    {
+      "name": "Sarah Johnson",
+      "territory": "North",
+      "quotaAttainment": "64.2%"
+    },
+    {
+      "name": "Robert Wilson",
+      "territory": "East",
+      "quotaAttainment": "58.6%"
+    },
+    {
+      "name": "John Smith",
+      "territory": "North",
+      "quotaAttainment": "53.3%"
+    }
+  ],
+  "needsAttention": [
+    {
+      "name": "Lisa Anderson",
+      "territory": "West",
+      "quotaAttainment": "48.2%"
+    },
+    {
+      "name": "Michael Chen",
+      "territory": "South",
+      "quotaAttainment": "52.7%"
+    },
+    {
+      "name": "John Smith",
+      "territory": "North",
+      "quotaAttainment": "53.3%"
+    }
+  ]
+}

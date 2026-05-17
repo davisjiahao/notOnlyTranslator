@@ -1,0 +1,28 @@
+{
+  "representative": "Emily Davis",
+  "repId": "rep-004",
+  "territory": "South",
+  "status": "exceeding",
+  "period": "2026-03",
+  "metrics": {
+    "mtd": "$42K",
+    "ytd": "$310K",
+    "yearEnd": "$560K",
+    "quota": "$550K",
+    "pipeline": "$110K",
+    "deals": 11,
+    "quotaAttainment": "101.8%",
+    "pipelineCoverage": "20.0%"
+  },
+  "territorySummary": {
+    "territory": "South",
+    "territoryMTD": "$80K",
+    "territoryYTD": "$600K",
+    "territoryQuotaAttainment": "54.5%",
+    "territoryPipelineCoverage": "41.0%",
+    "totalReps": 2,
+    "totalDeals": 21
+  },
+  "pipelineHealth": null,
+  "generatedAt": "2026-05-17T16:09:09.664Z"
+}

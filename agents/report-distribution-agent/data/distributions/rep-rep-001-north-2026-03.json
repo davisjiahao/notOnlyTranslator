@@ -1,0 +1,28 @@
+{
+  "representative": "John Smith",
+  "repId": "rep-001",
+  "territory": "North",
+  "status": "exceeding",
+  "period": "2026-03",
+  "metrics": {
+    "mtd": "$45K",
+    "ytd": "$320K",
+    "yearEnd": "$580K",
+    "quota": "$600K",
+    "pipeline": "$120K",
+    "deals": 12,
+    "quotaAttainment": "96.7%",
+    "pipelineCoverage": "20.0%"
+  },
+  "territorySummary": {
+    "territory": "North",
+    "territoryMTD": "$97K",
+    "territoryYTD": "$705K",
+    "territoryQuotaAttainment": "58.8%",
+    "territoryPipelineCoverage": "54.5%",
+    "totalReps": 2,
+    "totalDeals": 27
+  },
+  "pipelineHealth": null,
+  "generatedAt": "2026-05-17T16:09:09.662Z"
+}
