@@ -11,6 +11,7 @@ import {
   formatDate,
   ApiError,
   defaultShouldRetry,
+  validateApiKeyFormat,
 } from '@/shared/utils';
 import type { UserProfile } from '@/shared/types';
 
@@ -209,5 +210,85 @@ describe('defaultShouldRetry', () => {
   it('不应该重试 4xx 客户端错误', () => {
     const error = new ApiError('Not found', 404, false);
     expect(defaultShouldRetry(error, 0)).toBe(false);
+  });
+});
+
+describe('validateApiKeyFormat', () => {
+  it('returns warning for empty key', () => {
+    expect(validateApiKeyFormat('', 'openai')).toEqual({ isValid: false, message: '', type: 'warning' });
+    expect(validateApiKeyFormat('   ', 'openai')).toEqual({ isValid: false, message: '', type: 'warning' });
+  });
+
+  // OpenAI
+  it('validates OpenAI key starts with sk-', () => {
+    expect(validateApiKeyFormat('sk-abc123', 'openai').type).toBe('success');
+    expect(validateApiKeyFormat('not-sk-key', 'openai').type).toBe('error');
+  });
+
+  // Anthropic
+  it('validates Anthropic key starts with sk-ant-', () => {
+    expect(validateApiKeyFormat('sk-ant-abc123', 'anthropic').type).toBe('success');
+    expect(validateApiKeyFormat('sk-not-anthropic', 'anthropic').type).toBe('error');
+  });
+
+  // Gemini
+  it('validates Gemini key starts with AIza', () => {
+    expect(validateApiKeyFormat('AIzaSyA123', 'gemini').type).toBe('success');
+    expect(validateApiKeyFormat('not-AIza-key', 'gemini').type).toBe('error');
+  });
+
+  // Groq
+  it('validates Groq key starts with gsk_', () => {
+    expect(validateApiKeyFormat('gsk_abc123', 'groq').type).toBe('success');
+    expect(validateApiKeyFormat('not-gsk-key', 'groq').type).toBe('error');
+  });
+
+  // DeepSeek
+  it('validates DeepSeek key starts with sk-', () => {
+    expect(validateApiKeyFormat('sk-deepseek-key', 'deepseek').type).toBe('success');
+    expect(validateApiKeyFormat('not-sk-key', 'deepseek').type).toBe('error');
+  });
+
+  // Alibaba
+  it('validates Alibaba key starts with sk-', () => {
+    expect(validateApiKeyFormat('sk-alibaba-key', 'alibaba').type).toBe('success');
+    expect(validateApiKeyFormat('not-sk-key', 'alibaba').type).toBe('error');
+  });
+
+  // DeepL (UUID:fx pattern with minLength 38)
+  it('validates DeepL key format UUID:fx with minimum length', () => {
+    const validKey = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:en';
+    expect(validateApiKeyFormat(validKey, 'deepl').type).toBe('success');
+    // Too short
+    expect(validateApiKeyFormat('short:en', 'deepl').type).toBe('error');
+    // Wrong pattern but long enough
+    expect(validateApiKeyFormat('not-a-uuid-format-key-but-very-long-string:en', 'deepl').type).toBe('error');
+  });
+
+  // Providers without validation rules
+  it('returns success for providers without validation rules', () => {
+    const noRuleProviders: Array<'zhipu' | 'baidu' | 'ollama' | 'youdao' | 'custom' | 'free_google_translate' | 'google_translate'> = [
+      'zhipu', 'baidu', 'ollama', 'youdao', 'custom', 'free_google_translate', 'google_translate',
+    ];
+    noRuleProviders.forEach(provider => {
+      const result = validateApiKeyFormat('any-key-at-all', provider);
+      expect(result).toEqual({ isValid: true, message: '', type: 'success' });
+    });
+  });
+
+  // Message content
+  it('includes hint message for invalid keys', () => {
+    const result = validateApiKeyFormat('wrong-key', 'openai');
+    expect(result.message).toContain('sk-');
+    expect(result.isValid).toBe(false);
+  });
+
+  it('returns "格式正确" message for valid keys', () => {
+    expect(validateApiKeyFormat('sk-valid-key', 'openai').message).toBe('格式正确');
+  });
+
+  // Trimming
+  it('trims whitespace before validation', () => {
+    expect(validateApiKeyFormat('  sk-key  ', 'openai').type).toBe('success');
   });
 });
