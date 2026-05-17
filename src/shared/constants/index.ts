@@ -50,7 +50,7 @@ export const EXAM_DISPLAY_NAMES: Record<ExamType, string> = {
   cet6: 'CET-6 (大学英语六级)',
   toefl: 'TOEFL (托福)',
   ielts: 'IELTS (雅思)',
-  gre: 'GRE',
+  gre: 'GRE (美国研究生入学考试)',
   custom: '自定义',
 };
 
