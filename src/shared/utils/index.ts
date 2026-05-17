@@ -1,4 +1,4 @@
-import type { ExamType, UserProfile, TranslationResult } from '../types';
+import type { ApiProvider, ExamType, UserProfile, TranslationResult } from '../types';
 import { EXAM_VOCABULARY_SIZES, SCORE_MULTIPLIERS } from '../constants';
 
 // 导出日志服务
@@ -440,4 +440,54 @@ export async function fetchWithApiError(
       true // 网络错误应该重试
     );
   }
+}
+
+// ========== API Key 格式验证 ==========
+
+/** API Key 验证结果 */
+export interface ApiKeyValidationResult {
+  /** 是否通过验证 */
+  isValid: boolean;
+  /** 提示信息（为空表示通过验证） */
+  message: string;
+  /** 消息类型 */
+  type: 'error' | 'warning' | 'success';
+}
+
+/**
+ * 验证 API Key 格式是否符合对应供应商的要求
+ * 返回验证结果对象，包含 isValid、message 和 type
+ */
+export function validateApiKeyFormat(apiKey: string, provider: ApiProvider): ApiKeyValidationResult {
+  const trimmed = apiKey.trim();
+
+  if (!trimmed) {
+    return { isValid: false, message: '', type: 'warning' };
+  }
+
+  const rules: Partial<Record<ApiProvider, { pattern: RegExp; hint: string; minLength?: number }>> = {
+    openai: { pattern: /^sk-/, hint: 'OpenAI API Key 以 "sk-" 开头' },
+    anthropic: { pattern: /^sk-ant-/, hint: 'Anthropic API Key 以 "sk-ant-" 开头' },
+    gemini: { pattern: /^AIza/, hint: 'Google Gemini API Key 以 "AIza" 开头' },
+    groq: { pattern: /^gsk_/, hint: 'Groq API Key 以 "gsk_" 开头' },
+    deepseek: { pattern: /^sk-/, hint: 'DeepSeek API Key 以 "sk-" 开头' },
+    alibaba: { pattern: /^sk-/, hint: '阿里通义 API Key 以 "sk-" 开头' },
+    deepl: { pattern: /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:\w+/, hint: 'DeepL API Key 格式为 "UUID:fx"', minLength: 38 },
+  };
+
+  const rule = rules[provider];
+  if (!rule) {
+    // 无验证规则的供应商（zhipu, baidu, ollama, youdao, custom, free_google_translate, google_translate）
+    return { isValid: true, message: '', type: 'success' };
+  }
+
+  if (rule.minLength && trimmed.length < rule.minLength) {
+    return { isValid: false, message: `${rule.hint}，当前长度为 ${trimmed.length}`, type: 'error' };
+  }
+
+  if (!rule.pattern.test(trimmed)) {
+    return { isValid: false, message: rule.hint, type: 'error' };
+  }
+
+  return { isValid: true, message: '格式正确', type: 'success' };
 }
