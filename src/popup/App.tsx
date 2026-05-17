@@ -45,8 +45,10 @@ export default function App() {
   }, [settings]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    // 基于内容长度计算持续时间：每 10 字符 +0.5 秒，最少 2 秒，最多 6 秒
+    const duration = Math.min(6000, Math.max(2000, 2000 + Math.ceil(message.length / 10) * 500));
     setToast({ message, type });
-    setTimeout(() => setToast(null), 2000);
+    setTimeout(() => setToast(null), duration);
   };
 
   useEffect(() => {
@@ -240,16 +242,26 @@ export default function App() {
         />
       )}
 
-      {/* Toast 提示 — WCAG 4.1.3: aria-live 让屏幕阅读器自动播报状态变更 */}
+      {/* Toast 提示 — WCAG 4.1.3: aria-live 让屏幕阅读器自动播报状态变更，手动可关闭 */}
       {toast && (
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium ${
+          className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 pr-8 rounded-lg shadow-lg z-50 text-sm font-medium ${
             toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}
         >
           {toast.message}
+          <button
+            type="button"
+            aria-label="关闭提示"
+            onClick={() => setToast(null)}
+            className="absolute top-1 right-1 p-0.5 opacity-70 hover:opacity-100 transition-opacity"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 

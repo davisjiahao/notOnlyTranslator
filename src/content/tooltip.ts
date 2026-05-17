@@ -40,6 +40,8 @@ export class Tooltip {
   private undoTimeout: ReturnType<typeof setTimeout> | null = null;
   /** 撤销操作栏的 DOM 引用 */
   private undoBar: HTMLElement | null = null;
+  /** 加载慢提示的定时器 */
+  private loadingSlowTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /** 保存事件监听器引用，用于清理 */
   private boundHandlers: {
@@ -609,6 +611,9 @@ export class Tooltip {
       // 清理撤销栏
       this.removeUndoBar();
 
+      // 清理加载慢提示
+      this.clearLoadingSlowTimeout();
+
       // 清除滚动隐藏定时器
       if (this.scrollHideTimeout) {
         clearTimeout(this.scrollHideTimeout);
@@ -745,6 +750,16 @@ export class Tooltip {
   }
 
   /**
+   * 清理加载慢提示的定时器
+   */
+  private clearLoadingSlowTimeout(): void {
+    if (this.loadingSlowTimeout) {
+      clearTimeout(this.loadingSlowTimeout);
+      this.loadingSlowTimeout = null;
+    }
+  }
+
+  /**
    * 移除撤销栏
    */
   private removeUndoBar(): void {
@@ -829,6 +844,15 @@ export class Tooltip {
     loadingDiv.appendChild(text);
 
     content.appendChild(loadingDiv);
+
+    // 5 秒后若仍未完成，显示"响应较慢"提示
+    this.clearLoadingSlowTimeout();
+    this.loadingSlowTimeout = setTimeout(() => {
+      const loadingText = content.querySelector('.not-translator-loading-text');
+      if (loadingText) {
+        loadingText.textContent = '响应较慢，请稍候或检查网络...';
+      }
+    }, 5000);
 
     // Position and show
     this.positionTooltip(targetElement);
@@ -967,6 +991,9 @@ export class Tooltip {
       this.undoBar.remove();
       this.undoBar = null;
     }
+
+    // 清理加载慢提示
+    this.clearLoadingSlowTimeout();
 
     // 移除 DOM 元素
     if (this.element) {
