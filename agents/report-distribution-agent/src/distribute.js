@@ -18,6 +18,7 @@
 
 import { run, loadConfig, loadReports } from './distribution-engine.js';
 import { buildRepEmail, buildExecutiveEmail, sendDistributionEmails } from './email-delivery.js';
+import { logRun, getStats } from './delivery-log.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -154,6 +155,19 @@ async function main() {
       log(`    ${result.status}: ${result.subject}`);
     }
   }
+
+  // Step 6: Log the delivery run
+  logRun({
+    period: manifest.period,
+    totalReps: manifest.territories.reduce((s, t) => s + t.representatives.length, 0),
+    emailsBuilt: emails.length,
+    emailsSent: sent,
+    emailsFailed: failed,
+    status: failed > 0 ? 'partial' : 'complete',
+  });
+
+  const stats = getStats();
+  verbose(`  Delivery log: ${stats.totalRuns} total runs, ${stats.totalEmailsSent} emails sent`);
 
   log(`\n✅ Distribution complete`);
 }
