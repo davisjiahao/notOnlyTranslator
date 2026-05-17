@@ -118,6 +118,32 @@ export default function FeedbackModal({
   // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
   const modalRef = useFocusTrap<HTMLDivElement>({ active: isOpen });
 
+  // WCAG 2.1.1: Radiogroup roving tabindex + Arrow key navigation
+  const categories = Object.keys(FEEDBACK_CATEGORIES) as FeedbackCategory[];
+  const handleRadioKeyDown = useCallback(
+    (e: React.KeyboardEvent, currentIndex: number) => {
+      let targetIndex = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        targetIndex = (currentIndex + 1) % categories.length;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        targetIndex = (currentIndex - 1 + categories.length) % categories.length;
+      } else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        handleInputChange('category', categories[currentIndex]);
+        return;
+      } else {
+        return;
+      }
+      const target = (e.currentTarget.parentElement as HTMLElement)?.querySelector(
+        `[data-radio-index="${targetIndex}"]`
+      ) as HTMLElement | null;
+      target?.focus();
+    },
+    [categories, handleInputChange]
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -187,15 +213,18 @@ export default function FeedbackModal({
                   反馈类型 <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="反馈类型">
-                  {(Object.keys(FEEDBACK_CATEGORIES) as FeedbackCategory[]).map(category => (
+                  {categories.map((category, index) => (
                     <button
                       key={category}
                       type="button"
                       role="radio"
                       aria-checked={formData.category === category}
+                      tabIndex={formData.category === category ? 0 : -1}
+                      data-radio-index={index}
+                      onKeyDown={(e) => handleRadioKeyDown(e, index)}
                       onClick={() => handleInputChange('category', category)}
                       className={`
-                        px-3 py-2 text-sm rounded-lg border transition-all text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
+                        px-3 py-2 text-sm rounded-lg border transition-all text-left
                         ${formData.category === category
                           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
                           : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
