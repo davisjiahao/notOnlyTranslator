@@ -115,10 +115,10 @@ describe('FlashcardReview', () => {
         expect(screen.getByText('没有需要复习的单词')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('太棒了！你当前的单词都还没到复习时间。继续浏览网页学习新单词吧。')).toBeInTheDocument();
+      expect(screen.getByText('太棒了！所有单词都还没到复习时间。继续浏览网页学习新单词吧。')).toBeInTheDocument();
     });
 
-    it('空状态时应该显示庆祝图标', async () => {
+    it('空状态时应该显示 check 图标', async () => {
       mockSendMessage.mockResolvedValue({
         success: true,
         data: [],
@@ -127,7 +127,8 @@ describe('FlashcardReview', () => {
       render(<FlashcardReview isSaving={false} />);
 
       await waitFor(() => {
-        expect(screen.getByText('🎉')).toBeInTheDocument();
+        const svg = document.querySelector('svg[aria-hidden="true"]');
+        expect(svg).toBeInTheDocument();
       });
     });
   });
