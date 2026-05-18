@@ -18,6 +18,7 @@
 
 import { run, loadConfig, loadReports } from './distribution-engine.js';
 import { buildRepEmail, buildExecutiveEmail, sendDistributionEmails } from './email-delivery.js';
+import { deliverViaSlack } from './slack-delivery.js';
 import { logRun, getStats } from './delivery-log.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -82,7 +83,7 @@ async function main() {
   // Step 1: Load config
   verbose('Loading configuration...');
   const config = loadConfig();
-  verbose(`  ${config.territories.length} territories, email: ${config.channels.email.enabled ? 'enabled' : 'disabled'}`);
+  verbose(`  ${config.territories.length} territories, email: ${config.channels.email.enabled ? 'enabled' : 'disabled'}, slack: ${config.channels.slack?.enabled ? 'enabled' : 'disabled'}`);
   verbose(`  Schedule: ${config.distributionSchedule.cron} (${config.distributionSchedule.timezone})`);
 
   // Step 2: Load reports
@@ -156,13 +157,45 @@ async function main() {
     }
   }
 
+  // Step 5b: Slack delivery
+  verbose('Sending Slack messages...');
+  const repReports = [];
+  for (const territory of manifest.territories) {
+    for (const rep of territory.representatives) {
+      const reportPath = path.join(distDir, rep.reportFile);
+      const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
+      repReports.push(reportData);
+    }
+  }
+  const slackResult = await deliverViaSlack(repReports, manifest.executiveSummary, config);
+
+  if (slackResult.status === 'skipped') {
+    verbose(`  Slack: ${slackResult.reason}`);
+  } else {
+    log(`\n💬 Slack Delivery`);
+    log(`  Built: ${slackResult.messagesBuilt}`);
+    log(`  Sent: ${slackResult.messagesSent}`);
+    log(`  Failed: ${slackResult.messagesFailed}`);
+
+    if (args.verbose) {
+      for (const result of slackResult.results) {
+        log(`    ${result.status}: ${result.channel}`);
+      }
+    }
+  }
+
   // Step 6: Log the delivery run
+  const slackStats = slackResult.status === 'complete'
+    ? { slackBuilt: slackResult.messagesBuilt, slackSent: slackResult.messagesSent }
+    : {};
+
   logRun({
     period: manifest.period,
     totalReps: manifest.territories.reduce((s, t) => s + t.representatives.length, 0),
     emailsBuilt: emails.length,
     emailsSent: sent,
     emailsFailed: failed,
+    ...slackStats,
     status: failed > 0 ? 'partial' : 'complete',
   });
 

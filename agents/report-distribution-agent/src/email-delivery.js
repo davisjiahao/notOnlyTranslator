@@ -214,7 +214,7 @@ export async function deliver(configOverride) {
   emails.push(execEmail);
 
   // Send
-  const deliveryResults = await sendDistributionEmailes(emails, config);
+  const deliveryResults = await sendDistributionEmails(emails, config);
 
   return {
     status: 'complete',
