@@ -41,7 +41,8 @@
     "activeTab",
     "contextMenus",
     "alarms",
-    "notifications"
+    "notifications",
+    "downloads"
   ],
   "commands": {
     "translate-paragraph": {
