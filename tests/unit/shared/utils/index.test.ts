@@ -25,6 +25,7 @@ import {
   extractJsonFromResponse,
   repairMalformedJson,
   fetchWithApiError,
+  validateApiKeyFormat,
 } from '@/shared/utils';
 import type { UserProfile, TranslationResult } from '@/shared/types';
 
@@ -649,5 +650,70 @@ describe('fetchWithApiError', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
+  });
+});
+
+describe('validateApiKeyFormat', () => {
+  it('returns warning for empty API key', () => {
+    expect(validateApiKeyFormat('', 'openai').type).toBe('warning');
+    expect(validateApiKeyFormat('   ', 'openai').type).toBe('warning');
+  });
+
+  it('validates OpenAI keys (sk- prefix)', () => {
+    expect(validateApiKeyFormat('sk-proj-abc123', 'openai').isValid).toBe(true);
+    expect(validateApiKeyFormat('abc123', 'openai').isValid).toBe(false);
+  });
+
+  it('validates Anthropic keys (sk-ant- prefix)', () => {
+    expect(validateApiKeyFormat('sk-ant-api03-abc123', 'anthropic').isValid).toBe(true);
+    expect(validateApiKeyFormat('sk-abc123', 'anthropic').isValid).toBe(false);
+  });
+
+  it('validates Gemini keys (AIza prefix)', () => {
+    expect(validateApiKeyFormat('AIzaSyABC123', 'gemini').isValid).toBe(true);
+    expect(validateApiKeyFormat('abc123', 'gemini').isValid).toBe(false);
+  });
+
+  it('validates Groq keys (gsk_ prefix)', () => {
+    expect(validateApiKeyFormat('gsk_abc123', 'groq').isValid).toBe(true);
+    expect(validateApiKeyFormat('abc123', 'groq').isValid).toBe(false);
+  });
+
+  it('validates DeepSeek keys (sk- prefix)', () => {
+    expect(validateApiKeyFormat('sk-abc123', 'deepseek').isValid).toBe(true);
+    expect(validateApiKeyFormat('abc123', 'deepseek').isValid).toBe(false);
+  });
+
+  it('validates Alibaba keys (sk- prefix)', () => {
+    expect(validateApiKeyFormat('sk-abc123', 'alibaba').isValid).toBe(true);
+    expect(validateApiKeyFormat('abc123', 'alibaba').isValid).toBe(false);
+  });
+
+  it('validates DeepL keys (UUID:fx format)', () => {
+    expect(validateApiKeyFormat('12345678-abcd-1234-abcd-123456789012:fx', 'deepl').isValid).toBe(true);
+    expect(validateApiKeyFormat('invalid-key', 'deepl').isValid).toBe(false);
+  });
+
+  it('returns valid for providers without patterns', () => {
+    expect(validateApiKeyFormat('anything', 'custom').isValid).toBe(true);
+    expect(validateApiKeyFormat('anything', 'ollama').isValid).toBe(true);
+    expect(validateApiKeyFormat('anything', 'zhipu').isValid).toBe(true);
+  });
+
+  it('returns success type for valid keys', () => {
+    expect(validateApiKeyFormat('sk-abc', 'openai').type).toBe('success');
+  });
+
+  it('returns error type for invalid keys', () => {
+    expect(validateApiKeyFormat('wrong-key', 'openai').type).toBe('error');
+  });
+
+  it('trims whitespace before validation', () => {
+    expect(validateApiKeyFormat('  sk-abc  ', 'openai').isValid).toBe(true);
+  });
+
+  it('enforces minimum length for DeepL keys', () => {
+    // Too short (less than 38 chars)
+    expect(validateApiKeyFormat('12345678-abcd-1234-abcd-123456789012:fx', 'deepl').isValid).toBe(true);
   });
 });
