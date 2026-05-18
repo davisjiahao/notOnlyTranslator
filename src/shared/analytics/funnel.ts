@@ -186,8 +186,11 @@ export async function analyzeFunnel(
       c => c.timestamp >= now - timeRange
     );
 
-    // 分析每个步骤
-    const steps = funnelConfig.steps.map((step, index) => {
+    // 分析每个步骤（使用 for 循环以支持步骤间依赖）
+    const steps: FunnelConversionData['steps'] = [];
+
+    for (let index = 0; index < funnelConfig.steps.length; index++) {
+      const step = funnelConfig.steps[index];
       const stepConversions = filteredConversions.filter(
         c => c.event === step.event
       );
@@ -210,15 +213,15 @@ export async function analyzeFunnel(
         conversionRate = 100; // 第一步默认 100%
       }
 
-      return {
+      steps.push({
         name: step.name,
         event: step.event,
         users: stepConversions.length,
         completedUsers: uniqueUsers,
         conversionRate,
         dropOffRate
-      };
-    });
+      });
+    }
 
     // 计算总转化率
     const totalUsers = steps[0]?.completedUsers || 0;
