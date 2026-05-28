@@ -1,0 +1,6 @@
+[mcp_servers.playwright]
+args = [
+    "-y",
+    "@playwright/mcp@latest",
+]
+command = "npx"
