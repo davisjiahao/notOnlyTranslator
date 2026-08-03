@@ -11,6 +11,7 @@ import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { HybridTranslationService } from './hybridTranslation';
 import { DeepLTranslationService } from './deeplTranslation';
+import { getProviderConfig } from '@/shared/constants/providers';
 
 /**
  * Translation Service - handles LLM API calls for translation
@@ -61,17 +62,19 @@ export class TranslationService {
    * 检查是否有 DeepL API Key 配置
    */
   private static async hasDeepLApiKey(settings: UserSettings): Promise<boolean> {
-    // 从混合翻译配置中检查
-    if (settings.hybridTranslation?.traditionalApiKey) {
-      return true;
+    if (settings.apiProvider !== 'deepl') {
+      return false;
     }
 
-    // 从 apiConfigs 中查找 DeepL 配置
-    const deeplConfig = settings.apiConfigs?.find(
-      config => config.provider === 'deepl'
-    );
+    const activeConfig = settings.activeApiConfigId
+      ? settings.apiConfigs?.find(config => config.id === settings.activeApiConfigId)
+      : settings.apiConfigs?.[0];
 
-    return !!deeplConfig?.apiKey;
+    if (activeConfig) {
+      return activeConfig.provider === 'deepl' && !!activeConfig.apiKey;
+    }
+
+    return !!(await StorageManager.getApiKey());
   }
 
   /**
@@ -83,14 +86,7 @@ export class TranslationService {
       return true;
     }
 
-    // 检查是否有已配置的 API Key
-    if (settings.apiConfigs?.length && settings.apiConfigs.some(c => c.apiKey)) {
-      return true;
-    }
-
-    // 兼容旧版：直接存储的 API Key
-    const legacyApiKey = await StorageManager.getApiKey();
-    return !!legacyApiKey;
+    return !!(await StorageManager.getApiKey());
   }
 
   /**
@@ -230,6 +226,37 @@ export class TranslationService {
     // Ollama 不需要 API Key
     if (!apiKey && settings.apiProvider !== 'ollama') {
       throw new Error('API key not configured. Please set your API key in settings.');
+    }
+
+    const apiFormat = getProviderConfig(settings.apiProvider).apiFormat;
+    const usesPlainTextResponse = [
+      'deepl',
+      'google_translate',
+      'free_google_translate',
+      'youdao_translate',
+    ].includes(apiFormat);
+
+    if (usesPlainTextResponse) {
+      const apiStartTime = performance.now();
+      const fullText = await TranslationApiService.quickTranslate(text, apiKey, settings);
+      if (!fullText) {
+        throw new Error('翻译服务返回空响应');
+      }
+
+      const result: TranslationResult = { words: [], sentences: [], fullText };
+      const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
+      await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm');
+
+      const apiDuration = performance.now() - apiStartTime;
+      recordMetric(MetricType.API_RESPONSE_TIME, 'translate', apiDuration, true, {
+        provider: settings.apiProvider,
+        textLength: text?.length,
+      });
+      recordMetric(MetricType.TRANSLATION_TOTAL_TIME, 'translate_total', performance.now() - startTime, true, {
+        provider: settings.apiProvider,
+        textLength: text?.length,
+      });
+      return result;
     }
 
     // Build prompt with settings

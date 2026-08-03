@@ -76,6 +76,28 @@ describe('StorageManager', () => {
       expect(settings).toBeDefined();
       expect(settings.enabled).toBe(true);
     });
+
+    it('应该应用活动配置中的次级 API Key', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        settings: {
+          activeApiConfigId: 'baidu-config',
+          apiConfigs: [
+            {
+              id: 'baidu-config',
+              name: 'Baidu',
+              provider: 'baidu',
+              apiKey: 'client-id',
+              secondaryApiKey: 'client-secret',
+            } as ApiConfig,
+          ],
+        },
+      });
+
+      const settings = await StorageManager.getSettings();
+
+      expect(settings.apiProvider).toBe('baidu');
+      expect(settings.secondaryApiKey).toBe('client-secret');
+    });
   });
 
   describe('saveSettings', () => {
@@ -181,6 +203,20 @@ describe('StorageManager', () => {
       const apiKey = await StorageManager.getApiKey();
 
       expect(apiKey).toBe('test-api-key');
+    });
+
+    it('只有一个配置时应该自动使用该配置的 API Key', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        settings: {
+          apiConfigs: [
+            { id: 'only-config', name: 'Only Config', provider: 'openai', apiKey: 'only-api-key' } as ApiConfig,
+          ],
+        },
+      });
+
+      const apiKey = await StorageManager.getApiKey();
+
+      expect(apiKey).toBe('only-api-key');
     });
 
     it('当没有激活配置时应该回退到旧版 apiKey 字段', async () => {

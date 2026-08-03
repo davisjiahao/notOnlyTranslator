@@ -23,6 +23,7 @@ import { StorageManager } from './storage';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
 import { TranslationApiService } from './translationApi';
+import { getProviderConfig } from '@/shared/constants/providers';
 
 /**
  * 批量翻译的重试配置（优化延迟：初始 800ms → 原 1500ms，减少滑动中失败等待时间）
@@ -79,7 +80,9 @@ export class BatchTranslationService {
       apiProvider: settings.apiProvider,
     });
 
-    if (!apiKey) {
+    const apiFormat = getProviderConfig(settings.apiProvider).apiFormat;
+    const doesNotRequireApiKey = apiFormat === 'free_google_translate' || settings.apiProvider === 'ollama';
+    if (!apiKey && !doesNotRequireApiKey) {
       throw new Error('API key not configured. Please set your API key in settings.');
     }
 
@@ -214,7 +217,9 @@ export class BatchTranslationService {
 
     return {
       results: orderedResults,
-      apiCallCount: toTranslate.length > 0 ? 1 : 0,
+      apiCallCount: toTranslate.length > 0
+        ? (this.usesPlainTextResponse(settings) ? toTranslate.length : 1)
+        : 0,
       cacheHitCount: cacheHits.size,
     };
   }
@@ -229,6 +234,20 @@ export class BatchTranslationService {
     apiKey: string,
     _mode: string
   ): Promise<TranslationResult[]> {
+    if (this.usesPlainTextResponse(settings)) {
+      return Promise.all(paragraphs.map(async paragraph => {
+        const fullText = await TranslationApiService.quickTranslate(
+          paragraph.text,
+          apiKey,
+          settings
+        );
+        if (!fullText) {
+          throw new Error(`段落 ${paragraph.id} 的翻译结果为空`);
+        }
+        return { words: [], sentences: [], fullText };
+      }));
+    }
+
     // 构建带标记的段落文本
     const paragraphsText = paragraphs
       .map((p, index) => `[PARA_${index}]\n${normalizeText(p.text)}`)
@@ -257,6 +276,19 @@ export class BatchTranslationService {
 
     // 解析响应
     return this.parseBatchResponse(response, paragraphs.length, settings);
+  }
+
+  /**
+   * 判断供应商是否直接返回译文纯文本
+   */
+  private static usesPlainTextResponse(settings: UserSettings): boolean {
+    const apiFormat = getProviderConfig(settings.apiProvider).apiFormat;
+    return [
+      'deepl',
+      'google_translate',
+      'free_google_translate',
+      'youdao_translate',
+    ].includes(apiFormat);
   }
 
   /**

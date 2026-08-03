@@ -4,6 +4,7 @@ import type {
   TranslationMode,
   TranslationResult,
   UserSettings,
+  BatchParagraphRequest,
 } from '@/shared/types';
 import type { CEFRLevel } from '@/shared/types/mastery';
 import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, TIMING } from '@/shared/constants';
@@ -1894,12 +1895,20 @@ class NotOnlyTranslator {
     const batchSize = 15;
     for (let i = 0; i < eligible.length; i += batchSize) {
       const batch = eligible.slice(i, i + batchSize);
-      const texts = batch.map(p => p.textContent?.trim() || '');
+      const paragraphRequests: BatchParagraphRequest[] = batch.map((paragraph, index) => ({
+        id: `full_page_${i + index}`,
+        text: paragraph.textContent?.trim() || '',
+        elementPath: paragraph.id ? `#${paragraph.id}` : paragraph.tagName.toLowerCase(),
+      }));
 
       try {
         const response = await this.sendMessage({
           type: 'BATCH_TRANSLATE_TEXT',
-          payload: { paragraphs: texts },
+          payload: {
+            paragraphs: paragraphRequests,
+            mode: this.settings?.translationMode || 'inline-only',
+            pageUrl: window.location.href,
+          },
         });
 
         if (response.success && response.data) {

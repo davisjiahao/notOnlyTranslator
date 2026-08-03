@@ -3,6 +3,20 @@ import { getProviderConfig, requiresSecondaryKey } from '../constants/providers'
 import { logger } from '../utils';
 
 /**
+ * 确保扩展已获得自定义端点的主机访问权限
+ */
+async function ensureCustomEndpointPermission(endpoint: string): Promise<boolean> {
+  const url = new URL(endpoint);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('自定义 API 端点仅支持 HTTP 或 HTTPS');
+  }
+
+  const origins = [`${url.origin}/*`];
+  const hasPermission = await chrome.permissions.contains({ origins });
+  return hasPermission || chrome.permissions.request({ origins });
+}
+
+/**
  * 模型服务
  * 负责获取模型列表和测试 API 连接
  */
@@ -188,6 +202,13 @@ export async function testConnection(
   }
 
   try {
+    if (provider === 'custom' && customEndpoint) {
+      const hasPermission = await ensureCustomEndpointPermission(customEndpoint);
+      if (!hasPermission) {
+        return { success: false, error: '未获得自定义 API 端点访问权限' };
+      }
+    }
+
     // 对于百度，需要先获取 access token
     if (provider === 'baidu') {
       return await testBaiduConnection(apiKey, secondaryKey!, model || config.recommendedModel);

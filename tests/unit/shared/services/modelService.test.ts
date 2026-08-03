@@ -326,6 +326,50 @@ describe('testConnection', () => {
     expect(result.error).toContain('端点');
   });
 
+  it('自定义端点未授权时应该申请主机权限', async () => {
+    const contains = vi.fn().mockResolvedValue(false);
+    const request = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('chrome', { permissions: { contains, request } });
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await testConnection(
+      'custom',
+      'test-key',
+      'custom-model',
+      'https://custom.example.com/v1/chat/completions'
+    );
+
+    expect(result.success).toBe(true);
+    expect(contains).toHaveBeenCalledWith({ origins: ['https://custom.example.com/*'] });
+    expect(request).toHaveBeenCalledWith({ origins: ['https://custom.example.com/*'] });
+    expect(mockFetch).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('用户拒绝自定义端点权限时不应该发起网络请求', async () => {
+    vi.stubGlobal('chrome', {
+      permissions: {
+        contains: vi.fn().mockResolvedValue(false),
+        request: vi.fn().mockResolvedValue(false),
+      },
+    });
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await testConnection(
+      'custom',
+      'test-key',
+      'custom-model',
+      'https://denied.example.com/v1/chat/completions'
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('权限');
+    expect(mockFetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('OpenAI 连接成功', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,

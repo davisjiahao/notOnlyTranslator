@@ -19,6 +19,7 @@ vi.mock('@/background/storage', () => ({
 vi.mock('@/background/translationApi', () => ({
   TranslationApiService: {
     callWithSystem: vi.fn(),
+    quickTranslate: vi.fn(),
   },
 }));
 
@@ -34,6 +35,7 @@ vi.mock('@/shared/performance', () => ({
 vi.mock('@/background/enhancedCache', () => ({
   enhancedCache: {
     get: vi.fn().mockResolvedValue(null),
+    fuzzyGet: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -63,6 +65,7 @@ vi.mock('@/shared/utils', () => ({
 
 import { TranslationService } from '@/background/translation';
 import { StorageManager } from '@/background/storage';
+import { TranslationApiService } from '@/background/translationApi';
 import type { UserSettings, UserProfile, TranslationRequest } from '@/shared/types';
 
 // Helper to create default user settings
@@ -140,6 +143,58 @@ describe('TranslationService', () => {
 
       expect(HybridTranslationService.translate).toHaveBeenCalled();
       expect(result).toEqual(mockResult);
+    });
+
+    it.each([
+      ['google_translate', 'Google Cloud'],
+      ['youdao', '有道'],
+    ] as const)('%s 应该将纯文本响应转换为统一结果', async (provider) => {
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(createMockSettings({
+        apiProvider: provider,
+        apiConfigs: [
+          { id: 'active', name: provider, provider, apiKey: 'test-key', tested: true, createdAt: Date.now() },
+        ],
+        activeApiConfigId: 'active',
+      }));
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('test-key');
+      vi.mocked(TranslationApiService.quickTranslate).mockResolvedValue('你好世界');
+
+      const result = await TranslationService.translate(createMockRequest());
+
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith(
+        'Hello world',
+        'test-key',
+        expect.objectContaining({ apiProvider: provider })
+      );
+      expect(result).toEqual(expect.objectContaining({
+        words: [],
+        sentences: [],
+        fullText: '你好世界',
+      }));
+    });
+
+    it('非活动 DeepL 配置不应该覆盖当前 OpenAI 路由', async () => {
+      const { DeepLTranslationService } = await import('@/background/deeplTranslation');
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(createMockSettings({
+        apiProvider: 'openai',
+        apiConfigs: [
+          { id: 'openai', name: 'OpenAI', provider: 'openai', apiKey: 'openai-key', tested: true, createdAt: Date.now() },
+          { id: 'deepl', name: 'DeepL', provider: 'deepl', apiKey: 'deepl-key', tested: true, createdAt: Date.now() },
+        ],
+        activeApiConfigId: 'openai',
+      }));
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('openai-key');
+      vi.mocked(TranslationApiService.callWithSystem).mockResolvedValue(JSON.stringify({
+        words: [],
+        sentences: [],
+        fullText: '你好世界',
+      }));
+
+      const result = await TranslationService.translate(createMockRequest());
+
+      expect(DeepLTranslationService.translate).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).toHaveBeenCalled();
+      expect(result.fullText).toBe('你好世界');
     });
   });
 
@@ -311,7 +366,7 @@ describe('TranslationService', () => {
   describe('hasDeepLApiKey', () => {
     const service = TranslationService as any;
 
-    it('应该在 hybridTranslation.traditionalApiKey 存在时返回 true', async () => {
+    it('混合翻译未启用时不应该使用其中的 DeepL 密钥', async () => {
       const settings = createMockSettings({
         hybridTranslation: {
           enabled: false,
@@ -325,11 +380,24 @@ describe('TranslationService', () => {
       });
 
       const result = await service.hasDeepLApiKey(settings);
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
-    it('应该在 apiConfigs 中有 DeepL 配置时返回 true', async () => {
+    it('非活动 DeepL 配置不应该返回 true', async () => {
       const settings = createMockSettings({
+        apiConfigs: [
+          { id: '1', name: 'DeepL', provider: 'deepl', apiKey: 'test-key', tested: true, createdAt: Date.now() },
+        ],
+      });
+
+      const result = await service.hasDeepLApiKey(settings);
+      expect(result).toBe(false);
+    });
+
+    it('活动 DeepL 配置存在密钥时应该返回 true', async () => {
+      const settings = createMockSettings({
+        apiProvider: 'deepl',
+        activeApiConfigId: '1',
         apiConfigs: [
           { id: '1', name: 'DeepL', provider: 'deepl', apiKey: 'test-key', tested: true, createdAt: Date.now() },
         ],

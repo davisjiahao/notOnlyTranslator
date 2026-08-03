@@ -348,6 +348,7 @@ export default function App() {
     apiKey?: string;
     customApiUrl?: string;
     customModelName?: string;
+    secondaryApiKey?: string;
   }) => {
     setIsSaving(true);
     try {
@@ -364,6 +365,9 @@ export default function App() {
       }
       if (params.customModelName !== undefined) {
         settingsUpdates.customModelName = params.customModelName;
+      }
+      if (params.secondaryApiKey !== undefined) {
+        settingsUpdates.secondaryApiKey = params.secondaryApiKey;
       }
 
       const newSettings = { ...settings, ...settingsUpdates };
@@ -511,12 +515,17 @@ export default function App() {
                   provider={settings.apiProvider}
                   customApiUrl={settings.customApiUrl}
                   customModelName={settings.customModelName}
+                  secondaryApiKey={settings.secondaryApiKey}
                   apiConfigs={settings.apiConfigs || []}
                   activeApiConfigId={settings.activeApiConfigId}
                   onApiKeyUpdate={handleApiKeyUpdate}
                   onProviderUpdate={(provider) => handleSettingsUpdate({ apiProvider: provider })}
-                  onCustomSettingsUpdate={(url, model) =>
-                    handleSettingsUpdate({ customApiUrl: url, customModelName: model })
+                  onCustomSettingsUpdate={(url, model, secondaryKey) =>
+                    handleSettingsUpdate({
+                      customApiUrl: url,
+                      customModelName: model,
+                      secondaryApiKey: secondaryKey,
+                    })
                   }
                   onApiConfigsUpdate={(configs, activeId) =>
                     handleSettingsUpdate({ apiConfigs: configs, activeApiConfigId: activeId })

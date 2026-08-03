@@ -105,6 +105,39 @@ describe('Content Script Index Tests', () => {
     expect(mockChrome.runtime.sendMessage).toBeDefined();
     expect(typeof mockChrome.runtime.sendMessage).toBe('function');
   });
+
+  it('全文翻译应该发送结构化段落请求', async () => {
+    const runtime = mockChrome.runtime;
+    (mockChrome as any).runtime = undefined;
+    const { NotOnlyTranslator } = await import('@/content/index');
+    (mockChrome as any).runtime = runtime;
+    const translator = Object.create(NotOnlyTranslator.prototype) as any;
+    const sendMessage = vi.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+
+    translator.settings = { translationMode: 'bilingual' };
+    translator.sendMessage = sendMessage;
+    document.body.innerHTML = '<p>This paragraph contains enough English text for translation.</p>';
+
+    await translator.handleTranslatePage();
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'BATCH_TRANSLATE_TEXT',
+      payload: {
+        paragraphs: [
+          expect.objectContaining({
+            id: expect.any(String),
+            text: 'This paragraph contains enough English text for translation.',
+            elementPath: expect.any(String),
+          }),
+        ],
+        mode: 'bilingual',
+        pageUrl: window.location.href,
+      },
+    });
+  });
 });
 
 describe('Content Script Mock Tests', () => {

@@ -77,6 +77,7 @@ export class StorageManager {
     // 如果有激活的 API 配置（或者只有一个配置时自动激活），应用配置中的值
     if (settings.apiConfigs?.length > 0) {
       const activeId = settings.activeApiConfigId || settings.apiConfigs[0].id;
+      settings.activeApiConfigId = activeId;
       const activeConfig = settings.apiConfigs.find(
         (config: ApiConfig) => config.id === activeId
       );
@@ -84,6 +85,7 @@ export class StorageManager {
         settings.apiProvider = activeConfig.provider;
         settings.customApiUrl = activeConfig.apiUrl || '';
         settings.customModelName = activeConfig.modelName || '';
+        settings.secondaryApiKey = activeConfig.secondaryApiKey || '';
       }
     }
 

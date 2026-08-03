@@ -184,17 +184,19 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (!tab?.id) return;
+
+  if (info.menuItemId === CONTEXT_MENU_IDS.TRANSLATE_PAGE) {
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'TRANSLATE_PAGE',
+    });
+    return;
+  }
+
   const selectedText = info.selectionText?.trim();
-  if (!selectedText || !tab?.id) return;
+  if (!selectedText) return;
 
   switch (info.menuItemId) {
-    case CONTEXT_MENU_IDS.TRANSLATE_PAGE:
-      // Trigger full-page translation in content script
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'TRANSLATE_PAGE',
-      });
-      break;
-
     case CONTEXT_MENU_IDS.TRANSLATE_SELECTION:
       // Send dedicated message to content script with selected text
       // Uses CONTEXT_MENU_TRANSLATE to ensure text is passed directly,
@@ -299,12 +301,29 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
 
     // 批量翻译请求处理
     case 'BATCH_TRANSLATE_TEXT': {
+      let requestId: string | undefined;
       try {
-        const request = message.payload as BatchTranslationRequest;
-        logger.info('NotOnlyTranslator: 批量翻译请求，段落数:', request.paragraphs?.length);
+        const request = message.payload as BatchTranslationRequest | undefined;
+        logger.info('NotOnlyTranslator: 批量翻译请求，段落数:', request?.paragraphs?.length);
+
+        const hasValidParagraphs = Array.isArray(request?.paragraphs) && request.paragraphs.every(
+          paragraph =>
+            typeof paragraph === 'object' &&
+            paragraph !== null &&
+            typeof paragraph.id === 'string' &&
+            typeof paragraph.text === 'string' &&
+            typeof paragraph.elementPath === 'string'
+        );
+        const hasValidMetadata = !!request &&
+          ['inline-only', 'bilingual', 'full-translate'].includes(request.mode) &&
+          typeof request.pageUrl === 'string' &&
+          request.pageUrl.length > 0;
+        if (!hasValidParagraphs || !hasValidMetadata) {
+          throw new Error('批量翻译请求格式无效');
+        }
 
         // 生成持久化请求 ID
-        const requestId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        requestId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
         // 持久化翻译请求
         await pendingRequestQueue.add({
@@ -337,7 +356,9 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       } catch (error) {
         logger.error('NotOnlyTranslator: 批量翻译错误:', error);
         // 请求失败，尝试重试或清除
-        await pendingRequestQueue.fail('batch_latest');
+        if (requestId) {
+          await pendingRequestQueue.fail(requestId);
+        }
         return { success: false, error: (error as Error).message };
       }
     }
