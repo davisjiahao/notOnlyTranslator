@@ -9,7 +9,8 @@ import {
 } from '@/shared/utils/vocabularyRecommendation';
 import type { CEFRLevel } from '@/shared/types/mastery';
 import { CEFR_DISPLAY_NAMES, CEFR_LEVEL_COLORS } from '@/shared/constants/mastery';
-import { getMasteryLevelText } from '@/shared/types/vocabulary';
+import { createWordMastery, getMasteryLevelText, MasteryLevel } from '@/shared/types/vocabulary';
+import type { UserProfile } from '@/shared/types';
 import { logger } from '@/shared/utils';
 
 interface VocabularyRecommendationProps {
@@ -18,6 +19,20 @@ interface VocabularyRecommendationProps {
 }
 
 type ViewMode = 'recommendations' | 'daily' | 'settings';
+
+async function loadVocabulary() {
+  const response = await chrome.runtime.sendMessage({ type: 'GET_USER_PROFILE' });
+  if (!response?.success) throw new Error(response?.error || '读取用户档案失败');
+  const profile = response.data as UserProfile;
+  const words = profile?.unknownWords ?? [];
+  const knownWords = new Map(words.map((entry) => [entry.word.toLowerCase(), {
+    ...createWordMastery(entry.word),
+    level: entry.reviewCount > 0 ? MasteryLevel.LEARNING : MasteryLevel.UNKNOWN,
+    lastReviewedAt: entry.lastReviewAt ?? entry.markedAt,
+    reviewCount: entry.reviewCount,
+  }] as const));
+  return { knownWords, candidateWords: words.map((entry) => entry.word) };
+}
 
 /**
  * 词汇推荐组件
@@ -37,6 +52,7 @@ export default function VocabularyRecommendation({
   } | null>(null);
   const [strategy, setStrategy] = useState<RecommendationStrategy>(RecommendationStrategy.MIXED);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
   const tabs: ViewMode[] = ['recommendations', 'daily', 'settings'];
@@ -51,22 +67,9 @@ export default function VocabularyRecommendation({
   // 加载推荐
   const loadRecommendations = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      // 从 background 获取用户词汇数据
-      const response = await chrome.runtime.sendMessage({
-        type: 'GET_VOCABULARY_WORDS',
-        payload: {},
-      });
-
-      const knownWords = new Map<string, { level: number }>();
-      if (response.success && response.data) {
-        for (const entry of response.data) {
-          knownWords.set(entry.word.toLowerCase(), {
-            level: entry.mastery?.level ?? 0,
-          });
-        }
-      }
-
+      const { knownWords, candidateWords } = await loadVocabulary();
       const userState: UserLearningState = {
         userLevel,
         recentWordsLearned: 0,
@@ -78,7 +81,8 @@ export default function VocabularyRecommendation({
       // 获取推荐
       const result: RecommendationResult = getRecommendations({
         userState,
-        knownWords: knownWords as Map<string, never>,
+        knownWords,
+        candidateWords,
         limit: 15,
         strategy,
       });
@@ -86,6 +90,8 @@ export default function VocabularyRecommendation({
       setRecommendations(result.recommendations);
     } catch (error) {
       logger.error('Failed to load recommendations:', error);
+      setRecommendations([]);
+      setError('加载推荐词汇失败');
     } finally {
       setIsLoading(false);
     }
@@ -94,21 +100,9 @@ export default function VocabularyRecommendation({
   // 加载每日学习计划
   const loadDailyPlan = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: 'GET_VOCABULARY_WORDS',
-        payload: {},
-      });
-
-      const knownWords = new Map<string, { level: number }>();
-      if (response.success && response.data) {
-        for (const entry of response.data) {
-          knownWords.set(entry.word.toLowerCase(), {
-            level: entry.mastery?.level ?? 0,
-          });
-        }
-      }
-
+      const { knownWords, candidateWords } = await loadVocabulary();
       const userState: UserLearningState = {
         userLevel,
         recentWordsLearned: 0,
@@ -120,7 +114,8 @@ export default function VocabularyRecommendation({
       // 获取新词推荐
       const newWordsResult = getRecommendations({
         userState,
-        knownWords: knownWords as Map<string, never>,
+        knownWords,
+        candidateWords,
         limit: 12,
         strategy: RecommendationStrategy.PROXIMAL,
       });
@@ -128,7 +123,8 @@ export default function VocabularyRecommendation({
       // 获取复习推荐
       const reviewResult = getRecommendations({
         userState,
-        knownWords: knownWords as Map<string, never>,
+        knownWords,
+        candidateWords,
         limit: 8,
         strategy: RecommendationStrategy.SPACED_REPETITION,
       });
@@ -144,6 +140,8 @@ export default function VocabularyRecommendation({
       });
     } catch (error) {
       logger.error('Failed to load daily plan:', error);
+      setDailyPlan(null);
+      setError('加载今日计划失败');
     } finally {
       setIsLoading(false);
     }
@@ -177,6 +175,15 @@ export default function VocabularyRecommendation({
       <div className="flex flex-col items-center justify-center h-64" role="status">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4" aria-hidden="true" />
         <p className="text-gray-500 dark:text-gray-300">加载推荐词汇...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div role="alert">
+        <p>{error}</p>
+        <button onClick={viewMode === 'daily' ? loadDailyPlan : loadRecommendations}>重试</button>
       </div>
     );
   }

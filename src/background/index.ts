@@ -1,19 +1,18 @@
 import type {
   Message,
   MessageResponse,
-  TranslationRequest,
   UnknownWordEntry,
-  BatchTranslationRequest,
   TranslationResult,
   TranslationMode,
   UserProfile,
 } from '@/shared/types';
-import { CONTEXT_MENU_IDS } from '@/shared/constants';
+import { CONTEXT_MENU_IDS, DEFAULT_SETTINGS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { validateImportedSettings } from '@/shared/utils/dataExport';
 import { StorageManager } from './storage';
 import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
-import { BatchTranslationService } from './batchTranslation';
+import { handleTranslationMessage } from './translationMessages';
 import { MasteryManager } from './mastery';
 import { enhancedCache } from './enhancedCache';
 import { frequencyManager } from './frequencyManager';
@@ -184,22 +183,26 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (!tab?.id) return;
+  if (info.menuItemId === CONTEXT_MENU_IDS.TRANSLATE_PAGE) {
+    chrome.tabs.sendMessage(tab.id, { type: 'TRANSLATE_PAGE' })
+      .then((response: MessageResponse | undefined) => {
+        if (response?.success === false) logger.warn('页面翻译未全部完成');
+      })
+      .catch(() => logger.error('Failed to send TRANSLATE_PAGE'));
+    return;
+  }
+
   const selectedText = info.selectionText?.trim();
-  if (!selectedText || !tab?.id) return;
+  if (!selectedText) return;
 
-  switch (info.menuItemId) {
-    case CONTEXT_MENU_IDS.TRANSLATE_PAGE:
-      // Trigger full-page translation in content script
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'TRANSLATE_PAGE',
-      });
-      break;
-
+  try {
+    switch (info.menuItemId) {
     case CONTEXT_MENU_IDS.TRANSLATE_SELECTION:
       // Send dedicated message to content script with selected text
       // Uses CONTEXT_MENU_TRANSLATE to ensure text is passed directly,
       // avoiding reliance on window.getSelection() which may be cleared
-      chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'CONTEXT_MENU_TRANSLATE',
         payload: { text: selectedText },
       });
@@ -207,7 +210,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     case CONTEXT_MENU_IDS.MARK_KNOWN:
       await StorageManager.addKnownWord(selectedText);
-      chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'WORD_MARKED',
         payload: { word: selectedText, isKnown: true },
       });
@@ -221,7 +224,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         markedAt: Date.now(),
         reviewCount: 0,
       });
-      chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'WORD_MARKED',
         payload: { word: selectedText, isKnown: false },
       });
@@ -244,14 +247,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           markedAt: Date.now(),
           reviewCount: 0,
         });
-        chrome.tabs.sendMessage(tab.id, {
+        await chrome.tabs.sendMessage(tab.id, {
           type: 'ADDED_TO_VOCABULARY',
           payload: { word: selectedText, translation },
         });
-      } catch (error) {
-        logger.error('Failed to add to vocabulary:', error);
+      } catch {
+        logger.error('Failed to add to vocabulary');
       }
       break;
+    }
+  } catch {
+    logger.error('右键菜单操作失败');
   }
 });
 
@@ -280,67 +286,10 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
   logger.info('NotOnlyTranslator: Received message:', message.type);
 
   switch (message.type) {
-    case 'TRANSLATE_TEXT': {
-      try {
-        const request = message.payload as TranslationRequest;
-        const userProfile = await StorageManager.getUserProfile();
-        logger.info('NotOnlyTranslator: Translating text, length:', request.text?.length);
-        const result = await TranslationService.translate({
-          ...request,
-          userLevel: userProfile,
-        });
-        logger.info('NotOnlyTranslator: Translation result:', result);
-        return { success: true, data: result };
-      } catch (error) {
-        logger.error('NotOnlyTranslator: Translation error:', error);
-        return { success: false, error: (error as Error).message };
-      }
-    }
-
-    // 批量翻译请求处理
-    case 'BATCH_TRANSLATE_TEXT': {
-      try {
-        const request = message.payload as BatchTranslationRequest;
-        logger.info('NotOnlyTranslator: 批量翻译请求，段落数:', request.paragraphs?.length);
-
-        // 生成持久化请求 ID
-        const requestId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-        // 持久化翻译请求
-        await pendingRequestQueue.add({
-          id: requestId,
-          text: request.paragraphs.map(p => p.text.substring(0, 50)).join(' | '),
-          mode: request.mode,
-          createdAt: Date.now(),
-          retries: 0,
-          tabId: sender?.tab?.id,
-          source: 'batch',
-        });
-
-        // 获取用户配置
-        const userProfile = await StorageManager.getUserProfile();
-        request.userLevel = userProfile;
-
-        // 调用批量翻译服务
-        const response = await BatchTranslationService.translateBatch(request);
-
-        // 请求完成，从持久化队列移除
-        await pendingRequestQueue.complete(requestId);
-
-        logger.info('NotOnlyTranslator: 批量翻译完成', {
-          total: response.results.length,
-          apiCalls: response.apiCallCount,
-          cacheHits: response.cacheHitCount,
-        });
-
-        return { success: true, data: response };
-      } catch (error) {
-        logger.error('NotOnlyTranslator: 批量翻译错误:', error);
-        // 请求失败，尝试重试或清除
-        await pendingRequestQueue.fail('batch_latest');
-        return { success: false, error: (error as Error).message };
-      }
-    }
+    case 'TRANSLATE_TEXT':
+    case 'BATCH_TRANSLATE_TEXT':
+    case 'CANCEL_TRANSLATION':
+      return handleTranslationMessage(message, sender);
 
     case 'MARK_WORD_KNOWN': {
       const { word, context, translation, isKnown, wordDifficulty } = message.payload as {
@@ -432,10 +381,7 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
     }
 
     case 'UPDATE_USER_PROFILE': {
-      const updates = message.payload as Partial<import('@/shared/types').UserProfile>;
-      const current = await StorageManager.getUserProfile();
-      await StorageManager.saveUserProfile({ ...current, ...updates });
-      const updated = await StorageManager.getUserProfile();
+      const updated = await StorageManager.updateLevelProfile(message.payload);
       return { success: true, data: updated };
     }
 
@@ -444,10 +390,15 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       return { success: true, data: settings };
     }
 
-    case 'UPDATE_SETTINGS': {
+    case 'UPDATE_SETTINGS':
+    case 'REPLACE_SETTINGS': {
       const newSettings = message.payload as Partial<import('@/shared/types').UserSettings>;
-      const currentSettings = await StorageManager.getSettings();
-      await StorageManager.saveSettings({ ...currentSettings, ...newSettings });
+      if (message.type === 'REPLACE_SETTINGS' && validateImportedSettings(newSettings).length > 0) {
+        return { success: false, error: '数据格式无效' };
+      }
+      await StorageManager.updateSettings(message.type === 'REPLACE_SETTINGS'
+        ? { ...DEFAULT_SETTINGS, ...newSettings }
+        : newSettings);
 
       // 通知所有标签页的 content script 设置已更新
       try {
@@ -492,6 +443,20 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       const entry = message.payload as UnknownWordEntry;
       await StorageManager.addUnknownWord(entry);
       return { success: true };
+    }
+
+    case 'IMPORT_VOCABULARY': {
+      const result = await StorageManager.importUnknownWords(message.payload);
+      return { success: true, data: result };
+    }
+
+    case 'IMPORT_USER_PROFILE': {
+      const payload = message.payload as { profile: UserProfile; mergeVocabulary: boolean };
+      if (!payload || typeof payload.mergeVocabulary !== 'boolean') {
+        return { success: false, error: '数据格式无效' };
+      }
+      const result = await StorageManager.importUserProfile(payload.profile, payload.mergeVocabulary);
+      return { success: true, data: result };
     }
 
     case 'REMOVE_FROM_VOCABULARY': {
@@ -749,18 +714,8 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
           return { success: true, data: { message: '没有需要上报的错误' } };
         }
 
-        // 这里可以实现实际的上报逻辑，比如发送到服务器
-        // 目前先标记为已上报
-        const errorIds = errors.map(e => e.id);
-        await markErrorsAsReported(errorIds);
-
-        return {
-          success: true,
-          data: {
-            reportedCount: errors.length,
-            message: `成功上报 ${errors.length} 个错误`
-          }
-        };
+        // 没有上报端点时保留未上报记录，避免误报成功与数据丢失。
+        return { success: false, error: '错误上报服务未配置' };
       } catch (error) {
         logger.error('NotOnlyTranslator: 上报错误失败', error);
         return { success: false, error: (error as Error).message };
@@ -881,14 +836,9 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
 
         // 存储到本地供 UI 查询使用
         const existing = await chrome.storage.local.get('analytics_sent_events');
-        const storedEvents = (existing.analytics_sent_events as Array<unknown>) || [];
-        storedEvents.push(...events);
-
-        // 限制存储量
+        // 保留最近的事件，不能修改从存储读取的既有数组。
         const maxStored = 5000;
-        if (storedEvents.length > maxStored) {
-          storedEvents.splice(0, storedEvents.length - maxStored);
-        }
+        const storedEvents = [...((existing.analytics_sent_events as Array<unknown>) || []), ...events].slice(-maxStored);
 
         await chrome.storage.local.set({
           analytics_sent_events: storedEvents,

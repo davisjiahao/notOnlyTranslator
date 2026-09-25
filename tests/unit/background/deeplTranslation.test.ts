@@ -11,7 +11,7 @@ import { DeepLTranslationService } from '@/background/deeplTranslation';
 vi.mock('@/background/storage', () => ({
   StorageManager: {
     getSettings: vi.fn(),
-    getApi: vi.fn(),
+    getApiKey: vi.fn(),
   },
 }));
 
@@ -66,6 +66,79 @@ vi.mock('@/shared/prompts', () => ({
     getTemplate: vi.fn(),
   },
 }));
+
+import { StorageManager } from '@/background/storage';
+import { TranslationApiService } from '@/background/translationApi';
+import { enhancedCache } from '@/background/enhancedCache';
+import { TransportError } from '@/shared/utils/translationErrors';
+import { logger } from '@/shared/utils';
+import type { TranslationRequest, UserSettings } from '@/shared/types';
+
+const defaultSettings: UserSettings = {
+  apiProvider: 'openai',
+  theme: 'system',
+  phraseTranslationEnabled: true,
+  grammarTranslationEnabled: true,
+  apiConfigs: [],
+};
+
+describe('DeepLTranslationService — 取消与超时', () => {
+  const request: TranslationRequest = {
+    text: 'Hello world',
+    mode: 'bilingual',
+    userLevel: { estimatedVocabulary: 3000 },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('DeepL 请求取消时不回退到 LLM，也不写缓存', async () => {
+    const settingsWithDeepLKey = {
+      ...defaultSettings,
+      hybridTranslation: { traditionalApiKey: 'deepl-key' },
+    };
+    const controller = new AbortController();
+    vi.mocked(StorageManager.getSettings).mockResolvedValue(settingsWithDeepLKey);
+    vi.mocked(StorageManager.getApiKey).mockResolvedValue('llm-key');
+    vi.mocked(enhancedCache.initialize).mockResolvedValue(undefined);
+    vi.mocked(enhancedCache.get).mockResolvedValue(null);
+    vi.mocked(TranslationApiService.quickTranslate).mockRejectedValue(TransportError.cancelled());
+    vi.mocked(TranslationApiService.callWithSystem).mockResolvedValue('{"words":[],"sentences":[]}');
+
+    await expect(DeepLTranslationService.translate(request, { signal: controller.signal }))
+      .rejects.toMatchObject({ kind: 'cancelled' });
+
+    expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith(
+      request.text,
+      'deepl-key',
+      expect.objectContaining({ apiProvider: 'deepl' }),
+      { signal: controller.signal }
+    );
+    expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('快速翻译取消时不降级到 LLM', async () => {
+    const settingsWithDeepLKey = {
+      ...defaultSettings,
+      hybridTranslation: { traditionalApiKey: 'deepl-key' },
+    };
+    const controller = new AbortController();
+    vi.mocked(StorageManager.getSettings).mockResolvedValue(settingsWithDeepLKey);
+    vi.mocked(StorageManager.getApiKey).mockResolvedValue('llm-key');
+    vi.mocked(TranslationApiService.quickTranslate).mockRejectedValue(TransportError.cancelled());
+
+    await expect(DeepLTranslationService.quickTranslate('hello', { signal: controller.signal }))
+      .rejects.toMatchObject({ kind: 'cancelled' });
+
+    expect(TranslationApiService.quickTranslate).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('DeepLTranslationService — isCommonWord', () => {
   it('identifies common articles', () => {
@@ -245,6 +318,17 @@ describe('DeepLTranslationService — parseWordAnalysis', () => {
     const result = (DeepLTranslationService as any).parseWordAnalysis(content);
     expect(result).toEqual([]);
   });
+
+  it.each(['SYNTH_PII', '```json\nSYNTH_PII\n```'])('解析失败日志不回显词汇响应：%s', (content) => {
+    const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    errorSpy.mockClear();
+
+    expect((DeepLTranslationService as any).parseWordAnalysis(content)).toEqual([]);
+
+    expect(errorSpy).toHaveBeenCalledWith('DeepLTranslationService: 词汇分析响应解析失败');
+    expect(errorSpy.mock.calls[0]?.some(arg => arg instanceof Error)).toBe(false);
+    expect(errorSpy.mock.calls[0]?.map(String).join(' ')).not.toContain('SYNTH_PII');
+  });
 });
 
 describe('DeepLTranslationService — parseResponse', () => {
@@ -378,6 +462,18 @@ describe('DeepLTranslationService — parseResponse', () => {
     expect(() =>
       (DeepLTranslationService as any).parseResponse(content, defaultSettings)
     ).toThrow('Failed to parse translation response');
+  });
+
+  it.each(['SYNTH_PII', '```json\nSYNTH_PII\n```'])('解析失败日志不回显翻译响应：%s', (content) => {
+    const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    errorSpy.mockClear();
+
+    expect(() => (DeepLTranslationService as any).parseResponse(content, defaultSettings))
+      .toThrow('Failed to parse translation response');
+
+    expect(errorSpy).toHaveBeenCalledWith('DeepLTranslationService: 翻译响应解析失败');
+    expect(errorSpy.mock.calls[0]?.some(arg => arg instanceof Error)).toBe(false);
+    expect(errorSpy.mock.calls[0]?.map(String).join(' ')).not.toContain('SYNTH_PII');
   });
 
   it('handles response without code block (raw JSON)', () => {

@@ -194,6 +194,8 @@ export const API_ENDPOINTS = {
  * - 单次请求 token 消耗更可控
  * - 在保持效率的同时提高翻译准确性
  */
+export const MAX_TRANSLATION_TEXT_LENGTH = 50_000;
+
 export const DEFAULT_BATCH_CONFIG: BatchTranslationConfig = {
   /** 单批最大段落数（15 个段落是准确性与效率的平衡点） */
   maxParagraphsPerBatch: 15,

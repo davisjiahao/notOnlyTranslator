@@ -107,7 +107,36 @@ describe('错误追踪存储模块', () => {
     });
   });
 
+  it('并发保存与删除不会让已删除错误复活', async () => {
+    const old = createErrorEntry({ id: 'old' });
+    const other = createErrorEntry({ id: 'other' });
+    mockStorage[ERROR_STORAGE_KEY] = [old, other];
+    let commitSave!: () => void;
+    (chrome.storage.local.set as ReturnType<typeof vi.fn>).mockImplementationOnce((data: Record<string, unknown>) =>
+      new Promise<void>(resolve => {
+        commitSave = () => { Object.assign(mockStorage, data); resolve(); };
+      }));
+
+    const save = saveError(createErrorEntry({ id: 'new', message: '新的错误' }));
+    await vi.waitFor(() => expect(commitSave).toBeDefined());
+    const remove = deleteError(old.id);
+    commitSave();
+    await Promise.all([save, remove]);
+
+    expect((mockStorage[ERROR_STORAGE_KEY] as ErrorEntry[]).map(error => error.id).sort()).toEqual(['new', 'other']);
+  });
+
   describe('getAllErrors', () => {
+    it('读取失败时拒绝而非伪装成空列表，避免后续删除覆盖已有记录', async () => {
+      const existing = createErrorEntry({ id: 'existing' });
+      mockStorage[ERROR_STORAGE_KEY] = [existing];
+      (chrome.storage.local.get as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('storage unavailable'));
+
+      await expect(deleteError(existing.id)).rejects.toThrow('删除错误失败');
+      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage[ERROR_STORAGE_KEY]).toEqual([existing]);
+    });
+
     it('should return empty array when no errors stored', async () => {
       const errors = await getAllErrors();
       expect(errors).toEqual([]);
@@ -146,6 +175,11 @@ describe('错误追踪存储模块', () => {
   });
 
   describe('queryErrors', () => {
+    it('存储不可用时拒绝查询而不是返回错误的空结果', async () => {
+      (chrome.storage.local.get as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('storage unavailable'));
+      await expect(queryErrors()).rejects.toThrow('查询错误列表失败');
+    });
+
     const errors: ErrorEntry[] = [
       createErrorEntry({ id: '1', category: 'runtime', severity: 'error', timestamp: 1000, reported: false }),
       createErrorEntry({ id: '2', category: 'network', severity: 'fatal', timestamp: 2000, reported: true }),

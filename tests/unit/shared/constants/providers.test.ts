@@ -59,6 +59,16 @@ describe('PROVIDER_CONFIGS', () => {
   it('Anthropic 不应该支持 models API', () => {
     expect(PROVIDER_CONFIGS.anthropic.modelsSupported).toBe(false);
   });
+
+  it('Ollama 推荐模型为 qwen3:4b，备选描述不做未验证的质量断言', () => {
+    const ollama = PROVIDER_CONFIGS.ollama;
+    expect(ollama.recommendedModel).toBe('qwen3:4b');
+    const descriptions = ollama.defaultModels.map(m => m.description).join('\n');
+    // 本机未实测的质量结论不写进预设文案，只保留可验证事实
+    expect(descriptions).not.toContain('质量更好');
+    expect(descriptions).not.toContain('更高质量');
+    expect(descriptions).toContain('建议先验证本机速度和效果');
+  });
 });
 
 describe('PROVIDER_GROUPS', () => {

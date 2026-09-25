@@ -41,6 +41,7 @@ export const EXCLUDED_SELECTORS = [
   // 表单和交互元素
   'input',
   'textarea',
+  '[contenteditable]',
   'select',
   'button',
   'option',
@@ -183,7 +184,8 @@ function hasExcludedAncestor(element: Element): boolean {
  * 供其他模块（ViewportObserver、MutationObserver）复用排除逻辑
  */
 export function isInExcludedArea(element: Element): boolean {
-  return matchesExcludedSelector(element) || hasExcludedAncestor(element);
+  return matchesExcludedSelector(element) || hasExcludedAncestor(element)
+    || element.querySelector('[contenteditable]') !== null;
 }
 
 /**
@@ -310,17 +312,7 @@ export class PageScanner {
    * @returns 是否可翻译
    */
   isTranslatable(element: Element): boolean {
-    // 检查是否匹配排除选择器
-    if (matchesExcludedSelector(element)) {
-      return false;
-    }
-
-    // 检查是否在排除的祖先元素内
-    if (hasExcludedAncestor(element)) {
-      return false;
-    }
-
-    return true;
+    return !isInExcludedArea(element);
   }
 
   /**

@@ -74,10 +74,6 @@
       "description": "切换行内/双栏翻译模式"
     },
     "_execute_action": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Y",
-        "mac": "Command+Shift+Y"
-      },
       "description": "打开扩展弹窗"
     }
   },

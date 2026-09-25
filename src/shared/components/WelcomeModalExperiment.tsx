@@ -62,6 +62,7 @@ export default function WelcomeModalExperiment({
 
   const handleSkip = () => {
     trackExperimentProgress(group, currentStep, 'skip');
+    localStorage.setItem('not_onboarding_skipped', 'true');
     onClose();
   };
 
@@ -191,7 +192,7 @@ export default function WelcomeModalExperiment({
           {currentStep === 'demo' && (
             <DemoStep
               onNext={handleComplete}
-              onBack={() => setCurrentStep('api')}
+              onBack={() => setCurrentStep(group === 'C' ? 'welcome' : 'api')}
             />
           )}
         </div>
@@ -449,7 +450,7 @@ function ApiStep({
   const [showKey, setShowKey] = useState(false);
   const [customUrl, setCustomUrl] = useState('');
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [testResult, setTestResult] = useState<'success' | 'error' | 'save-error' | null>(null);
 
   const providerConfig = PROVIDER_CONFIGS[selectedProvider as ApiProvider];
   const placeholder = providerConfig?.apiKeyPlaceholder || '输入 API Key';
@@ -467,9 +468,10 @@ function ApiStep({
     setTestResult(null);
 
     const payload = isCustom
-      ? { provider: 'openai' as ApiProvider, apiKey: apiKey.trim(), customUrl: customUrl.trim() }
+      ? { provider: 'openai' as ApiProvider, apiKey: apiKey.trim(), apiUrl: customUrl.trim() }
       : { provider: selectedProvider as ApiProvider, apiKey: apiKey.trim() };
 
+    let tested = false;
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'TEST_API_CONNECTION',
@@ -477,7 +479,7 @@ function ApiStep({
       });
 
       if (response?.success) {
-        setTestResult('success');
+        tested = true;
         const configId = `${selectedProvider}-${Date.now()}`;
         const newConfig: ApiConfig = {
           id: configId,
@@ -489,7 +491,7 @@ function ApiStep({
           lastTestedAt: Date.now(),
           createdAt: Date.now(),
         };
-        await chrome.runtime.sendMessage({
+        const saved = await chrome.runtime.sendMessage({
           type: 'UPDATE_SETTINGS',
           payload: {
             apiConfigs: [newConfig],
@@ -497,12 +499,17 @@ function ApiStep({
             apiProvider: newConfig.provider,
           },
         });
+        if (!saved?.success) {
+          setTestResult('save-error');
+          return;
+        }
+        setTestResult('success');
         setTimeout(() => onNext(), 800);
       } else {
         setTestResult('error');
       }
     } catch {
-      setTestResult('error');
+      setTestResult(tested ? 'save-error' : 'error');
     } finally {
       setIsTesting(false);
     }
@@ -637,6 +644,9 @@ function ApiStep({
           </p>
           {testResult === 'error' && (
             <p role="alert" className="mt-1 text-xs text-red-500">连接测试失败，请检查 API Key 或网络</p>
+          )}
+          {testResult === 'save-error' && (
+            <p role="alert" className="mt-1 text-xs text-red-500">保存失败，请重试</p>
           )}
           {testResult === 'success' && (
             <p role="status" className="mt-1 text-xs text-green-500">✓ 连接成功，正在保存配置...</p>

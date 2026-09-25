@@ -122,7 +122,7 @@ export interface TranslationResult {
   fullText?: string;  // 完整译文（用于双文对照和全文翻译模式）
   cached?: boolean;
   /** 翻译来源（内部使用，用于调试和分析） */
-  _source?: 'deepl' | 'llm' | 'hybrid' | 'free_google';
+  _source?: 'deepl' | 'llm' | 'hybrid' | 'free_google' | 'local';
 }
 
 // API 配置（支持多个配置）
@@ -259,6 +259,7 @@ export interface SyncStorageData {
 export type MessageType =
   | 'TRANSLATE_TEXT'
   | 'BATCH_TRANSLATE_TEXT'  // 批量翻译请求
+  | 'CANCEL_TRANSLATION'
   | 'MARK_WORD_KNOWN'
   | 'MARK_WORD_UNKNOWN'
   | 'REMOVE_MARK'  // 撤销标记
@@ -266,8 +267,11 @@ export type MessageType =
   | 'UPDATE_USER_PROFILE'
   | 'GET_SETTINGS'
   | 'UPDATE_SETTINGS'
+  | 'REPLACE_SETTINGS'
   | 'GET_VOCABULARY'
   | 'ADD_TO_VOCABULARY'
+  | 'IMPORT_VOCABULARY'
+  | 'IMPORT_USER_PROFILE'
   | 'REMOVE_FROM_VOCABULARY'
   | 'SHOW_TRANSLATION'
   | 'CONTEXT_MENU_TRANSLATE'  // 右键菜单翻译
@@ -324,6 +328,7 @@ export type MessageType =
 export interface Message<T = unknown> {
   type: MessageType;
   payload?: T;
+  requestId?: string;
 }
 
 export interface MessageResponse<T = unknown> {

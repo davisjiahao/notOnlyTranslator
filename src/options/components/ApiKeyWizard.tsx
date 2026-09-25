@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { ApiProvider, ModelInfo } from '@/shared/types';
 import {
   PROVIDER_CONFIGS,
@@ -33,16 +33,23 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
   const [showSecondaryKey, setShowSecondaryKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [, setTestResult] = useState<'success' | 'error' | null>(null);
-  const [, setTestError] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [useCustomModel, setUseCustomModel] = useState(false);
 
   const currentProviderConfig = getProviderConfig(selectedProvider);
+  const connectionErrorMessage = selectedProvider === 'ollama'
+    ? '连接测试失败，请确认 Ollama 已启动、服务地址正确且已安装所选模型'
+    : '连接测试失败，请检查服务地址、模型和 API 密钥';
+
+  useEffect(() => {
+    setTestError(null);
+  }, [selectedProvider, apiKey, secondaryApiKey, apiUrl, modelName, currentStep]);
 
   const loadModels = useCallback(async () => {
-    if (!apiKey) return;
+    if (!apiKey && selectedProvider !== 'ollama') return;
 
     setIsLoadingModels(true);
     try {
@@ -94,11 +101,11 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
         setTimeout(() => setCurrentStep('model'), 500);
       } else {
         setTestResult('error');
-        setTestError(result.error || '连接测试失败');
+        setTestError(connectionErrorMessage);
       }
-    } catch (error) {
+    } catch {
       setTestResult('error');
-      setTestError(error instanceof Error ? error.message : '连接测试失败');
+      setTestError(connectionErrorMessage);
     } finally {
       setIsTesting(false);
     }
@@ -130,7 +137,7 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
 
   const canProceedToTest = () => {
     if (currentProviderConfig?.requiresConnectionTest === false) return true;
-    if (!apiKey) return false;
+    if (!apiKey && selectedProvider !== 'ollama') return false;
     if (selectedProvider === 'custom' && !apiUrl) return false;
     if (requiresSecondaryKey(selectedProvider) && !secondaryApiKey) return false;
     return true;
@@ -258,6 +265,11 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
     return (
       <div className="max-w-lg mx-auto">
         <StepIndicator />
+        {testError && (
+          <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            {testError}
+          </p>
+        )}
 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           选择翻译服务商
@@ -358,6 +370,11 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
     return (
       <div className="max-w-lg mx-auto">
         <StepIndicator />
+        {testError && (
+          <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            {testError}
+          </p>
+        )}
 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           {currentProviderConfig?.requiresConnectionTest === false ? '无需密钥' : '输入 API 密钥'}
@@ -548,6 +565,11 @@ export default function ApiKeyWizard({ onComplete, onSkip }: ApiKeyWizardProps) 
     return (
       <div className="max-w-lg mx-auto">
         <StepIndicator />
+        {testError && (
+          <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            {testError}
+          </p>
+        )}
 
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
           选择翻译模型

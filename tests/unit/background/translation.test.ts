@@ -6,7 +6,7 @@
  * - buildPrompt: 提示词构建
  * - 响应格式验证
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock dependencies before importing
 vi.mock('@/background/storage', () => ({
@@ -19,7 +19,13 @@ vi.mock('@/background/storage', () => ({
 vi.mock('@/background/translationApi', () => ({
   TranslationApiService: {
     callWithSystem: vi.fn(),
+    quickTranslate: vi.fn(),
   },
+}));
+
+vi.mock('@/background/translationRequest', () => ({
+  executeTransportRequest: vi.fn(),
+  TRANSPORT_DEFAULTS: { legacyEngineTimeoutMs: 1000 },
 }));
 
 vi.mock('@/shared/performance', () => ({
@@ -34,6 +40,7 @@ vi.mock('@/shared/performance', () => ({
 vi.mock('@/background/enhancedCache', () => ({
   enhancedCache: {
     get: vi.fn().mockResolvedValue(null),
+    fuzzyGet: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -62,8 +69,18 @@ vi.mock('@/shared/utils', () => ({
 }));
 
 import { TranslationService } from '@/background/translation';
+import { setOfflineWordSource, resetOfflineWordSource } from '@/background/localWordLookup';
 import { StorageManager } from '@/background/storage';
-import type { UserSettings, UserProfile, TranslationRequest } from '@/shared/types';
+import { TranslationApiService } from '@/background/translationApi';
+import { executeTransportRequest } from '@/background/translationRequest';
+import { DEFAULT_SETTINGS } from '@/shared/constants';
+import type { UserSettings, UserProfile, TranslationRequest, TranslationResult } from '@/shared/types';
+
+interface TranslationInternals {
+  parseResponse(content: string, settings: UserSettings): TranslationResult;
+  hasDeepLApiKey(settings: UserSettings): Promise<boolean>;
+  buildPrompt(request: TranslationRequest, settings: UserSettings): { systemPrompt: string; userPrompt: string };
+}
 
 // Helper to create default user settings
 function createMockSettings(overrides: Partial<UserSettings> = {}): UserSettings {
@@ -116,7 +133,86 @@ describe('TranslationService', () => {
   });
 
   describe('translate', () => {
+    afterEach(() => resetOfflineWordSource());
+
+    it('默认无密钥自动翻译仅返回本地词典释义，不把页面正文发送给 Google 或其他服务', async () => {
+      setOfflineWordSource({ lookup: word => word === 'intricate' ? { translation: '错综复杂的' } : undefined });
+      vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...DEFAULT_SETTINGS });
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('');
+      const request = createMockRequest({ text: 'The Intricate book is here.', userLevel: { ...createMockUserProfile(), estimatedVocabulary: 0, knownWords: ['the', 'book', 'is', 'here'] } });
+
+      const result = await TranslationService.translate(request);
+
+      expect(result).toMatchObject({ _source: 'local', words: [expect.objectContaining({ original: 'Intricate', translation: '错综复杂的' })] });
+      expect(executeTransportRequest).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    });
+
+    it('无密钥时部分本地释义不得伪装完整成功，也不得外发未释义正文', async () => {
+      setOfflineWordSource({ lookup: word => word === 'intricate' ? { translation: '错综复杂的' } : undefined });
+      vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...DEFAULT_SETTINGS });
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('');
+
+      await expect(TranslationService.translate(createMockRequest({
+        text: 'Intricate unfamiliar vocabulary appears everywhere.',
+        userLevel: { ...createMockUserProfile(), estimatedVocabulary: 0 },
+      }))).rejects.toThrow(/部分词汇.*本地词典/);
+      expect(executeTransportRequest).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    });
+
+    it('未配置当前服务但其他配置有密钥时，仍不得自动外发正文', async () => {
+      setOfflineWordSource(null);
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(createMockSettings({
+        apiConfigs: [{ id: 'old', name: '旧服务', provider: 'anthropic', apiKey: 'old-key', tested: true, createdAt: 0 }],
+      }));
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('');
+
+      await expect(TranslationService.translate(createMockRequest({ text: 'A long page paragraph requiring online translation.', mode: 'full-translate' })))
+        .rejects.toThrow(/配置.*翻译服务|API [Kk]ey/);
+      expect(executeTransportRequest).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    });
+
+    it('默认无密钥且本地词典无法释义时返回可理解的配置提示，不外发正文', async () => {
+      setOfflineWordSource(null);
+      vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...DEFAULT_SETTINGS });
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('');
+
+      await expect(TranslationService.translate(createMockRequest({
+        text: 'Intricate vocabulary remains incomprehensible on this page.',
+        userLevel: { ...createMockUserProfile(), estimatedVocabulary: 0 },
+      }))).rejects.toThrow(/本地词典.*配置翻译服务/);
+      expect(executeTransportRequest).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    });
+
+    it('默认全文翻译无密钥时拒绝请求，不外发正文', async () => {
+      setOfflineWordSource(null);
+      vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...DEFAULT_SETTINGS });
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('');
+
+      await expect(TranslationService.translate(createMockRequest({ text: 'Entire private page content should stay local.', mode: 'full-translate' })))
+        .rejects.toThrow(/请先配置翻译服务/);
+      expect(executeTransportRequest).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    });
+
+    it('用户明确选择免费 Google 翻译时，无密钥仍可使用原服务', async () => {
+      setOfflineWordSource(null);
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(createMockSettings({ apiProvider: 'free_google_translate' }));
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('');
+      vi.mocked(executeTransportRequest).mockResolvedValue('你好世界');
+      const text = 'Hello world from an explicit Google selection.';
+
+      const result = await TranslationService.translate(createMockRequest({ text }));
+
+      expect(result).toMatchObject({ fullText: '你好世界', _source: 'free_google' });
+      expect(executeTransportRequest).toHaveBeenCalledWith(expect.stringContaining(`q=${encodeURIComponent(text).replace(/%20/g, '+')}`), expect.any(Object), expect.any(Object));
+    });
+
     it('应该使用 HybridTranslationService 当混合翻译启用时', async () => {
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('test-key');
       const { HybridTranslationService } = await import('@/background/hybridTranslation');
       const mockResult = {
         words: [{ original: 'hello', translation: '你好', position: [0, 5] as [number, number], difficulty: 3, isPhrase: false }],
@@ -144,8 +240,7 @@ describe('TranslationService', () => {
   });
 
   describe('parseResponse', () => {
-    // 使用 any 访问私有方法进行测试
-    const service = TranslationService as any;
+    const service = TranslationService as unknown as TranslationInternals;
 
     it('应该解析有效的 JSON 响应', () => {
       const content = JSON.stringify({
@@ -309,7 +404,7 @@ describe('TranslationService', () => {
   });
 
   describe('hasDeepLApiKey', () => {
-    const service = TranslationService as any;
+    const service = TranslationService as unknown as TranslationInternals;
 
     it('应该在 hybridTranslation.traditionalApiKey 存在时返回 true', async () => {
       const settings = createMockSettings({
@@ -348,7 +443,7 @@ describe('TranslationService', () => {
   });
 
   describe('buildPrompt', () => {
-    const service = TranslationService as any;
+    const service = TranslationService as unknown as TranslationInternals;
 
     it('应该使用默认提示词构建器', () => {
       const request = createMockRequest();
@@ -377,14 +472,56 @@ describe('TranslationService', () => {
     });
   });
 
+  describe('translatePlainText', () => {
+    it('默认设置禁止纯文本入口绕过显式授权向 Google 发送正文', async () => {
+      vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...DEFAULT_SETTINGS });
+
+      await expect(TranslationService.translatePlainText('Private page paragraph')).rejects.toThrow(/请先配置翻译服务/);
+      expect(executeTransportRequest).not.toHaveBeenCalled();
+    });
+  });
+
   describe('quickTranslate', () => {
-    it('应该调用 DeepLTranslationService.quickTranslate', async () => {
+    afterEach(() => {
+      resetOfflineWordSource();
+    });
+
+    it('本地词典命中时直接返回释义，不调用 DeepL（本地优先）', async () => {
       const { DeepLTranslationService } = await import('@/background/deeplTranslation');
-      vi.mocked(DeepLTranslationService.quickTranslate).mockResolvedValue('你好');
 
       const result = await TranslationService.quickTranslate('hello', 'test-key', createMockSettings());
 
-      expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('hello');
+      expect(result).toContain('喂');
+      expect(DeepLTranslationService.quickTranslate).not.toHaveBeenCalled();
+    });
+
+    it('无密钥默认快速查词未命中时不尝试未选择的在线服务', async () => {
+      setOfflineWordSource(null);
+
+      await expect(TranslationService.quickTranslate('unknownword', '', { ...DEFAULT_SETTINGS }))
+        .rejects.toThrow(/请先配置翻译服务/);
+      const { DeepLTranslationService } = await import('@/background/deeplTranslation');
+      expect(DeepLTranslationService.quickTranslate).not.toHaveBeenCalled();
+      expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
+    });
+
+    it('显式选择免费 Google 时，本地未命中快速查词可使用所选服务', async () => {
+      setOfflineWordSource(null);
+      vi.mocked(TranslationApiService.quickTranslate).mockResolvedValue('译文');
+      const settings = createMockSettings({ apiProvider: 'free_google_translate' });
+
+      expect(await TranslationService.quickTranslate('unknownword', '', settings)).toBe('译文');
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith('unknownword', '', settings, undefined);
+    });
+
+    it('本地未命中时应该调用 DeepLTranslationService.quickTranslate', async () => {
+      const { DeepLTranslationService } = await import('@/background/deeplTranslation');
+      vi.mocked(DeepLTranslationService.quickTranslate).mockResolvedValue('你好');
+      setOfflineWordSource(null);
+
+      const result = await TranslationService.quickTranslate('hello', 'test-key', createMockSettings());
+
+      expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('hello', undefined);
       expect(result).toBe('你好');
     });
   });

@@ -108,7 +108,7 @@ export interface MetricMetadata {
   /** 翻译引擎类型（混合翻译） */
   engine?: string;
   /** 翻译来源（deepl/llm/hybrid/free_google） */
-  source?: 'deepl' | 'llm' | 'hybrid' | 'free_google';
+  source?: 'deepl' | 'llm' | 'hybrid' | 'free_google' | 'local';
   /** 单词数量 */
   wordCount?: number;
   /** 短语数量 (CMP-106) */

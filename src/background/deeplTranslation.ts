@@ -6,11 +6,22 @@ import type {
 } from '@/shared/types';
 import { logger, generateCacheKey } from '@/shared/utils';
 import { StorageManager } from './storage';
-import { TranslationApiService } from './translationApi';
+import { TranslationApiService, type TranslationApiRequestOptions } from './translationApi';
+import { TransportError } from '@/shared/utils/translationErrors';
 import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts';
 import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { TextComplexityAnalyzer } from './textComplexityAnalyzer';
+
+function throwIfRequestAborted(options?: TranslationApiRequestOptions): void {
+  if (options?.signal?.aborted) {
+    throw TransportError.cancelled();
+  }
+}
+
+function isRequestInterrupted(error: unknown): error is TransportError {
+  return error instanceof TransportError && (error.kind === 'cancelled' || error.kind === 'timeout');
+}
 
 /**
  * DeepL 翻译服务
@@ -25,7 +36,11 @@ export class DeepLTranslationService {
   /**
    * 主翻译方法 - 优先 DeepL，失败回退 LLM
    */
-  static async translate(request: TranslationRequest): Promise<TranslationResult> {
+  static async translate(
+    request: TranslationRequest,
+    options?: TranslationApiRequestOptions
+  ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, mode } = request;
 
@@ -36,12 +51,14 @@ export class DeepLTranslationService {
 
     // 初始化缓存
     await enhancedCache.initialize();
+    throwIfRequestAborted(options);
 
     // 生成缓存键
     const cacheKey = generateCacheKey(text, mode);
 
     // 检查缓存
     const cached = await enhancedCache.get(cacheKey);
+    throwIfRequestAborted(options);
     if (cached) {
       const duration = performance.now() - startTime;
       recordMetric(MetricType.CACHE_OPERATION, 'deepl_cache_hit', duration, true, {
@@ -54,9 +71,11 @@ export class DeepLTranslationService {
 
     // 获取设置
     const settings = await StorageManager.getSettings();
+    throwIfRequestAborted(options);
 
     // 尝试 DeepL 翻译
-    const deeplResult = await this.tryDeepLTranslate(request, settings);
+    const deeplResult = await this.tryDeepLTranslate(request, settings, options);
+    throwIfRequestAborted(options);
 
     let result: TranslationResult;
     let source: 'deepl' | 'llm';
@@ -68,7 +87,8 @@ export class DeepLTranslationService {
     } else {
       // DeepL 失败，回退到 LLM
       logger.info('DeepLTranslationService: DeepL failed, falling back to LLM');
-      result = await this.translateWithLLM(request, settings);
+      result = await this.translateWithLLM(request, settings, options);
+      throwIfRequestAborted(options);
       source = 'llm';
     }
 
@@ -77,7 +97,9 @@ export class DeepLTranslationService {
 
     // 缓存结果
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
+    throwIfRequestAborted(options);
     await enhancedCache.set(cacheKey, result, mode, pageUrl, source);
+    throwIfRequestAborted(options);
 
     // 记录性能指标
     const totalDuration = performance.now() - startTime;
@@ -102,13 +124,16 @@ export class DeepLTranslationService {
    */
   private static async tryDeepLTranslate(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult | null> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, userLevel } = request;
 
     // 获取 DeepL API Key
-    const deeplApiKey = await this.getDeepLApiKey(settings);
+    const deeplApiKey = await this.getDeepLApiKey(settings, options);
+    throwIfRequestAborted(options);
     if (!deeplApiKey) {
       logger.info('DeepLTranslationService: DeepL API key not configured');
       return null;
@@ -126,8 +151,10 @@ export class DeepLTranslationService {
       const translatedText = await TranslationApiService.quickTranslate(
         text,
         deeplApiKey,
-        deeplSettings
+        deeplSettings,
+        options
       );
+      throwIfRequestAborted(options);
       const apiDuration = performance.now() - apiStartTime;
 
       if (!translatedText) {
@@ -152,7 +179,8 @@ export class DeepLTranslationService {
       };
 
       // 异步分析生词（使用 LLM）
-      const words = await this.analyzeWordsAsync(text, translatedText, userLevel, settings);
+      const words = await this.analyzeWordsAsync(text, translatedText, userLevel, settings, options);
+      throwIfRequestAborted(options);
       result.words = words;
 
       const totalDuration = performance.now() - startTime;
@@ -164,6 +192,9 @@ export class DeepLTranslationService {
 
       return result;
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('DeepLTranslationService: DeepL translation failed:', errorMessage);
 
@@ -182,13 +213,16 @@ export class DeepLTranslationService {
    */
   private static async translateWithLLM(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text } = request;
 
     // 获取 API Key
     const apiKey = await StorageManager.getApiKey();
+    throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       throw new Error('API key not configured');
     }
@@ -202,8 +236,11 @@ export class DeepLTranslationService {
       systemPrompt,
       userPrompt,
       apiKey || '',
-      settings
+      settings,
+      undefined,
+      options
     );
+    throwIfRequestAborted(options);
     const apiDuration = performance.now() - apiStartTime;
 
     // 解析结果
@@ -228,7 +265,11 @@ export class DeepLTranslationService {
    * 获取 DeepL API Key
    * 优先从 hybridTranslation.traditionalApiKey 获取，其次从 apiConfigs 查找
    */
-  private static async getDeepLApiKey(settings: UserSettings): Promise<string | null> {
+  private static async getDeepLApiKey(
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
+  ): Promise<string | null> {
+    throwIfRequestAborted(options);
     // 优先从混合翻译配置中获取
     if (settings.hybridTranslation?.traditionalApiKey) {
       return settings.hybridTranslation.traditionalApiKey;
@@ -254,9 +295,12 @@ export class DeepLTranslationService {
     originalText: string,
     translatedText: string,
     userLevel: { estimatedVocabulary: number },
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslatedWord[]> {
+    throwIfRequestAborted(options);
     const apiKey = await StorageManager.getApiKey();
+    throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
     }
@@ -294,11 +338,17 @@ Only include words that would be challenging for a learner with ~${userLevel.est
         'You are an English learning assistant. Always respond with valid JSON.',
         prompt,
         apiKey || '',
-        settings
+        settings,
+        undefined,
+        options
       );
+      throwIfRequestAborted(options);
 
       return this.parseWordAnalysis(content);
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       logger.error('DeepLTranslationService: Word analysis failed:', error);
       return [];
     }
@@ -363,8 +413,8 @@ Only include words that would be challenging for a learner with ~${userLevel.est
         partOfSpeech: w.partOfSpeech ? String(w.partOfSpeech) : undefined,
         examples: Array.isArray(w.examples) ? w.examples.map(String) : undefined,
       }));
-    } catch (error) {
-      logger.error('DeepLTranslationService: Failed to parse word analysis:', error);
+    } catch {
+      logger.error('DeepLTranslationService: 词汇分析响应解析失败');
       return [];
     }
   }
@@ -468,8 +518,8 @@ Only include words that would be challenging for a learner with ~${userLevel.est
       }
 
       return result;
-    } catch (error) {
-      logger.error('DeepLTranslationService: Failed to parse LLM response:', error);
+    } catch {
+      logger.error('DeepLTranslationService: 翻译响应解析失败');
       throw new Error('Failed to parse translation response');
     }
   }
@@ -478,32 +528,43 @@ Only include words that would be challenging for a learner with ~${userLevel.est
    * 快速翻译单个词/短语
    * 优先使用 DeepL，失败时回退到 LLM
    */
-  static async quickTranslate(text: string): Promise<string> {
+  static async quickTranslate(
+    text: string,
+    options?: TranslationApiRequestOptions
+  ): Promise<string> {
+    throwIfRequestAborted(options);
     const settings = await StorageManager.getSettings();
+    throwIfRequestAborted(options);
 
     // 优先使用 DeepL
-    const deeplApiKey = await this.getDeepLApiKey(settings);
+    const deeplApiKey = await this.getDeepLApiKey(settings, options);
+    throwIfRequestAborted(options);
     if (deeplApiKey) {
       try {
         const deeplSettings: UserSettings = {
           ...settings,
           apiProvider: 'deepl',
         };
-        const result = await TranslationApiService.quickTranslate(text, deeplApiKey, deeplSettings);
+        const result = await TranslationApiService.quickTranslate(text, deeplApiKey, deeplSettings, options);
+        throwIfRequestAborted(options);
         if (result) {
           return result;
         }
       } catch (error) {
+        if (isRequestInterrupted(error)) {
+          throw error;
+        }
         logger.warn('DeepLTranslationService: DeepL quick translate failed:', error);
       }
     }
 
     // 回退到 LLM 快速翻译
     const llmApiKey = await StorageManager.getApiKey();
+    throwIfRequestAborted(options);
     if (!llmApiKey && settings.apiProvider !== 'ollama') {
       throw new Error('No API key configured');
     }
 
-    return TranslationApiService.quickTranslate(text, llmApiKey || '', settings);
+    return TranslationApiService.quickTranslate(text, llmApiKey || '', settings, options);
   }
 }

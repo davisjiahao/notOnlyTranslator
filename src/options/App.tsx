@@ -293,12 +293,12 @@ export default function App() {
 
     setIsSaving(true);
     try {
-      const newProfile = { ...profile, ...updates };
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_USER_PROFILE',
-        payload: newProfile,
+        payload: updates,
       });
-      setProfile(newProfile);
+      if (!response?.success || !response.data) throw new Error('档案保存失败');
+      setProfile(response.data);
       showSaveMessage('设置已保存');
     } catch (error) {
       logger.error('Failed to update profile:', error);
@@ -311,12 +311,14 @@ export default function App() {
   const handleSettingsUpdate = async (updates: Partial<UserSettings>) => {
     setIsSaving(true);
     try {
-      const newSettings = { ...settings, ...updates };
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
-        payload: newSettings,
+        payload: updates,
       });
-      setSettings(newSettings);
+      if (!response?.success) throw new Error('设置保存失败');
+      const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      if (!settingsRes?.success || !settingsRes.data) throw new Error('读取最新设置失败');
+      setSettings(settingsRes.data);
       showSaveMessage('设置已保存');
     } catch (error) {
       logger.error('Failed to update settings:', error);
@@ -352,26 +354,21 @@ export default function App() {
     setIsSaving(true);
     try {
       const settingsUpdates: Partial<UserSettings> = {
-        apiConfigs: params.configs,
-        activeApiConfigId: params.activeId,
+        ...(params.configs !== settings.apiConfigs ? { apiConfigs: params.configs } : {}),
+        ...(params.activeId !== settings.activeApiConfigId ? { activeApiConfigId: params.activeId } : {}),
+        ...(params.provider !== undefined && params.provider !== settings.apiProvider ? { apiProvider: params.provider } : {}),
+        ...(params.customApiUrl !== undefined && params.customApiUrl !== settings.customApiUrl ? { customApiUrl: params.customApiUrl } : {}),
+        ...(params.customModelName !== undefined && params.customModelName !== settings.customModelName ? { customModelName: params.customModelName } : {}),
       };
 
-      if (params.provider !== undefined) {
-        settingsUpdates.apiProvider = params.provider;
-      }
-      if (params.customApiUrl !== undefined) {
-        settingsUpdates.customApiUrl = params.customApiUrl;
-      }
-      if (params.customModelName !== undefined) {
-        settingsUpdates.customModelName = params.customModelName;
-      }
-
-      const newSettings = { ...settings, ...settingsUpdates };
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
-        payload: newSettings,
+        payload: settingsUpdates,
       });
-      setSettings(newSettings);
+      if (!response?.success) throw new Error('API 配置保存失败');
+      const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      if (!settingsRes?.success || !settingsRes.data) throw new Error('读取最新设置失败');
+      setSettings(settingsRes.data);
 
       if (params.apiKey !== undefined) {
         await chrome.storage.sync.set({ apiKey: params.apiKey });

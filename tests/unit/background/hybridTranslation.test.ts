@@ -53,6 +53,9 @@ import { StorageManager } from '@/background/storage';
 import { TranslationApiService } from '@/background/translationApi';
 import { enhancedCache } from '@/background/enhancedCache';
 import { TextComplexityAnalyzer } from '@/background/textComplexityAnalyzer';
+import { TransportError } from '@/shared/utils/translationErrors';
+import { logger } from '@/shared/utils';
+import { LlmEnhancedAnalysisService } from '@/background/llmEnhancedAnalysis';
 
 describe('HybridTranslationService', () => {
   const mockSettings: UserSettings = {
@@ -155,6 +158,142 @@ describe('HybridTranslationService', () => {
       const result = await HybridTranslationService.quickTranslate('hello');
 
       expect(result).toBe('你好');
+    });
+  });
+
+  describe('取消与超时', () => {
+    const request: TranslationRequest = {
+      text: 'Hello world',
+      mode: 'bilingual',
+      userLevel: { estimatedVocabulary: 3000 },
+    };
+
+    it('传统引擎取消时不回退到 LLM', async () => {
+      HybridTranslationService.updateConfig({
+        defaultEngine: 'traditional',
+        enableSmartRouting: false,
+      });
+      const settingsWithTraditionalKey: UserSettings = {
+        ...mockSettings,
+        hybridTranslation: {
+          traditionalApiKey: 'traditional-key',
+        },
+      };
+      const controller = new AbortController();
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(settingsWithTraditionalKey);
+      vi.mocked(TranslationApiService.quickTranslate).mockRejectedValue(TransportError.cancelled());
+      vi.mocked(TranslationApiService.callWithSystem).mockResolvedValue('{"words":[],"sentences":[]}');
+
+      await expect(HybridTranslationService.translate(request, { signal: controller.signal }))
+        .rejects.toMatchObject({ kind: 'cancelled' });
+
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith(
+        request.text,
+        'traditional-key',
+        expect.objectContaining({ apiProvider: 'youdao' }),
+        { signal: controller.signal }
+      );
+      expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    });
+
+    it('LLM 返回后才取消时不写入缓存', async () => {
+      HybridTranslationService.updateConfig({
+        defaultEngine: 'llm',
+        enableSmartRouting: false,
+      });
+      const controller = new AbortController();
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(mockSettings);
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('llm-key');
+      vi.mocked(enhancedCache.initialize).mockResolvedValue(undefined);
+      vi.mocked(enhancedCache.get).mockResolvedValue(null);
+      vi.mocked(TranslationApiService.callWithSystem).mockImplementation(async () => {
+        controller.abort();
+        return '{"words":[],"sentences":[]}';
+      });
+
+      await expect(HybridTranslationService.translate(request, { signal: controller.signal }))
+        .rejects.toMatchObject({ kind: 'cancelled' });
+
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('增强分析取消', () => {
+    it('透传 options，增强分析取消后不合并结果或写缓存', async () => {
+      HybridTranslationService.updateConfig({
+        defaultEngine: 'hybrid',
+        enableSmartRouting: false,
+        enableEnhancedAnalysis: true,
+      });
+      const settingsWithTraditionalKey: UserSettings = {
+        ...mockSettings,
+        hybridTranslation: { traditionalApiKey: 'traditional-key' },
+      };
+      const options = { signal: new AbortController().signal, timeoutMs: 1234 };
+      const request: TranslationRequest = {
+        text: 'Complex analysis text',
+        mode: 'bilingual',
+        userLevel: { estimatedVocabulary: 3000 },
+      };
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(settingsWithTraditionalKey);
+      vi.mocked(StorageManager.getApiKey).mockResolvedValue('llm-key');
+      vi.mocked(TranslationApiService.quickTranslate).mockResolvedValue('传统译文');
+      vi.mocked(TranslationApiService.callWithSystem).mockResolvedValue('{"words":[]}');
+      vi.mocked(TextComplexityAnalyzer.analyze).mockReturnValue({
+        score: 50,
+        level: 'medium',
+        wordCount: 3,
+        clauseCount: 1,
+        metrics: {
+          averageWordLength: 6,
+          uniqueWordRatio: 1,
+          clauseDensity: 0.3,
+          sentenceLength: 20,
+        },
+      });
+      vi.mocked(LlmEnhancedAnalysisService.analyze).mockRejectedValue(TransportError.cancelled());
+
+      await expect(HybridTranslationService.translate(request, options))
+        .rejects.toMatchObject({ kind: 'cancelled' });
+
+      expect(LlmEnhancedAnalysisService.analyze).toHaveBeenCalledWith(
+        request.text,
+        settingsWithTraditionalKey,
+        expect.objectContaining({ userVocabulary: request.userLevel.estimatedVocabulary }),
+        options
+      );
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('业务响应解析日志', () => {
+    const parserSettings = {
+      phraseTranslationEnabled: true,
+      grammarTranslationEnabled: true,
+    };
+
+    it.each(['SYNTH_PII', '```json\nSYNTH_PII\n```'])('词汇分析解析失败不回显响应：%s', (content) => {
+      const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+      errorSpy.mockClear();
+
+      expect((HybridTranslationService as any).parseWordAnalysis(content)).toEqual([]);
+
+      expect(errorSpy).toHaveBeenCalledWith('HybridTranslationService: 词汇分析响应解析失败');
+      expect(errorSpy.mock.calls[0]?.some(arg => arg instanceof Error)).toBe(false);
+      expect(errorSpy.mock.calls[0]?.map(String).join(' ')).not.toContain('SYNTH_PII');
+    });
+
+    it.each(['SYNTH_PII', '```json\nSYNTH_PII\n```'])('翻译响应解析失败不回显响应：%s', (content) => {
+      const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+      errorSpy.mockClear();
+
+      expect(() => (HybridTranslationService as any).parseResponse(content, parserSettings))
+        .toThrow('Failed to parse translation response');
+
+      expect(errorSpy).toHaveBeenCalledWith('HybridTranslationService: 翻译响应解析失败');
+      expect(errorSpy.mock.calls[0]?.some(arg => arg instanceof Error)).toBe(false);
+      expect(errorSpy.mock.calls[0]?.map(String).join(' ')).not.toContain('SYNTH_PII');
     });
   });
 

@@ -34,8 +34,8 @@ export interface HighlightedVocabularyWord {
   level: CEFRLevel;
   /** 难度分数 1-10 */
   difficulty: number;
-  /** DOM 元素引用 */
-  elements: HTMLElement[];
+  /** DOM 元素引用（只读，更新时生成新数组） */
+  elements: readonly HTMLElement[];
 }
 
 /**
@@ -52,6 +52,12 @@ export class VocabularyHighlighter {
   private config: VocabularyHighlightConfig;
   private highlightedWords: Map<string, HighlightedVocabularyWord> = new Map();
   private processedElements: WeakSet<HTMLElement> = new WeakSet();
+
+  /** 已扫描的根元素（用于等级/词表变化后的重扫；rescan 时清理已脱离文档的引用） */
+  private scannedRoots: Set<HTMLElement> = new Set();
+
+  /** 销毁标记：销毁后不再处理任何元素 */
+  private destroyed = false;
 
   /** 默认配置 */
   private static readonly DEFAULT_CONFIG: VocabularyHighlightConfig = {
@@ -93,10 +99,9 @@ export class VocabularyHighlighter {
       this.clearAllHighlights();
     }
 
-    // 如果用户等级改变，需要重新扫描
+    // 如果用户等级改变，清除后按新等级重扫已跟踪的根元素
     if (config.userLevel !== undefined && oldLevel !== config.userLevel) {
-      this.clearAllHighlights();
-      this.processedElements = new WeakSet();
+      this.rescan();
     }
   }
 
@@ -107,6 +112,13 @@ export class VocabularyHighlighter {
    * @returns 识别并高亮的单词列表
    */
   highlightElement(element: HTMLElement): HighlightedVocabularyWord[] {
+    if (this.destroyed) {
+      return [];
+    }
+
+    // 记录扫描根元素，供词表/等级变化后的重扫使用
+    this.scannedRoots.add(element);
+
     // 检查是否已处理过
     if (this.processedElements.has(element)) {
       return [];
@@ -182,11 +194,13 @@ export class VocabularyHighlighter {
       return false;
     }
 
-    // 跳过翻译相关的元素
+    // 已处理的原文段落仍可安全重扫；仅跳过译文与扩展界面节点。
     if (
       element.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
-      element.classList.contains('not-translator-processed') ||
-      element.classList.contains('not-translator-translation-line')
+      element.classList.contains('not-translator-translation-line') ||
+      element.classList.contains('not-translator-full-translation') ||
+      element.classList.contains('not-translator-full-translated') ||
+      element.closest(`.${CSS_CLASSES.TOOLTIP}`)
     ) {
       return false;
     }
@@ -215,8 +229,12 @@ export class VocabularyHighlighter {
         const parent = node.parentElement;
         if (!parent) return NodeFilter.FILTER_REJECT;
 
-        // 跳过已经是高亮词的部分
-        if (parent.classList.contains('not-translator-vocab-highlight')) {
+        // 跳过已有词汇标记、翻译标记及扩展界面，避免嵌套或扫描译文。
+        if (
+          parent.closest(
+            `.not-translator-vocab-highlight, .${CSS_CLASSES.HIGHLIGHT}, .not-translator-translation-line, .not-translator-full-translation, .${CSS_CLASSES.TOOLTIP}`
+          )
+        ) {
           return NodeFilter.FILTER_REJECT;
         }
 
@@ -315,11 +333,14 @@ export class VocabularyHighlighter {
       const span = this.createHighlightElement(match.word, match.originalText);
       fragment.appendChild(span);
 
-      // 记录高亮的单词
+      // 记录高亮的单词（不可变更新：新 Map + 新条目对象）
       const key = match.word.word.toLowerCase();
-      if (this.highlightedWords.has(key)) {
-        const existing = this.highlightedWords.get(key)!;
-        existing.elements.push(span);
+      const existing = this.highlightedWords.get(key);
+      if (existing) {
+        this.highlightedWords = new Map(this.highlightedWords).set(key, {
+          ...existing,
+          elements: [...existing.elements, span],
+        });
       } else {
         const newEntry: HighlightedVocabularyWord = {
           word: match.word.word,
@@ -327,7 +348,7 @@ export class VocabularyHighlighter {
           difficulty: match.word.difficulty,
           elements: [span],
         };
-        this.highlightedWords.set(key, newEntry);
+        this.highlightedWords = new Map(this.highlightedWords).set(key, newEntry);
         highlighted.push(newEntry);
       }
 
@@ -400,21 +421,32 @@ export class VocabularyHighlighter {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /** 解除词汇标记包装，同时保留翻译等内部 DOM 结构 */
+  private unwrapVocabularyMark(mark: HTMLElement): void {
+    if (!mark.parentNode) return;
+    mark.replaceWith(...Array.from(mark.childNodes));
+  }
+
   /**
    * 清除所有高亮
    */
   clearAllHighlights(): void {
-    // 恢复原始文本
+    // 合并内部记录与当前 DOM：翻译清理可能基于 originalHtml 重建词汇 mark。
+    const marksToUnwrap = new Set<HTMLElement>();
     for (const [, data] of this.highlightedWords) {
-      for (const element of data.elements) {
-        if (element.parentNode) {
-          const text = document.createTextNode(element.textContent || '');
-          element.parentNode.replaceChild(text, element);
-        }
-      }
+      data.elements.forEach((element) => marksToUnwrap.add(element));
     }
+    document.querySelectorAll<HTMLElement>('mark.not-translator-vocab-highlight').forEach((element) => {
+      marksToUnwrap.add(element);
+    });
+    marksToUnwrap.forEach((element) => this.unwrapVocabularyMark(element));
 
-    this.highlightedWords.clear();
+    this.highlightedWords = new Map();
+
+    // vocab-known 状态的标记一并还原；词表状态由 vocabularyService 决定，重扫时会正确重建
+    document.querySelectorAll<HTMLElement>('mark.vocab-known').forEach((element) => {
+      this.unwrapVocabularyMark(element);
+    });
 
     // 清除已处理标记
     document.querySelectorAll('.not-translator-vocab-processed').forEach((el) => {
@@ -431,25 +463,26 @@ export class VocabularyHighlighter {
    */
   clearElementHighlights(element: HTMLElement): void {
     // 查找并恢复此元素内的高亮
-    const highlights = element.querySelectorAll('.not-translator-vocab-highlight');
+    const highlights = element.querySelectorAll<HTMLElement>('.not-translator-vocab-highlight');
     highlights.forEach((highlight) => {
       const word = highlight.textContent || '';
       const key = word.toLowerCase();
 
-      // 从映射中移除
-      if (this.highlightedWords.has(key)) {
-        const data = this.highlightedWords.get(key)!;
-        data.elements = data.elements.filter((el) => el !== highlight);
-        if (data.elements.length === 0) {
-          this.highlightedWords.delete(key);
+      // 从映射中移除（不可变更新）
+      const data = this.highlightedWords.get(key);
+      if (data) {
+        const remaining = data.elements.filter((el) => el !== highlight);
+        const next = new Map(this.highlightedWords);
+        if (remaining.length === 0) {
+          next.delete(key);
+        } else {
+          next.set(key, { ...data, elements: remaining });
         }
+        this.highlightedWords = next;
       }
 
-      // 恢复文本节点
-      if (highlight.parentNode) {
-        const text = document.createTextNode(word);
-        highlight.parentNode.replaceChild(text, highlight);
-      }
+      // 解除词汇标记，保留可能存在的翻译子节点
+      this.unwrapVocabularyMark(highlight);
     });
 
     // 移除已处理标记
@@ -480,37 +513,167 @@ export class VocabularyHighlighter {
 
   /**
    * 添加自定义已知单词（用户认识的词）
+   * 还原该词的 DOM 标记并同步词表
    */
   addKnownWord(word: string): void {
     this.vocabularyService.addKnownWord(word);
-
-    // 移除该单词的高亮
-    const key = word.toLowerCase();
-    if (this.highlightedWords.has(key)) {
-      const data = this.highlightedWords.get(key)!;
-      for (const element of data.elements) {
-        element.classList.add('vocab-known');
-        element.classList.remove('not-translator-vocab-highlight');
-      }
-    }
+    this.refreshWord(word);
   }
 
   /**
    * 添加自定义未知单词（用户不认识的词）
+   * 立即重扫包含该词的元素并生成高亮
    */
   addUnknownWord(word: string): void {
     this.vocabularyService.addUnknownWord(word);
+    this.refreshWord(word);
+  }
 
-    // 重新扫描包含该单词的元素
-    const elements = document.querySelectorAll('.not-translator-vocab-processed');
-    elements.forEach((el) => {
-      const text = el.textContent?.toLowerCase() || '';
-      if (text.includes(word.toLowerCase())) {
-        // 清除已处理标记，允许重新处理
-        el.classList.remove('not-translator-vocab-processed');
-        this.processedElements.delete(el as HTMLElement);
+  /**
+   * 移除已知标记（撤销认识），按当前等级重新评估高亮
+   */
+  removeKnownWord(word: string): void {
+    this.vocabularyService.removeKnownWord(word);
+    this.refreshWord(word);
+  }
+
+  /**
+   * 移除未知标记（撤销不认识/移出生词本），按当前等级重新评估高亮
+   */
+  removeUnknownWord(word: string): void {
+    this.vocabularyService.removeUnknownWord(word);
+    this.refreshWord(word);
+  }
+
+  /**
+   * 整体注入自定义词表（初始化/存储同步入口），并重新评估页面高亮
+   */
+  setCustomWords(known: Iterable<string>, unknown: Iterable<string>): void {
+    this.vocabularyService.setCustomWords(known, unknown);
+    if (this.scannedRoots.size > 0) {
+      this.rescan();
+    }
+  }
+
+  /**
+   * 一次性应用等级 + 词表快照，最多触发一次重扫
+   */
+  applySnapshot(snapshot: {
+    userLevel: CEFRLevel;
+    knownWords: ReadonlySet<string>;
+    unknownWords: ReadonlySet<string>;
+  }): void {
+    const levelChanged = snapshot.userLevel !== this.config.userLevel;
+    this.vocabularyService.setCustomWords(snapshot.knownWords, snapshot.unknownWords);
+    if (levelChanged) {
+      this.config = { ...this.config, userLevel: snapshot.userLevel };
+      this.vocabularyService.setUserLevel(snapshot.userLevel);
+    }
+    if (levelChanged || this.scannedRoots.size > 0) {
+      this.rescan();
+    }
+  }
+
+  /**
+   * 清除全部高亮后，按当前词表与等级重扫所有仍连接在文档中的根元素
+   */
+  rescan(): void {
+    if (this.destroyed) return;
+    const roots = this.getLiveRoots();
+    this.clearAllHighlights();
+    this.highlightElements(roots);
+  }
+
+  /**
+   * 销毁：清除高亮与内部状态，之后不再处理新元素
+   */
+  destroy(): void {
+    this.destroyed = true;
+    this.clearAllHighlights();
+    this.scannedRoots.clear();
+  }
+
+  /**
+   * 收集仍连接在文档中的已扫描根元素，顺带清理脱离文档的引用
+   */
+  private getLiveRoots(): HTMLElement[] {
+    const live: HTMLElement[] = [];
+    for (const el of this.scannedRoots) {
+      if (el.isConnected) {
+        live.push(el);
+      } else {
+        this.scannedRoots.delete(el);
+      }
+    }
+    return live;
+  }
+
+  /**
+   * 按当前词表重新评估一个单词在页面上的高亮状态
+   * 已知词仅还原为普通文本；否则还原 mark 后清容器处理标记并重扫
+   */
+  private refreshWord(word: string): void {
+    if (this.destroyed) return;
+    const normalized = word.toLowerCase().trim();
+    if (!normalized) return;
+
+    this.restoreWordMarks(normalized);
+
+    if (this.vocabularyService.getKnownWords().has(normalized)) {
+      return;
+    }
+
+    const containers = this.findContainersForWord(normalized);
+    for (const el of containers) {
+      el.classList.remove('not-translator-vocab-processed');
+      this.processedElements.delete(el);
+    }
+    this.highlightElements(containers);
+  }
+
+  /**
+   * 还原指定单词的所有 mark（含历史 vocab-known 状态）为文本节点，并从高亮映射中移除
+   */
+  private restoreWordMarks(normalized: string): void {
+    const marks = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        'mark.not-translator-vocab-highlight, mark.vocab-known'
+      )
+    ).filter((mark) => (mark.dataset.word || '').toLowerCase() === normalized);
+
+    if (marks.length === 0) return;
+
+    const next = new Map(this.highlightedWords);
+    next.delete(normalized);
+    this.highlightedWords = next;
+
+    for (const mark of marks) {
+      this.unwrapVocabularyMark(mark);
+    }
+  }
+
+  /**
+   * 找到页面上包含指定单词、需要重新评估的容器
+   * 来源：带 vocab-processed 标记的元素 + 已跟踪的扫描根元素
+   * （后者覆盖"已扫描但无高亮、无 DOM 标记"的元素）
+   */
+  private findContainersForWord(word: string): HTMLElement[] {
+    const key = word.toLowerCase().trim();
+    const containers = new Set<HTMLElement>();
+
+    document.querySelectorAll('.not-translator-vocab-processed').forEach((el) => {
+      if (el instanceof HTMLElement && (el.textContent || '').toLowerCase().includes(key)) {
+        containers.add(el);
       }
     });
+
+    for (const el of this.getLiveRoots()) {
+      if ((el.textContent || '').toLowerCase().includes(key)) {
+        containers.add(el);
+      }
+    }
+
+    return Array.from(containers);
   }
 
   /**

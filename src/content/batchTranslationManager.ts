@@ -1,5 +1,4 @@
 import type {
-  Message,
   MessageResponse,
   BatchTranslationRequest,
   BatchTranslationResponse,
@@ -12,6 +11,11 @@ import { DEFAULT_BATCH_CONFIG } from '@/shared/constants';
 import { logger } from '@/shared/utils';
 import type { VisibleParagraph } from './viewportObserver';
 import { TranslationDisplay } from './translationDisplay';
+import { ErrorNotification } from './ErrorNotification';
+import { TranslationErrorType } from '@/shared/utils/translationErrors';
+import { sendTranslationMessage } from './translationMessaging';
+
+const GOOGLE_INLINE_HINT = '免费 Google 翻译不支持仅行内模式，请选择双语或全文翻译';
 
 /**
  * 翻译完成回调
@@ -43,6 +47,7 @@ export class BatchTranslationManager {
   private pageUrl: string;
   private onComplete: TranslationCompleteCallback | null = null;
   private settings: UserSettings | undefined = undefined;
+  private readonly errorNotification = new ErrorNotification();
 
   /** 正在处理中的段落 ID 集合 */
   private processingParagraphIds: Set<string> = new Set();
@@ -51,11 +56,13 @@ export class BatchTranslationManager {
 
   /** 当前活跃的并发请求数 */
   private activeRequests = 0;
+  private generation = 0;
+  private activeBatches: Readonly<Record<string, { controller: AbortController; paragraphs: PendingParagraph[] }>> = {};
   /** 最大并发批次数 — 从 3 提升至 5，快速滑动时减少排队等待 */
   private readonly MAX_CONCURRENT_BATCHES = 5;
 
   constructor(settings?: UserSettings) {
-    this.pageUrl = window.location.href;
+    this.pageUrl = window.location.origin;
     this.settings = settings;
   }
 
@@ -142,7 +149,10 @@ export class BatchTranslationManager {
   private async processBatch(paragraphs: PendingParagraph[]): Promise<void> {
     logger.info(`BatchTranslationManager: 并发处理批次 (${paragraphs.length} 段)`);
 
-    // 显示 Loading
+    const generation = this.generation;
+    const batchId = crypto.randomUUID();
+    const controller = new AbortController();
+    this.activeBatches = { ...this.activeBatches, [batchId]: { controller, paragraphs } };
     paragraphs.forEach(p => TranslationDisplay.showLoading(p.element));
 
     const request: BatchTranslationRequest = {
@@ -152,20 +162,32 @@ export class BatchTranslationManager {
     };
 
     try {
-      const response = await this.sendBatchRequest(request);
+      const response = await this.sendBatchRequest(request, controller.signal);
+      if (generation !== this.generation || controller.signal.aborted) return;
 
       if (response.success && response.data) {
         this.distributeResults(paragraphs, response.data.results);
       } else {
         logger.error('BatchTranslationManager: 批量翻译失败', response.error);
+        if (this.mode === 'inline-only' && response.error === GOOGLE_INLINE_HINT) {
+          const visible = paragraphs.find(p => document.body.contains(p.element));
+          if (visible) {
+            this.errorNotification.show({
+              type: TranslationErrorType.UNKNOWN,
+              title: '翻译模式不兼容',
+              message: GOOGLE_INLINE_HINT,
+              retryable: false,
+            }, visible.element);
+          }
+        }
         this.clearParagraphsStatus(paragraphs);
       }
     } catch (error) {
       logger.error('BatchTranslationManager: 网络异常', error);
       this.clearParagraphsStatus(paragraphs);
     } finally {
-      // 确保移除 Loading
-      paragraphs.forEach(p => TranslationDisplay.removeLoading(p.element));
+      this.activeBatches = Object.fromEntries(Object.entries(this.activeBatches).filter(([id]) => id !== batchId));
+      if (generation === this.generation) paragraphs.forEach(p => TranslationDisplay.removeLoading(p.element));
     }
   }
 
@@ -226,25 +248,13 @@ export class BatchTranslationManager {
    * 发送批量翻译请求到后台
    */
   private async sendBatchRequest(
-    request: BatchTranslationRequest
+    request: BatchTranslationRequest,
+    signal: AbortSignal
   ): Promise<MessageResponse<BatchTranslationResponse>> {
-    return new Promise((resolve) => {
-      const message: Message<BatchTranslationRequest> = {
-        type: 'BATCH_TRANSLATE_TEXT',
-        payload: request,
-      };
-
-      chrome.runtime.sendMessage(message, (response: MessageResponse<BatchTranslationResponse>) => {
-        if (chrome.runtime.lastError) {
-          resolve({
-            success: false,
-            error: chrome.runtime.lastError.message,
-          });
-        } else {
-          resolve(response || { success: false, error: 'No response' });
-        }
-      });
-    });
+    return sendTranslationMessage<BatchTranslationResponse>({
+      type: 'BATCH_TRANSLATE_TEXT',
+      payload: request,
+    }, undefined, signal);
   }
 
   /**
@@ -265,6 +275,7 @@ export class BatchTranslationManager {
    * 设置翻译模式
    */
   setMode(mode: TranslationMode): void {
+    if (this.mode !== mode) this.cancelAll();
     this.mode = mode;
   }
 
@@ -286,8 +297,15 @@ export class BatchTranslationManager {
    * 取消所有待处理请求
    */
   cancelAll(): void {
+    this.generation++;
+    this.errorNotification.hide();
     this.pendingQueue = [];
-    this.processingParagraphIds.clear();
+    this.processingParagraphIds = new Set();
+    Object.values(this.activeBatches).forEach(({ controller, paragraphs }) => {
+      paragraphs.forEach(paragraph => TranslationDisplay.removeLoading(paragraph.element));
+      controller.abort();
+    });
+    this.activeBatches = {};
     logger.info('BatchTranslationManager: 已取消所有待处理请求');
   }
 
@@ -327,8 +345,7 @@ export class BatchTranslationManager {
    * 清除已处理缓存（用于翻译模式切换后重新翻译）
    */
   clearProcessedCache(): void {
-    this.pendingQueue = [];
-    this.processingParagraphIds.clear();
+    this.cancelAll();
     logger.info('BatchTranslationManager: 已清除处理缓存');
   }
 }

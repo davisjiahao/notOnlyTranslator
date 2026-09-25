@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { TranslationHistoryEntry, HistoryQueryResult, HistoryStats } from '@/background/translationHistory';
 import { logger } from '@/shared/utils';
 import EmptyState from '@/shared/components/EmptyState';
@@ -19,6 +19,10 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const requestId = useRef(0);
+  const activeKeyword = useRef('');
+  const deletedIds = useRef(new Set<string>());
+  const historyVersion = useRef(0);
 
   const LIMIT = 20;
 
@@ -33,55 +37,53 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
       if (response.success && response.data) {
         setStats(response.data);
       }
-    } catch (error) {
-      logger.error('Failed to load history stats:', error);
+    } catch {
+      logger.error('Failed to load history stats');
     }
   }, []);
 
-  const loadHistory = useCallback(async (reset = false) => {
+  const loadHistory = useCallback(async (keyword: string, nextOffset: number, reset: boolean) => {
+    const currentRequest = ++requestId.current;
     setIsLoading(true);
     try {
-      const newOffset = reset ? 0 : offset;
-      const params = {
-        keyword: searchTerm || undefined,
-        limit: LIMIT,
-        offset: newOffset,
-      };
-
       const response = await chrome.runtime.sendMessage({
         type: 'QUERY_TRANSLATION_HISTORY',
-        payload: params,
+        payload: { params: { keyword: keyword || undefined, limit: LIMIT, offset: nextOffset } },
       });
-
-      if (response.success && response.data) {
-        const result = response.data as HistoryQueryResult;
-        if (reset) {
-          setEntries(result.entries);
-        } else {
-          setEntries((prev) => [...prev, ...result.entries]);
-        }
-        setHasMore(result.hasMore);
-        setOffset(newOffset + result.entries.length);
+      if (currentRequest !== requestId.current) return;
+      if (!response?.success || !response.data) {
+        showToast('加载失败', 'error');
+        return;
       }
-    } catch (error) {
-      logger.error('Failed to load history:', error);
-      showToast('加载失败', 'error');
+      const result = response.data as HistoryQueryResult;
+      const visibleEntries = result.entries.filter((entry) => !deletedIds.current.has(entry.id));
+      setEntries((prev) => reset ? visibleEntries : [...prev, ...visibleEntries]);
+      activeKeyword.current = keyword;
+      setHasMore(result.hasMore);
+      setOffset(nextOffset + result.entries.length);
+    } catch {
+      if (currentRequest === requestId.current) {
+        logger.error('Failed to load history');
+        showToast('加载失败', 'error');
+      }
     } finally {
-      setIsLoading(false);
+      if (currentRequest === requestId.current) setIsLoading(false);
     }
-  }, [offset, searchTerm, showToast]);
+  }, [showToast]);
 
   useEffect(() => {
+    const pendingRequest = requestId;
     loadStats();
-    loadHistory(true);
+    loadHistory('', 0, true);
+    return () => { pendingRequest.current++; };
   }, [loadStats, loadHistory]);
 
   const handleSearch = () => {
-    loadHistory(true);
+    loadHistory(searchTerm, 0, true);
   };
 
   const handleLoadMore = () => {
-    loadHistory(false);
+    loadHistory(activeKeyword.current, offset, false);
   };
 
   const handleDeleteEntry = async (id: string) => {
@@ -92,14 +94,18 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
       });
 
       if (response.success) {
+        historyVersion.current++;
+        deletedIds.current = new Set([...deletedIds.current, id]);
         setEntries((prev) => prev.filter((e) => e.id !== id));
+        setOffset((prev) => Math.max(0, prev - 1));
+        setSelectedEntry(null);
         showToast('已删除');
         loadStats();
       } else {
         showToast('删除失败', 'error');
       }
-    } catch (error) {
-      logger.error('Failed to delete entry:', error);
+    } catch {
+      logger.error('Failed to delete entry');
       showToast('删除失败', 'error');
     }
     setShowDeleteModal(false);
@@ -111,23 +117,35 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
       const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_HISTORY' });
 
       if (response.success) {
+        historyVersion.current++;
+        requestId.current++;
+        setIsLoading(false);
+        deletedIds.current = new Set();
         setEntries([]);
+        setHasMore(false);
+        setOffset(0);
+        setSelectedEntry(null);
         showToast('已清空所有历史');
         loadStats();
       } else {
         showToast('清空失败', 'error');
       }
-    } catch (error) {
-      logger.error('Failed to clear history:', error);
+    } catch {
+      logger.error('Failed to clear history');
       showToast('清空失败', 'error');
     }
     setShowDeleteModal(false);
   };
 
   const handleExport = async () => {
+    const exportVersion = historyVersion.current;
     setIsExporting(true);
     try {
       const response = await chrome.runtime.sendMessage({ type: 'EXPORT_HISTORY_DATA' });
+      if (exportVersion !== historyVersion.current) {
+        showToast('历史已变更，请重新导出', 'error');
+        return;
+      }
 
       if (response.success && response.data) {
         const data = response.data;
@@ -137,15 +155,18 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
         a.href = url;
         a.download = `translation-history-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        try {
+          a.click();
+        } finally {
+          a.remove();
+          URL.revokeObjectURL(url);
+        }
         showToast('导出成功');
       } else {
         showToast('导出失败', 'error');
       }
-    } catch (error) {
-      logger.error('Failed to export history:', error);
+    } catch {
+      logger.error('Failed to export history');
       showToast('导出失败', 'error');
     } finally {
       setIsExporting(false);
@@ -442,14 +463,16 @@ export default function TranslationHistory(_props: TranslationHistoryProps) {
                 {selectedEntry.pageTitle && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300 mb-1">来源页面</h3>
-                    <a
-                      href={selectedEntry.pageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 underline"
-                    >
-                      {selectedEntry.pageTitle}
-                    </a>
+                    {/^https?:\/\//i.test(selectedEntry.pageUrl) ? (
+                      <a
+                        href={selectedEntry.pageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 underline"
+                      >
+                        {selectedEntry.pageTitle}
+                      </a>
+                    ) : <span>{selectedEntry.pageTitle}</span>}
                   </div>
                 )}
 

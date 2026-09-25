@@ -36,6 +36,7 @@ interface CacheStats {
 export default function CacheStatsPanel() {
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<'clear' | 'reset' | null>(null);
 
@@ -45,13 +46,15 @@ export default function CacheStatsPanel() {
   const loadStats = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError(false);
       const [cacheResult, metricsResult] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_CACHE_STATS' }),
         chrome.runtime.sendMessage({ type: 'GET_CACHE_METRICS' }),
       ]);
 
-      const enhancedStats = cacheResult.success ? cacheResult.data : { totalEntries: 0, memoryUsage: 0 };
-      const metrics = metricsResult.success ? metricsResult.data : null;
+      if (!cacheResult?.success || !metricsResult?.success) throw new Error('读取缓存统计失败');
+      const enhancedStats = cacheResult.data ?? { totalEntries: 0, memoryUsage: 0 };
+      const metrics = metricsResult.data;
 
       setStats({
         totalEntries: enhancedStats.totalEntries || 0,
@@ -65,16 +68,8 @@ export default function CacheStatsPanel() {
       });
     } catch (error) {
       console.error('Failed to load cache stats:', error);
-      setStats({
-        totalEntries: 0,
-        memoryUsage: 0,
-        hitRate: 0,
-        totalRequests: 0,
-        hits: 0,
-        misses: 0,
-        avgApiDuration: 0,
-        avgTotalDuration: 0,
-      });
+      setStats(null);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +102,8 @@ export default function CacheStatsPanel() {
   const executeAction = async () => {
     if (pendingAction === 'clear') {
       try {
-        await chrome.runtime.sendMessage({ type: 'CLEAR_TRANSLATION_CACHE' });
+        const response = await chrome.runtime.sendMessage({ type: 'CLEAR_TRANSLATION_CACHE' });
+        if (!response?.success) throw new Error('清空缓存失败');
         setMessage('缓存已清空');
         setTimeout(() => setMessage(null), 3000);
         loadStats();
@@ -117,7 +113,8 @@ export default function CacheStatsPanel() {
       }
     } else if (pendingAction === 'reset') {
       try {
-        await chrome.runtime.sendMessage({ type: 'RESET_CACHE_METRICS' });
+        const response = await chrome.runtime.sendMessage({ type: 'RESET_CACHE_METRICS' });
+        if (!response?.success) throw new Error('重置统计失败');
         setMessage('统计已重置');
         setTimeout(() => setMessage(null), 3000);
         loadStats();
@@ -174,6 +171,13 @@ export default function CacheStatsPanel() {
       </div>
     );
   }
+
+  if (loadError) return (
+    <div role="alert">
+      <p>加载缓存统计失败</p>
+      <button onClick={loadStats}>重试</button>
+    </div>
+  );
 
   if (!stats) return null;
 

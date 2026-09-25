@@ -470,6 +470,8 @@ export function calculateTextDifficultyStats(
 /**
  * 词汇服务类
  * 提供面向对象的 API 接口
+ *
+ * 词表集合不可变：任何增删都生成新 Set，外部持有的旧集合不受影响
  */
 export class VocabularyService {
   private config: UserVocabularyConfig;
@@ -478,8 +480,8 @@ export class VocabularyService {
     this.config = {
       ...createDefaultVocabularyConfig(),
       ...config,
-      customKnownWords: config?.customKnownWords || new Set(),
-      customUnknownWords: config?.customUnknownWords || new Set(),
+      customKnownWords: new Set(config?.customKnownWords || []),
+      customUnknownWords: new Set(config?.customUnknownWords || []),
     };
   }
 
@@ -490,8 +492,8 @@ export class VocabularyService {
     this.config = {
       ...this.config,
       ...config,
-      customKnownWords: config.customKnownWords || this.config.customKnownWords,
-      customUnknownWords: config.customUnknownWords || this.config.customUnknownWords,
+      customKnownWords: new Set(config.customKnownWords || this.config.customKnownWords),
+      customUnknownWords: new Set(config.customUnknownWords || this.config.customUnknownWords),
     };
   }
 
@@ -499,25 +501,90 @@ export class VocabularyService {
    * 设置用户 CEFR 等级
    */
   setUserLevel(level: CEFRLevel): void {
-    this.config.userLevel = level;
+    this.config = { ...this.config, userLevel: level };
   }
 
   /**
-   * 添加自定义已知词汇
+   * 整体替换自定义词表（初始化/存储同步入口）
+   */
+  setCustomWords(known: Iterable<string>, unknown: Iterable<string>): void {
+    this.config = {
+      ...this.config,
+      customKnownWords: normalizeWordSet(known),
+      customUnknownWords: normalizeWordSet(unknown),
+    };
+  }
+
+  /**
+   * 获取自定义已知词汇（只读视图）
+   */
+  getKnownWords(): ReadonlySet<string> {
+    return this.config.customKnownWords;
+  }
+
+  /**
+   * 获取自定义未知词汇（只读视图）
+   */
+  getUnknownWords(): ReadonlySet<string> {
+    return this.config.customUnknownWords;
+  }
+
+  /**
+   * 添加自定义已知词汇（互斥：从未知词表中移除）
    */
   addKnownWord(word: string): void {
-    const normalized = word.toLowerCase().trim();
-    this.config.customKnownWords.add(normalized);
-    this.config.customUnknownWords.delete(normalized);
+    const normalized = normalizeWord(word);
+    if (!normalized) return;
+    this.config = {
+      ...this.config,
+      customKnownWords: new Set([...this.config.customKnownWords, normalized]),
+      customUnknownWords: new Set(
+        [...this.config.customUnknownWords].filter((w) => w !== normalized)
+      ),
+    };
   }
 
   /**
-   * 添加自定义未知词汇
+   * 添加自定义未知词汇（互斥：从已知词表中移除）
    */
   addUnknownWord(word: string): void {
-    const normalized = word.toLowerCase().trim();
-    this.config.customUnknownWords.add(normalized);
-    this.config.customKnownWords.delete(normalized);
+    const normalized = normalizeWord(word);
+    if (!normalized) return;
+    this.config = {
+      ...this.config,
+      customUnknownWords: new Set([...this.config.customUnknownWords, normalized]),
+      customKnownWords: new Set(
+        [...this.config.customKnownWords].filter((w) => w !== normalized)
+      ),
+    };
+  }
+
+  /**
+   * 移除自定义已知词汇（撤销认识）
+   */
+  removeKnownWord(word: string): void {
+    const normalized = normalizeWord(word);
+    if (!this.config.customKnownWords.has(normalized)) return;
+    this.config = {
+      ...this.config,
+      customKnownWords: new Set(
+        [...this.config.customKnownWords].filter((w) => w !== normalized)
+      ),
+    };
+  }
+
+  /**
+   * 移除自定义未知词汇（撤销不认识/移出生词本）
+   */
+  removeUnknownWord(word: string): void {
+    const normalized = normalizeWord(word);
+    if (!this.config.customUnknownWords.has(normalized)) return;
+    this.config = {
+      ...this.config,
+      customUnknownWords: new Set(
+        [...this.config.customUnknownWords].filter((w) => w !== normalized)
+      ),
+    };
   }
 
   /**
@@ -544,11 +611,29 @@ export class VocabularyService {
   }
 
   /**
-   * 获取当前配置
+   * 获取当前配置（词表返回副本，防止外部修改内部状态）
    */
   getConfig(): UserVocabularyConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      customKnownWords: new Set(this.config.customKnownWords),
+      customUnknownWords: new Set(this.config.customUnknownWords),
+    };
   }
+}
+
+/**
+ * 规范化单词：小写去首尾空白
+ */
+function normalizeWord(word: string): string {
+  return word.toLowerCase().trim();
+}
+
+/**
+ * 规范化单词集合并过滤空值，生成新 Set
+ */
+export function normalizeWordSet(words: Iterable<string>): Set<string> {
+  return new Set(Array.from(words, normalizeWord).filter(Boolean));
 }
 
 // 导出默认实例

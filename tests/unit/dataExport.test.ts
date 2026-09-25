@@ -66,6 +66,7 @@ vi.stubGlobal('chrome', {
   },
   runtime: {
     getManifest: vi.fn(() => ({ version: '1.0.0' })),
+    sendMessage: vi.fn(() => Promise.resolve({ success: true, data: { wordsMerged: 0 } })),
   },
 });
 
@@ -101,6 +102,7 @@ vi.mock('@/background/storage', () => ({
     getMasteryProfile: vi.fn(() => Promise.resolve(null)),
     getTranslationCache: vi.fn(() => Promise.resolve({})),
     saveUserProfile: vi.fn(() => Promise.resolve()),
+    updateUserProfile: vi.fn(() => Promise.resolve()),
     saveSettings: vi.fn(() => Promise.resolve()),
     importMasteryData: vi.fn(() => Promise.resolve()),
   },
@@ -116,6 +118,7 @@ vi.mock('@/shared/utils', () => ({
 }));
 
 // Import after mocking
+import { StorageManager } from '@/background/storage';
 import {
   EXPORT_VERSION,
   validateImportData,
@@ -160,8 +163,11 @@ describe('DataExport', () => {
     it('should warn on missing timestamp', () => {
       const result = validateImportData({
         version: EXPORT_VERSION,
-        profile: { knownWords: [], unknownWords: [] },
-        settings: {},
+        profile: {
+          examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+          createdAt: 1, updatedAt: 1, knownWords: [], unknownWords: [],
+        },
+        settings: { enabled: true },
       });
       expect(result.valid).toBe(true);
       expect(result.warnings).toContain('缺少导出时间戳');
@@ -458,6 +464,19 @@ describe('DataExport', () => {
   });
 
   describe('exportVocabularyToCSV', () => {
+    it('公式释义按文本导出，回车保留在同一 CSV 字段', async () => {
+      vi.mocked(StorageManager.getUserProfile).mockResolvedValueOnce({
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [],
+        unknownWords: [{
+          word: 'book', translation: '=1+1', context: 'first\rforged',
+          markedAt: 1000, reviewCount: 0,
+        }],
+      });
+      const csv = await exportVocabularyToCSV();
+      expect(csv).toContain('"\'=1+1"');
+    });
+
     it('应该导出有效的 CSV 格式', async () => {
       const csv = await exportVocabularyToCSV();
 

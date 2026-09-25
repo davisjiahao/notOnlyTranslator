@@ -59,6 +59,7 @@ vi.mock('@/background/storage', () => ({
   StorageManager: {
     getUserProfile: vi.fn(),
     saveUserProfile: vi.fn(),
+    updateUserProfile: vi.fn(),
   },
 }));
 
@@ -90,6 +91,22 @@ vi.mock('@/background/frequencyManager', () => ({
 import { StorageManager } from '@/background/storage';
 import { MasteryManager } from '@/background/mastery';
 import { frequencyManager } from '@/background/frequencyManager';
+
+describe('UserLevelManager — 档案更新', () => {
+  it('标记单词时在最新档案上更新估计，不覆盖并发词表', async () => {
+    const latest = makeUserProfile({ unknownWords: [{ word: 'book' }] });
+    vi.mocked(StorageManager.updateUserProfile).mockImplementation(async (updates) => ({
+      ...latest,
+      ...(typeof updates === 'function' ? updates(latest) : updates),
+    }));
+
+    const result = await UserLevelManager.updateFromMarking('book', false, 7);
+
+    expect(result.unknownWords).toEqual([{ word: 'book' }]);
+    expect(StorageManager.updateUserProfile).toHaveBeenCalledTimes(1);
+    expect(StorageManager.saveUserProfile).not.toHaveBeenCalled();
+  });
+});
 
 describe('UserLevelManager — estimateWordDifficulty', () => {
   let savedChrome: unknown;

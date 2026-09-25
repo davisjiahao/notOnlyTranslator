@@ -30,8 +30,73 @@ export enum TranslationErrorType {
   CONTENT_FILTERED = 'CONTENT_FILTERED',
   /** 模型不可用 */
   MODEL_UNAVAILABLE = 'MODEL_UNAVAILABLE',
+  /** 请求被调用方取消 */
+  REQUEST_CANCELLED = 'REQUEST_CANCELLED',
+  /** 服务暂不可用（网络失败或 5xx 等） */
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
   /** 未知错误 */
   UNKNOWN = 'UNKNOWN',
+}
+
+/**
+ * 传输层错误类别
+ */
+export type TransportErrorKind = 'timeout' | 'cancelled' | 'unavailable';
+
+/**
+ * TransportError 构造选项
+ */
+export interface TransportErrorOptions {
+  /** HTTP 状态码（unavailable 时可能存在） */
+  statusCode?: number;
+  /** 是否可自动重试，默认 unavailable 为 true，其余为 false */
+  retryable?: boolean;
+  /** 已脱敏的服务端补充细节；不属于 public 文案，禁止进入日志 */
+  detail?: string;
+}
+
+/**
+ * 传输层结构化错误
+ * 区分 超时 / 取消 / 服务不可用，让重试决策不再依赖字符串猜测：
+ * 超时与取消一律不可自动重试（调用方已放弃或主动中止）。
+ * message 必须是固定 public 文案；服务端原文一律放入 detail（脱敏后）。
+ */
+export class TransportError extends Error {
+  public readonly kind: TransportErrorKind;
+  public readonly statusCode?: number;
+  public readonly retryable: boolean;
+  public readonly detail?: string;
+
+  constructor(kind: TransportErrorKind, message: string, options: TransportErrorOptions = {}) {
+    super(message);
+    this.name = 'TransportError';
+    this.kind = kind;
+    this.statusCode = options.statusCode;
+    this.retryable = options.retryable ?? kind === 'unavailable';
+    this.detail = options.detail;
+  }
+
+  /** 请求超时（单次尝试总时长已耗尽，重试决策交还调用方） */
+  static timeout(timeoutMs: number): TransportError {
+    return new TransportError('timeout', `请求超时：request timeout after ${timeoutMs}ms`, {
+      retryable: false,
+    });
+  }
+
+  /** 请求被调用方取消 */
+  static cancelled(): TransportError {
+    return new TransportError('cancelled', '请求已取消：request cancelled', { retryable: false });
+  }
+
+  /**
+   * 服务不可用：网络层失败或 HTTP 错误状态
+   * 与旧 defaultShouldRetry 语义保持一致：仅网络失败、429、5xx 可自动重试，其余 4xx 不重试
+   * message 为固定 public 文案；服务端原文经脱敏后放入 detail
+   */
+  static unavailable(message: string, statusCode?: number, detail?: string): TransportError {
+    const retryable = statusCode === undefined || statusCode === 429 || statusCode >= 500;
+    return new TransportError('unavailable', message, { statusCode, retryable, detail });
+  }
 }
 
 /**
@@ -75,6 +140,15 @@ const ERROR_PATTERNS: Array<{
     retryable: false,
     action: 'open_settings',
   },
+  // 请求被取消/中止（置于网络错误之前，避免 "fetch aborted" 被误判为网络故障）
+  {
+    pattern: /abort|已取消|已中止/i,
+    type: TranslationErrorType.REQUEST_CANCELLED,
+    title: '请求已取消',
+    message: '翻译请求已取消。',
+    retryable: false,
+    action: 'retry',
+  },
   // 网络错误
   {
     pattern: /network|fetch|failed to fetch|connection|ECONNREFUSED|ENOTFOUND/i,
@@ -104,6 +178,16 @@ const ERROR_PATTERNS: Array<{
     retryable: true,
     retryDelay: 60000,
     action: 'wait',
+  },
+  // 服务不可用（5xx，置于"模型不可用"等模式之前）
+  {
+    pattern: /service[_\s]?unavailable|服务器?不可用|502|503|504/i,
+    type: TranslationErrorType.SERVICE_UNAVAILABLE,
+    title: '服务暂不可用',
+    message: '翻译服务暂时不可用，请稍后重试。',
+    retryable: true,
+    retryDelay: 3000,
+    action: 'retry',
   },
   // 配额耗尽
   {
@@ -174,6 +258,76 @@ export function classifyTranslationError(error: Error | string | unknown): Trans
       retryable: true,
       retryDelay: 5000,
       action: 'check_connection',
+    };
+  }
+
+  // 传输层结构化错误：优先按 kind 精确分类，不依赖字符串猜测
+  if (error instanceof TransportError) {
+    // detail 为已脱敏的服务端细节，仅进入 technicalDetails 调试字段
+    const techDetails = error.detail ? `${errorMessage} | ${error.detail}` : errorMessage;
+
+    if (error.kind === 'cancelled') {
+      return {
+        type: TranslationErrorType.REQUEST_CANCELLED,
+        title: '请求已取消',
+        message: '翻译请求已取消。',
+        technicalDetails: techDetails,
+        retryable: false,
+        action: 'retry',
+      };
+    }
+    if (error.kind === 'timeout') {
+      return {
+        type: TranslationErrorType.TIMEOUT,
+        title: '请求超时',
+        message: '翻译服务响应时间过长。可能是网络问题或服务繁忙。',
+        technicalDetails: techDetails,
+        retryable: true,
+        retryDelay: 5000,
+        action: 'retry',
+      };
+    }
+    // kind === 'unavailable'：按状态码细分
+    if (error.statusCode === 401 || error.statusCode === 403) {
+      return {
+        type: TranslationErrorType.INVALID_API_KEY,
+        title: 'API Key 无效',
+        message: '您的 API Key 无效或已过期。请在设置中检查并更新您的 API Key。',
+        technicalDetails: techDetails,
+        retryable: false,
+        action: 'open_settings',
+      };
+    }
+    if (error.statusCode === 429) {
+      return {
+        type: TranslationErrorType.RATE_LIMIT,
+        title: '请求过于频繁',
+        message: '您发送的请求太多，请稍后再试。',
+        technicalDetails: techDetails,
+        retryable: true,
+        retryDelay: 60000,
+        action: 'wait',
+      };
+    }
+    if (error.statusCode !== undefined && error.statusCode >= 500) {
+      return {
+        type: TranslationErrorType.SERVICE_UNAVAILABLE,
+        title: '服务暂不可用',
+        message: '翻译服务暂时不可用，请稍后重试。',
+        technicalDetails: techDetails,
+        retryable: true,
+        retryDelay: 3000,
+        action: 'retry',
+      };
+    }
+    return {
+      type: TranslationErrorType.NETWORK_ERROR,
+      title: '网络连接失败',
+      message: '无法连接到翻译服务。请检查您的网络连接。',
+      technicalDetails: techDetails,
+      retryable: true,
+      retryDelay: 3000,
+      action: 'retry',
     };
   }
 

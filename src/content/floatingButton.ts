@@ -216,9 +216,12 @@ export class FloatingButton {
     const closeBtn = this.panel.querySelector('.not-translator-floating-panel-close');
     closeBtn?.addEventListener('click', () => this.collapse());
 
-    // 绑定最小化按钮
+    // 绑定最小化按钮（stopPropagation 防止冒泡触发 minimizeRestore 立即恢复）
     const minimizeBtn = this.panel.querySelector('.not-translator-floating-minimize');
-    minimizeBtn?.addEventListener('click', () => this.minimize());
+    minimizeBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.minimize();
+    });
 
     this.container?.appendChild(this.panel);
   }

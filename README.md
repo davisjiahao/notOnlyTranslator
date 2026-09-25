@@ -2,122 +2,120 @@
 
 **智能英语阅读助手 - 只翻译你不会的词**
 
-[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-即将上架-blue)](https://chromewebstore.google.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+一个面向英语学习者的 Chrome / Edge 扩展：根据阅读水平和已标记词汇突出难词，点击查看释义，也可以按需翻译句子或整页。**常用单词优先查内置词典；未命中或需要语境翻译时才使用所选服务。**
+
+> 当前请从源码构建安装；尚未提供 Chrome 应用商店下载。词典命中不代表网页阅读完全离线，云端翻译会发送相应文本到所选服务。
 
 ---
 
-## 为什么选择 NotOnlyTranslator？
+## 界面预览
 
-**问题**：传统翻译工具翻译所有内容，让你失去学习机会。
+![阅读效果示意图](docs/demo-translation-effect.png)
 
-**解决方案**：NotOnlyTranslator 只翻译超出你水平的词汇，帮助你在阅读中自然学习。
-
-| 传统翻译工具 | NotOnlyTranslator |
-|-------------|-------------------|
-| 翻译所有内容 ❌ | 只翻译你不会的词 ✅ |
-| 依赖翻译，无法进步 ❌ | 循序渐进，持续提升 ✅ |
-| 千篇一律 ❌ | 个性化定制 ✅ |
+*示意图，不代表对任意网站的实际识别结果。阅读流程：打开英文页面 → 高亮候选难词 → 点击查看释义 → 标记已知或生词。*
 
 ---
 
-## 🎬 演示
+## 功能与边界
 
-![NotOnlyTranslator 演示](docs/demo-translation-effect.png)
+| 功能 | 当前实现 |
+| --- | --- |
+| 分级阅读 | 按考试分数或测评估算词汇水平，结合已知／生词标记筛选和高亮候选词；自动判断不保证覆盖每个陌生词。 |
+| 释义与翻译 | 内置词典、本地缓存、所选翻译服务；提供行内、双语及全文模式。语境消歧和整页翻译需要可用的服务连接。 |
+| 学习记录 | 生词本、复习提醒、掌握度和翻译历史；可在设置中导出或导入数据。 |
+| 服务配置 | 支持云端提供商与 OpenAI 兼容服务，也可连接本机 Ollama。云端请求可能计费；请自行保管 API 密钥。 |
 
-*看一眼就懂：访问英文网站 → 自动高亮难词 → 点击查看翻译 → 标记学习*
-
----
-
-## ✨ 核心功能
-
-### 🎯 智能翻译
-- **自适应水平**：根据你的英语水平（四六级/托福/雅思/GRE）智能判断
-- **精准高亮**：只高亮你不会的词，保持阅读流畅
-- **上下文翻译**：基于句子语境，翻译更准确
-
-### 📊 个性化学习
-- **水平评估**：考试分数或 2 分钟快速测评
-- **动态调整**：随着你标记词汇，系统自动优化
-- **掌握度追踪**：可视化你的学习进度
-
-### 📚 词汇管理
-- **生词本**：一键收藏，带上下文保存
-- **闪卡复习**：间隔重复，高效记忆
-- **词汇推荐**：基于水平推荐新词学习
-
-### 🔧 灵活配置
-- **多 API 支持**：OpenAI、Anthropic、DeepL、有道翻译
-- **本地模型**：支持 Ollama、LM Studio
-- **界面定制**：高亮颜色、字体大小、翻译模式
+**隐私提示：**词典与用户记录存于扩展本地／浏览器同步存储。默认配置未填写密钥时，不会自动把页面文本交给 Google 翻译；本地词典无法处理的内容会提示配置服务。明确选择云端或其他联网翻译（包括无需密钥的 Google 翻译）后，相应文本会发送到服务方。备份可能包含 API 密钥，勿公开分享，也不要在敏感页面启用联网翻译。导入设置可能改变翻译服务和联网范围，请导入后检查提供商与模式。为防止备份将页面文本送往未知地址，备份中的自定义服务端点（含本机地址）不会导入；如需使用，请在设置页自行重新配置。
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
-### 安装（二选一）
+### 从源码安装
 
-**方式一：Chrome 应用商店**（推荐）
-> 即将上架，敬请期待
+需要 Node.js、npm，以及 Chrome 或 Edge；目前仅提供源码安装。
 
-**方式二：从源码安装**
 ```bash
 # 克隆仓库
-git clone https://github.com/hungrywu/notOnlyTranslator.git
+git clone https://github.com/davisjiahao/notOnlyTranslator.git
 cd notOnlyTranslator
 
 # 安装依赖并构建
 npm install && npm run build
 
-# 在 Chrome 中加载
-# 1. 打开 chrome://extensions/
-# 2. 启用"开发者模式"
-# 3. 点击"加载已解压的扩展程序"
-# 4. 选择 dist 文件夹
+# 在 Chrome 打开 chrome://extensions/（Edge 打开 edge://extensions/）
+# 启用开发者模式 → 加载已解压的扩展程序 → 选择 dist 文件夹
 ```
 
 ### 配置（2 分钟）
 
-1. **设置 API 密钥**
-   - 点击插件图标 → API 设置
-   - 选择提供商（OpenAI/Anthropic/有道等）
-   - 输入 API 密钥
+1. **选择翻译方式**
+   - 基础单词查询优先使用本地词典，命中时无需 API 密钥或网络
+   - 需要模型增强时，点击插件图标 → API 设置，选择提供商并配置连接
+   - 云端服务按提供商要求输入 API 密钥；本机 Ollama 可留空
 
 2. **设置英语水平**
    - 选择考试类型和分数
    - 或完成 20 题快速测评
 
 3. **开始阅读**
-   - 访问任何英文网站
-   - 自动高亮难词，点击查看翻译
+   - 访问英文网站，自动高亮难词，点击查看翻译
+   - 四个阅读操作保留默认快捷键；打开弹窗可点击扩展图标，也可在 `chrome://extensions/shortcuts` 自行绑定快捷键
 
 ---
 
-## 💡 使用场景
+## 本地优先与 Ollama
 
-| 场景 | 如何帮助 |
-|------|----------|
-| 📖 阅读英文文章 | 只翻译生词，保持阅读流畅 |
-| 📝 学术论文阅读 | 专业术语精准翻译 |
-| 💼 工作文档 | 快速理解，提升效率 |
-| 🎬 字幕学习 | 配合视频内容学习 |
+- **基础查询**：优先复用匹配语境的生词本释义与缓存，再查询随扩展提供的 17,404 条常用及考试词条。包含常见屈折变化；词典返回通用义项，不保证消除一词多义。
+- **自动筛词**：个人已知/未知词和 CEFR 在本地参与筛选。轻量词汇模式由本地确定候选词、难度及位置，模型只补充中文释义；短语、语法和全文翻译仍使用对应增强流程。
+- **离线边界**：单词查词命中本地词典时可不调用翻译 API；段落仅在行内模式、关闭短语／语法增强且所有候选词均有本地释义时可免 API 请求。默认开启短语与语法增强；未配置密钥时不会自动回退 Google，未命中后可能提示配置服务。明确选择 Google 翻译需要联网：其全文译文可用于双语／全文模式；仅行内模式不支持需要联网的段落，会在发送前提示切换模式。云端增强会将对应文本发送给所选服务。
+
+### 配置本机 Ollama
+
+1. 启动 Ollama，在扩展 API 设置中选择 **Ollama 本地模型**。
+2. 默认地址可留空（使用 `http://localhost:11434/v1/chat/completions`）；若填写自定义地址，必须填**完整聊天端点**，不会自动补路径。本机默认服务无需 API 密钥。
+3. 选择已安装的模型并测试连接。CPU 机器可从 `qwen3:4b` 开始实测速度和效果；基础查词不需要安装模型。
+
+翻译调用走 OpenAI 兼容接口，请求会尝试关闭思考并在适用时要求 JSON 输出，实际支持程度取决于模型。Ollama **单次翻译请求**默认限时 90 秒，后台翻译消息整体预算 120 秒；连接测试不受前述单次翻译超时约束。关闭翻译或切换模式时会取消相关请求。
+
+### 离线词典来源与更新
+
+词条来自 [ECDICT](https://github.com/skywind3000/ECDICT)，筛选 BNC/词频前 15,000 或 CET4/CET6/高考/考研标签且含中文释义的英文词。许可证保留于 [`src/data/ECDICT-LICENSE`](src/data/ECDICT-LICENSE)，构建产物也携带 `ECDICT-LICENSE`。
+
+日常 `npm run build` 使用仓库内的 JSON，无需下载原始词典。仅在维护词库时运行以下命令（已在 Node 25 验证；使用现有环境代理）：
+
+```bash
+node --use-env-proxy scripts/buildOfflineDictionary.ts
+```
+
+生成器保存来源、筛选规则、源文件及产物 SHA-256。若上游内容与已记录哈希不同，会拒绝静默覆盖；更新前须审查来源与许可证变化。
 
 ---
 
-## 📈 用户评价
+## 适用范围
 
-> "用了两周，阅读速度提升明显，不再依赖全页翻译了。"
-> — 四六级备考用户
-
-> "终于找到一个不会过度翻译的工具，完美符合我的需求。"
-> — 托福 105 分用户
-
-> "闪卡复习功能太棒了，每天 10 分钟巩固生词。"
-> — 职场英语学习者
+适合阅读普通英文网页时辅助理解词汇；专业术语、语境多义词和复杂页面布局需自行核对结果。页面编辑区、表单和部分导航内容会被跳过，以减少误翻译及将输入内容送出页面的风险。
 
 ---
 
-## 🛠️ 技术栈
+## 开发与验证
+
+```bash
+npm test             # 单元与集成测试
+npm run lint         # ESLint
+npm run type-check   # TypeScript
+npm run build        # 构建扩展
+# 统计 src 下全部 TS/TSX 文件的覆盖率
+npx vitest run --coverage --coverage.include='src/**/*.{ts,tsx}'
+```
+
+端到端测试需事先安装 Playwright 浏览器。`npm run test:e2e` 使用默认配置，可能访问外部网站；本地优先阅读的隔离用例可运行 `npx playwright test --config=e2e/local-first.config.ts`，不调用付费模型服务。
+
+---
+
+## 技术栈
 
 <details>
 <summary>点击展开技术详情</summary>
@@ -176,19 +174,17 @@ npm install && npm run build
 ### Key Features
 
 - **Adaptive Translation**: Based on your proficiency level (CET-4/6, TOEFL, IELTS, GRE)
-- **Smart Highlighting**: Only highlights words you don't know
-- **Context-Aware Translation**: More accurate translations based on sentence context
-- **Personalized Learning**: Dynamic adjustment as you mark words
-- **Vocabulary Management**: Save unknown words with context
-- **Flashcard Review**: Spaced repetition for efficient learning
-- **Multiple API Support**: OpenAI, Anthropic, DeepL, Youdao, local models
+- **Selective Highlighting**: Highlights candidate difficult words using your level and known/unknown word marks
+- **Local-first Lookup**: Uses bundled dictionary entries and cached meanings before a translation service where applicable
+- **Translation Modes**: Inline, bilingual, and full-page; sentence-level and context-sensitive translations require a configured service
+- **Learning Tools**: Vocabulary list, review reminders, mastery tracking, and history
+- **Provider Options**: Cloud services and local Ollama; cloud requests may incur charges
 
 ### Quick Start
 
-1. Install from Chrome Web Store (coming soon) or build from source
-2. Set your API key (OpenAI/Anthropic/Youdao)
-3. Set your English level (exam score or quick test)
-4. Start reading any English website
+1. Clone `https://github.com/davisjiahao/notOnlyTranslator.git`, run `npm install && npm run build`, then load `dist` as an unpacked Chrome/Edge extension
+2. Set your English level; configure a provider if you need context-aware translation (local Ollama needs no API key by default)
+3. Read an English page and mark known or unknown words; offline lookup only works when local data covers the request
 
 ### Tech Stack
 

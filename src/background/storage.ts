@@ -9,11 +9,41 @@ import type {
 import type { MasteryProfile, WordMasteryEntry } from '@/shared/types/mastery';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE, STORAGE_KEYS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { PARTIAL_PROFILE_IMPORT_ERROR } from '@/shared/utils/importErrors';
 
 /**
  * Storage Manager - handles all chrome.storage operations
  */
 export class StorageManager {
+  private static profileUpdates: Promise<unknown> = Promise.resolve();
+  private static settingsUpdates: Promise<unknown> = Promise.resolve();
+  private static readonly MAX_IMPORT_ENTRIES = 5000;
+  private static readonly MAX_PROFILE_BYTES = 8 * 1024 * 1024;
+
+  private static async saveImportedProfile(next: UserProfile, current: UserProfile): Promise<void> {
+    const bytes = new TextEncoder().encode(JSON.stringify({
+      knownWords: next.knownWords,
+      unknownWords: next.unknownWords,
+    })).length;
+    if (bytes > this.MAX_PROFILE_BYTES) throw new Error('导入数据超出可用存储空间');
+    try {
+      await this.saveUserProfile(next);
+    } catch {
+      try {
+        await this.saveUserProfile(current);
+      } catch {
+        throw new Error(PARTIAL_PROFILE_IMPORT_ERROR);
+      }
+      throw new Error('导入失败，原档案已恢复');
+    }
+  }
+
+  private static updateProfile<T>(update: (profile: UserProfile) => Promise<T>): Promise<T> {
+    const operation = this.profileUpdates.then(async () => update(await this.getUserProfile()));
+    this.profileUpdates = operation.catch(() => undefined);
+    return operation;
+  }
+
   /**
    * Get user profile from storage
    */
@@ -99,6 +129,15 @@ export class StorageManager {
     });
   }
 
+  static updateSettings(updates: Partial<UserSettings>): Promise<void> {
+    const operation = this.settingsUpdates.then(async () => {
+      const current = await this.getSettings();
+      await this.saveSettings({ ...current, ...updates });
+    });
+    this.settingsUpdates = operation.catch(() => undefined);
+    return operation;
+  }
+
   /**
    * Get API key from storage
    * 优先从当前激活的 API 配置中读取，如果没有则使用旧版的 apiKey 字段
@@ -113,9 +152,10 @@ export class StorageManager {
     });
 
     // 如果有激活的 API 配置，从配置中读取 API Key
-    if (settings.activeApiConfigId && settings.apiConfigs?.length > 0) {
+    if (settings.apiConfigs?.length > 0) {
+      const activeId = settings.activeApiConfigId || settings.apiConfigs[0].id;
       const activeConfig = settings.apiConfigs.find(
-        (config) => config.id === settings.activeApiConfigId
+        (config) => config.id === activeId
       );
       logger.info('StorageManager.getApiKey: 激活配置', {
         found: !!activeConfig,
@@ -126,6 +166,9 @@ export class StorageManager {
         return activeConfig.apiKey;
       }
     }
+
+    // 旧密钥只供未指定新端点或新配置的旧版设置使用，避免导入端点借用原有凭据。
+    if (settings.customApiUrl || settings.apiConfigs?.length) return '';
 
     // 回退到旧版的 apiKey 字段
     const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.API_KEY);
@@ -148,81 +191,222 @@ export class StorageManager {
    * Add a word to known words
    */
   static async addKnownWord(word: string): Promise<void> {
-    const profile = await this.getUserProfile();
-    const lowerWord = word.toLowerCase();
-
-    if (!profile.knownWords.includes(lowerWord)) {
-      profile.knownWords.push(lowerWord);
-    }
-
-    // Remove from unknown words if present
-    profile.unknownWords = profile.unknownWords.filter(
-      (w) => w.word.toLowerCase() !== lowerWord
-    );
-
-    await this.saveUserProfile(profile);
+    return this.updateProfile(async (profile) => {
+      const lowerWord = word.toLowerCase().trim();
+      await this.saveUserProfile({
+        ...profile,
+        knownWords: profile.knownWords.includes(lowerWord)
+          ? profile.knownWords
+          : [...profile.knownWords, lowerWord],
+        unknownWords: profile.unknownWords.filter((w) => w.word.toLowerCase() !== lowerWord),
+      });
+    });
   }
 
   /**
    * Remove a word from known words
    */
   static async removeKnownWord(word: string): Promise<void> {
-    const profile = await this.getUserProfile();
-    const lowerWord = word.toLowerCase();
-
-    profile.knownWords = profile.knownWords.filter((w) => w !== lowerWord);
-    await this.saveUserProfile(profile);
+    return this.updateProfile(async (profile) => {
+      const lowerWord = word.toLowerCase();
+      await this.saveUserProfile({
+        ...profile,
+        knownWords: profile.knownWords.filter((w) => w !== lowerWord),
+      });
+    });
   }
 
   /**
    * Remove a word from unknown words
    */
   static async removeUnknownWord(word: string): Promise<void> {
-    const profile = await this.getUserProfile();
-    const lowerWord = word.toLowerCase();
-
-    profile.unknownWords = profile.unknownWords.filter(
-      (w) => w.word.toLowerCase() !== lowerWord
-    );
-    await this.saveUserProfile(profile);
+    return this.removeFromVocabulary(word);
   }
 
   /**
    * Add a word to unknown words (vocabulary)
    */
-  static async addUnknownWord(entry: UnknownWordEntry): Promise<void> {
-    const profile = await this.getUserProfile();
-    const lowerWord = entry.word.toLowerCase();
+  static async addUnknownWord(
+    entry: UnknownWordEntry,
+    options?: { skipIfExists: boolean }
+  ): Promise<boolean> {
+    if (options?.skipIfExists) {
+      const result = await this.importUnknownWords([entry]);
+      return result.imported === 1;
+    }
 
-    // Remove existing entry if present
-    profile.unknownWords = profile.unknownWords.filter(
-      (w) => w.word.toLowerCase() !== lowerWord
-    );
-
-    // Add new entry
-    profile.unknownWords.push({
-      ...entry,
-      word: lowerWord,
+    return this.updateProfile(async (profile) => {
+      const lowerWord = entry.word.toLowerCase().trim();
+      await this.saveUserProfile({
+        ...profile,
+        unknownWords: [
+          ...profile.unknownWords.filter((w) => w.word.toLowerCase() !== lowerWord),
+          { ...entry, word: lowerWord },
+        ],
+        knownWords: profile.knownWords.filter((w) => w !== lowerWord),
+      });
+      return true;
     });
+  }
 
-    // Remove from known words if present
-    profile.knownWords = profile.knownWords.filter((w) => w !== lowerWord);
+  private static normalizeImportedEntry(
+    raw: unknown, now: number, allowEmptyTranslation = false
+  ): UnknownWordEntry {
+    if (!raw || typeof raw !== 'object') throw new Error('数据格式无效');
+    const item = raw as Record<string, unknown>;
+    const validDate = (value: unknown) => typeof value === 'number'
+      && Number.isFinite(value) && Math.abs(value) <= 8.64e15;
+    if (typeof item.word !== 'string' || !item.word.trim() || item.word.length > 200
+      || typeof item.translation !== 'string'
+      || (!allowEmptyTranslation && !item.translation.trim()) || item.translation.length > 10000
+      || (item.context !== undefined && (typeof item.context !== 'string' || item.context.length > 10000))
+      || (item.markedAt !== undefined && !validDate(item.markedAt))
+      || (item.lastReviewAt !== undefined && !validDate(item.lastReviewAt))
+      || (item.reviewCount !== undefined && (typeof item.reviewCount !== 'number'
+        || !Number.isSafeInteger(item.reviewCount) || item.reviewCount < 0))) {
+      throw new Error('数据格式无效');
+    }
+    return {
+      word: item.word.toLowerCase().trim(),
+      translation: item.translation,
+      context: (item.context as string | undefined) ?? '',
+      markedAt: (item.markedAt as number | undefined) ?? now,
+      reviewCount: (item.reviewCount as number | undefined) ?? 0,
+      lastReviewAt: item.lastReviewAt as number | undefined,
+    };
+  }
 
-    await this.saveUserProfile(profile);
+  static async importUnknownWords(entries: unknown): Promise<{ imported: number; skipped: number }> {
+    if (!Array.isArray(entries) || entries.length > this.MAX_IMPORT_ENTRIES) {
+      throw new Error('数据格式无效：词条数量超出限制');
+    }
+    const now = Date.now();
+    const validated: UnknownWordEntry[] = entries.map((raw) => this.normalizeImportedEntry(raw, now));
+
+    return this.updateProfile(async (profile) => {
+      const existing = new Set([
+        ...profile.unknownWords.map((entry) => entry.word.toLowerCase().trim()),
+        ...profile.knownWords.map((word) => word.toLowerCase().trim()),
+      ]);
+      const firstByWord = new Map(validated.slice().reverse().map((entry) => [entry.word, entry]));
+      const additions = validated.filter(
+        (entry) => !existing.has(entry.word) && firstByWord.get(entry.word) === entry
+      );
+      if (additions.length > 0) {
+        await this.saveImportedProfile(
+          { ...profile, unknownWords: [...profile.unknownWords, ...additions] },
+          profile
+        );
+      }
+      return { imported: additions.length, skipped: validated.length - additions.length };
+    });
   }
 
   /**
    * Remove a word from vocabulary
    */
   static async removeFromVocabulary(word: string): Promise<void> {
-    const profile = await this.getUserProfile();
-    const lowerWord = word.toLowerCase();
+    return this.updateProfile(async (profile) => {
+      const lowerWord = word.toLowerCase();
+      await this.saveUserProfile({
+        ...profile,
+        unknownWords: profile.unknownWords.filter((w) => w.word.toLowerCase() !== lowerWord),
+      });
+    });
+  }
 
-    profile.unknownWords = profile.unknownWords.filter(
-      (w) => w.word.toLowerCase() !== lowerWord
+  static async importUserProfile(
+    imported: UserProfile,
+    mergeVocabulary: boolean
+  ): Promise<{ wordsMerged: number }> {
+    const validDate = (value: unknown) => typeof value === 'number'
+      && Number.isFinite(value) && Math.abs(value) <= 8.64e15;
+    if (!imported || !['cet4', 'cet6', 'toefl', 'ielts', 'gre', 'custom'].includes(imported.examType)
+      || typeof imported.estimatedVocabulary !== 'number'
+      || !Number.isFinite(imported.estimatedVocabulary)
+      || imported.estimatedVocabulary < 0 || imported.estimatedVocabulary > 1000000
+      || typeof imported.levelConfidence !== 'number' || !Number.isFinite(imported.levelConfidence)
+      || imported.levelConfidence < 0 || imported.levelConfidence > 1
+      || !validDate(imported.createdAt) || !validDate(imported.updatedAt)
+      || (imported.examScore !== undefined && (typeof imported.examScore !== 'number'
+        || !Number.isFinite(imported.examScore) || imported.examScore < 0 || imported.examScore > 1000))
+      || !Array.isArray(imported.knownWords) || !Array.isArray(imported.unknownWords)
+      || imported.knownWords.some((word) => typeof word !== 'string'
+        || !word.trim() || word.length > 200)) {
+      throw new Error('数据格式无效');
+    }
+    const unknownEntries = imported.unknownWords.map(
+      (entry) => this.normalizeImportedEntry(entry, Date.now(), true)
     );
+    const validated: UserProfile = {
+      examType: imported.examType,
+      examScore: imported.examScore,
+      estimatedVocabulary: imported.estimatedVocabulary,
+      levelConfidence: imported.levelConfidence,
+      createdAt: imported.createdAt,
+      updatedAt: imported.updatedAt,
+      knownWords: imported.knownWords.map((word) => word.toLowerCase().trim()),
+      unknownWords: unknownEntries,
+    };
 
-    await this.saveUserProfile(profile);
+    return this.updateProfile(async (current) => {
+      if (!mergeVocabulary) {
+        await this.saveImportedProfile(validated, current);
+        return { wordsMerged: 0 };
+      }
+      const currentUnknown = new Set(current.unknownWords.map((entry) => entry.word.toLowerCase().trim()));
+      const knownWords = Array.from(new Set([
+        ...current.knownWords.map((word) => word.toLowerCase().trim()),
+        ...validated.knownWords.filter((word) => !currentUnknown.has(word)),
+      ]));
+      const known = new Set(knownWords);
+      const unknownWords = new Map(current.unknownWords.map((entry) => [entry.word.toLowerCase().trim(), entry]));
+      for (const entry of validated.unknownWords) {
+        if (known.has(entry.word)) continue;
+        const previous = unknownWords.get(entry.word);
+        if (!previous || entry.markedAt > previous.markedAt) {
+          unknownWords.set(entry.word, entry);
+        }
+      }
+      await this.saveImportedProfile({
+        ...validated,
+        knownWords,
+        unknownWords: Array.from(unknownWords.values()),
+      }, current);
+      return { wordsMerged: knownWords.length - current.knownWords.length };
+    });
+  }
+
+  static async updateLevelProfile(updates: unknown): Promise<UserProfile> {
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+      throw new Error('数据格式无效');
+    }
+    const fields = updates as Record<string, unknown>;
+    const allowed = ['examType', 'examScore', 'estimatedVocabulary', 'levelConfidence'];
+    if (Object.keys(fields).some((key) => !allowed.includes(key))
+      || (fields.examType !== undefined
+        && !['cet4', 'cet6', 'toefl', 'ielts', 'gre', 'custom'].includes(fields.examType as string))
+      || (fields.examScore !== undefined && (typeof fields.examScore !== 'number'
+        || !Number.isFinite(fields.examScore) || fields.examScore < 0 || fields.examScore > 1000))
+      || (fields.estimatedVocabulary !== undefined && (typeof fields.estimatedVocabulary !== 'number'
+        || !Number.isFinite(fields.estimatedVocabulary)
+        || fields.estimatedVocabulary < 0 || fields.estimatedVocabulary > 1000000))
+      || (fields.levelConfidence !== undefined && (typeof fields.levelConfidence !== 'number'
+        || !Number.isFinite(fields.levelConfidence)
+        || fields.levelConfidence < 0 || fields.levelConfidence > 1))) {
+      throw new Error('数据格式无效');
+    }
+    return this.updateUserProfile(fields as Partial<UserProfile>);
+  }
+
+  static async updateUserProfile(
+    updates: Partial<UserProfile> | ((profile: UserProfile) => Partial<UserProfile>)
+  ): Promise<UserProfile> {
+    return this.updateProfile(async (profile) => {
+      const changes = typeof updates === 'function' ? updates(profile) : updates;
+      await this.saveUserProfile({ ...profile, ...changes });
+      return this.getUserProfile();
+    });
   }
 
   /**
@@ -293,19 +477,11 @@ export class StorageManager {
     settings?: Partial<UserSettings>;
   }): Promise<void> {
     if (data.profile) {
-      const currentProfile = await this.getUserProfile();
-      await this.saveUserProfile({
-        ...currentProfile,
-        ...data.profile,
-      });
+      await this.updateUserProfile(data.profile);
     }
 
     if (data.settings) {
-      const currentSettings = await this.getSettings();
-      await this.saveSettings({
-        ...currentSettings,
-        ...data.settings,
-      });
+      await this.updateSettings(data.settings);
     }
   }
 

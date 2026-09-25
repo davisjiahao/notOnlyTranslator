@@ -4,7 +4,7 @@ import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
 
 interface ApiSwitcherProps {
   settings: UserSettings;
-  onUpdateSettings: (settings: Partial<UserSettings>) => Promise<void>;
+  onUpdateSettings: (settings: Partial<UserSettings>) => Promise<boolean>;
   onOpenOptions: () => void;
 }
 
@@ -24,7 +24,7 @@ export default function ApiSwitcher({ settings, onUpdateSettings, onOpenOptions 
     || settings.apiConfigs?.[0];
 
   const handleSelectConfig = useCallback(async (configId: string) => {
-    await onUpdateSettings({ activeApiConfigId: configId });
+    if (!await onUpdateSettings({ activeApiConfigId: configId })) return;
     setIsDropdownOpen(false);
     setFocusedIndex(-1);
     triggerRef.current?.focus();
