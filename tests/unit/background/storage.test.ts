@@ -69,6 +69,13 @@ describe('StorageManager', () => {
   });
 
   describe('getSettings', () => {
+    it('用户选择免费翻译后，保留旧 API 配置但不再用它覆盖引擎', async () => {
+      const config = { id: 'old', provider: 'openai', tested: true };
+      mockStorage.sync.get.mockResolvedValue({ settings: { apiProvider: 'free_google_translate', apiConfigs: [config], activeApiConfigId: 'old' } });
+      const settings = await StorageManager.getSettings();
+      expect(settings.apiProvider).toBe('free_google_translate');
+      expect(settings.apiConfigs).toEqual([config]);
+    });
     it('应该返回默认设置', async () => {
       mockStorage.sync.get.mockResolvedValue({});
 
@@ -175,6 +182,39 @@ describe('StorageManager', () => {
       expect(inserted).toBe(false);
       expect(mockStorage.local.set).not.toHaveBeenCalled();
       expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('恢复空释义记录保留原字段且不修改传入对象', async () => {
+      const entry = Object.freeze({ ...existing, word: ' APPLE ', translation: '' });
+      expect(await StorageManager.addUnknownWord(entry, { skipIfExists: true })).toBe(true);
+      expect(mockStorage.local.set).toHaveBeenCalledExactlyOnceWith({
+        knownWords: [], unknownWords: [{ ...entry, word: 'apple' }],
+      });
+      expect(entry.word).toBe(' APPLE ');
+    });
+
+    it.each(['known', 'unknown'] as const)('恢复在标准化后跳过现有 %s 词，不能覆盖状态', async state => {
+      const latest = { ...existing, word: ' APPLE ', translation: '最新释义' };
+      mockStorage.local.get.mockResolvedValue({
+        knownWords: state === 'known' ? [' APPLE '] : [],
+        unknownWords: state === 'unknown' ? [latest] : [],
+      });
+      expect(await StorageManager.addUnknownWord({ ...existing, translation: '' }, { skipIfExists: true })).toBe(false);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('恢复空释义的本地写入失败时回滚原档案，重试可以成功', async () => {
+      mockStorage.local.get.mockResolvedValue({ knownWords: ['book'], unknownWords: [imported] });
+      mockStorage.local.set.mockRejectedValueOnce(new Error('配额不足')).mockResolvedValue(undefined);
+      const entry = { ...existing, translation: '' };
+      try {
+        await expect(StorageManager.addUnknownWord(entry, { skipIfExists: true })).rejects.toThrow('导入失败，原档案已恢复');
+        expect(mockStorage.local.set).toHaveBeenNthCalledWith(2, { knownWords: ['book'], unknownWords: [imported] });
+        expect(await StorageManager.addUnknownWord(entry, { skipIfExists: true })).toBe(true);
+      } finally {
+        mockStorage.local.set.mockReset().mockResolvedValue(undefined);
+      }
     });
 
     it('批量导入以存储中的最新快照去重，只保存一次并保留文件首条', async () => {

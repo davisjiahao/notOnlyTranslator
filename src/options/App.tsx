@@ -5,6 +5,8 @@ import { getCEFRLevelByVocabulary } from '@/shared/constants/mastery';
 import { logger, useTheme } from '@/shared/utils';
 import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
 import { StorageManager } from '@/background/storage';
+import { HELP_URL } from '@/shared/utils/extensionPages';
+import { isTranslationReady } from '@/shared/utils/onboarding';
 
 // 核心组件 - 同步加载（首屏必需）
 import LevelSelector from './components/LevelSelector';
@@ -170,27 +172,27 @@ const TabIcon = ({ id, active }: { id: Tab; active: boolean }) => {
   }
 };
 
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'level', label: '英语水平' },
-  { id: 'test', label: '快速测评' },
-  { id: 'api', label: 'API 设置' },
-  { id: 'engine', label: '翻译引擎' },
-  { id: 'style', label: '翻译样式' },
-  { id: 'shortcuts', label: '快捷键' },
-  { id: 'vocabulary', label: '生词本' },
-  { id: 'mastery', label: '掌握度' },
-  { id: 'review', label: '闪卡复习' },
-  { id: 'contextual', label: '语境学习' },
-  { id: 'reminder', label: '复习提醒' },
-  { id: 'recommendation', label: '词汇推荐' },
-  { id: 'statistics', label: '学习统计' },
-  { id: 'achievements', label: '成就' },
-  { id: 'history', label: '翻译历史' },
-  { id: 'cost', label: '成本监控' },
-  { id: 'prompt', label: '提示词设置' },
-  { id: 'data', label: '数据管理' },
-  { id: 'general', label: '通用设置' },
-  { id: 'errors', label: '错误追踪' },
+const tabs: { id: Tab; label: string; group: string }[] = [
+  { id: 'general', label: '通用设置', group: '阅读设置' },
+  { id: 'engine', label: '翻译引擎', group: '阅读设置' },
+  { id: 'api', label: 'API 设置', group: '阅读设置' },
+  { id: 'style', label: '翻译样式', group: '阅读设置' },
+  { id: 'shortcuts', label: '快捷键', group: '阅读设置' },
+  { id: 'vocabulary', label: '生词本', group: '生词与复习' },
+  { id: 'review', label: '闪卡复习', group: '生词与复习' },
+  { id: 'contextual', label: '语境学习', group: '生词与复习' },
+  { id: 'reminder', label: '复习提醒', group: '生词与复习' },
+  { id: 'recommendation', label: '词汇推荐', group: '生词与复习' },
+  { id: 'level', label: '英语水平', group: '学习进度' },
+  { id: 'test', label: '快速测评', group: '学习进度' },
+  { id: 'mastery', label: '掌握度', group: '学习进度' },
+  { id: 'statistics', label: '学习统计', group: '学习进度' },
+  { id: 'achievements', label: '成就', group: '学习进度' },
+  { id: 'history', label: '翻译历史', group: '高级设置' },
+  { id: 'cost', label: '成本监控', group: '高级设置' },
+  { id: 'prompt', label: '提示词设置', group: '高级设置' },
+  { id: 'data', label: '数据管理', group: '高级设置' },
+  { id: 'errors', label: '错误追踪', group: '高级设置' },
 ];
 
 export default function App() {
@@ -200,8 +202,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('level');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [apiConfigConflict, setApiConfigConflict] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // WCAG 2.1.1 / 2.4.3: Tab 列表 ref，用于键盘导航后恢复焦点
@@ -241,10 +246,6 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-    // 检查是否需要显示欢迎弹窗
-    if (shouldShowWelcomeModal()) {
-      setShowWelcomeModal(true);
-    }
     // 从 URL 参数读取要打开的标签页
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
@@ -272,6 +273,7 @@ export default function App() {
       const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
       if (settingsRes.success && settingsRes.data) {
         setSettings(settingsRes.data);
+        setShowWelcomeModal(shouldShowWelcomeModal() && !isTranslationReady(settingsRes.data));
       }
 
       const data = await chrome.storage.sync.get('apiKey');
@@ -285,13 +287,15 @@ export default function App() {
     }
   };
 
-  const showSaveMessage = (message: string) => {
-    setSaveMessage(message);
-    setTimeout(() => setSaveMessage(null), 3000);
+  const showSaveMessage = (message: string, error = false) => {
+    clearTimeout(saveTimer.current);
+    setSaveMessage({ text: message, error });
+    // 错误持续显示，直到用户再次操作成功或主动关闭。
+    if (!error) saveTimer.current = setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  const handleProfileUpdate = async (updates: Partial<UserProfile>) => {
-    if (!profile) return;
+  const handleProfileUpdate = async (updates: Partial<UserProfile>): Promise<boolean> => {
+    if (!profile) return false;
 
     setIsSaving(true);
     try {
@@ -302,9 +306,11 @@ export default function App() {
       if (!response?.success || !response.data) throw new Error('档案保存失败');
       setProfile(response.data);
       showSaveMessage('设置已保存');
+      return true;
     } catch (error) {
       logger.error('Failed to update profile:', error);
-      showSaveMessage('保存失败');
+      showSaveMessage('保存失败', true);
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -340,7 +346,7 @@ export default function App() {
       if (changesConfigs && error instanceof Error && error.message.includes('API 配置已变更')) {
         setApiConfigConflict(true);
       } else {
-        showSaveMessage('保存失败');
+        showSaveMessage('保存失败', true);
       }
       if (changesConfigs || changesHybridCredentials) throw error;
     } finally {
@@ -356,7 +362,7 @@ export default function App() {
       showSaveMessage('API 密钥已保存');
     } catch (error) {
       logger.error('Failed to save API key:', error);
-      showSaveMessage('保存失败');
+      showSaveMessage('保存失败', true);
     } finally {
       setIsSaving(false);
     }
@@ -405,7 +411,7 @@ export default function App() {
       if (error instanceof Error && error.message.includes('API 配置已变更')) {
         setApiConfigConflict(true);
       } else {
-        showSaveMessage('保存失败');
+        showSaveMessage('保存失败', true);
       }
       throw error;
     } finally {
@@ -435,12 +441,12 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
           <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
             N
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">NotOnlyTranslator</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white break-words">NotOnlyTranslator</h1>
             <p className="text-xs text-gray-500 dark:text-gray-300">根据您的英语水平智能翻译</p>
           </div>
         </div>
@@ -449,11 +455,14 @@ export default function App() {
       {/* 保存成功提示 — WCAG 4.1.3: aria-live 让屏幕阅读器播报状态变更 */}
       {saveMessage && (
         <div
-          role="status"
-          aria-live="polite"
-          className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in"
+          role={saveMessage.error ? 'alert' : 'status'}
+          className={`fixed top-4 right-4 max-w-[calc(100vw-2rem)] text-white px-4 py-3 rounded-lg shadow-lg z-50 ${saveMessage.error ? 'bg-red-700' : 'bg-green-700'}`}
         >
-          {saveMessage}
+          <div className="flex items-center gap-4">
+            <span>{saveMessage.text}</span>
+            <button aria-label="关闭保存提示" onClick={() => setSaveMessage(null)} className="rounded px-2 py-1 text-sm underline focus-visible:outline focus-visible:outline-2">关闭</button>
+          </div>
+          {saveMessage.error && <p className="text-sm mt-1">更改尚未确认，请保留当前页面并重试刚才的操作。</p>}
         </div>
       )}
       {apiConfigConflict && (
@@ -465,10 +474,20 @@ export default function App() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex gap-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="md:hidden">
+            <label htmlFor="settings-section" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-200">设置页面</label>
+            <select id="settings-section" value={activeTab} onChange={e => setActiveTab(e.target.value as Tab)} className="w-full rounded-lg border border-gray-300 dark:border-gray-600 p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500">
+              {Array.from(new Set(tabs.map(tab => tab.group))).map(group => (
+                <optgroup key={group} label={group}>
+                  {tabs.filter(tab => tab.group === group).map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
           {/* Sidebar — WCAG 4.1.2 + 2.1.1: 完整 WAI-ARIA Tabs 模式（tablist/tab/tabpanel + 键盘导航） */}
-          <nav className="w-48 flex-shrink-0" aria-label="设置导航">
+          <nav className="hidden md:block w-48 flex-shrink-0" aria-label="设置导航">
             <ul
               ref={tablistRef}
               role="tablist"
@@ -477,6 +496,9 @@ export default function App() {
             >
               {tabs.map((tab, index) => (
                 <li key={tab.id} role="presentation">
+                  {(index === 0 || tabs[index - 1].group !== tab.group) && (
+                    <p className="px-3 pb-2 pt-4 text-xs font-semibold text-gray-500 dark:text-gray-300">{tab.group}</p>
+                  )}
                   <button
                     role="tab"
                     id={`tab-${tab.id}`}
@@ -500,7 +522,7 @@ export default function App() {
             {/* 帮助链接 — F10.2 帮助与文档 */}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <a
-                href="https://github.com/yourusername/notOnlyTranslator#readme"
+                href={HELP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5"

@@ -8,7 +8,7 @@
 
 **常用单词优先查内置词典；未命中或需要语境翻译时才使用所选服务。**
 
-> 当前请从源码构建安装；尚未提供 Chrome 应用商店下载。词典命中不代表网页阅读完全离线，云端翻译会发送相应文本到所选服务。
+> 可从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载安装包，或从源码构建；尚未提供 Chrome 应用商店下载。词典命中不代表网页阅读完全离线，云端翻译会发送相应文本到所选服务。
 
 ---
 
@@ -27,7 +27,8 @@
 | 分级阅读 | 按考试分数或测评估算词汇水平，结合已知／生词标记筛选和高亮候选词；自动判断不保证覆盖每个陌生词。 |
 | 释义与翻译 | 内置词典、本地缓存、所选翻译服务；提供行内、双语及全文模式，可按设置补充短语和语法说明。 |
 | 逐段显示与复用 | 支持 SSE 的批次按完整段落提前显示；仅切换展示模式时复用已有结果；页面刷新可复用有效缓存或仍在运行的后台批次。 |
-| 学习记录 | 生词本、复习提醒、掌握度和翻译历史；可在设置中导出或导入数据。 |
+| 学习记录 | 生词筛选、闪卡复习、掌握度和翻译历史；评分确认前可撤销，保存失败可重试。统计展示当前词条快照与已有时间记录，不推算缺失的学习历史。 |
+| 界面与无障碍 | 阅读优先弹窗、分组设置与窄屏导航；高亮和浮层支持键盘操作及焦点返回，支持明暗主题和系统减少动画偏好。 |
 | 服务配置 | 支持云端提供商与 OpenAI 兼容服务，也可连接本机 Ollama。云端请求可能计费；请自行保管 API 密钥。 |
 
 **隐私提示：**词典与用户记录存于扩展本地／浏览器同步存储。默认配置未填写密钥时，不会自动把页面文本交给 Google 翻译；本地词典无法处理的内容会提示配置服务。明确选择云端或其他联网翻译（包括无需密钥的 Google 翻译）后，相应文本会发送到服务方。备份可能包含 API 密钥，勿公开分享，也不要在敏感页面启用联网翻译。导入设置可能改变翻译服务和联网范围，请导入后检查提供商与模式。为防止备份将页面文本送往未知地址，备份中的自定义服务端点（含本机地址）不会导入；如需使用，请在设置页自行重新配置。
@@ -36,9 +37,15 @@
 
 ## 快速开始
 
+### 从发布包安装
+
+1. 从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载 `notOnlyTranslator-v*.zip` 并解压到固定目录。
+2. 打开 `chrome://extensions/`（Edge 为 `edge://extensions/`），开启**开发者模式**。
+3. 点击**加载已解压的扩展程序**，选择解压后包含 `manifest.json` 的目录。
+
 ### 从源码安装
 
-需要 Node.js **20.19.0 或更新版本**（建议使用仍在维护的 LTS 版本）、npm，以及 Chrome 或 Edge；目前仅提供源码安装。
+需要 Node.js **20.19.0 或更新版本**（建议使用仍在维护的 LTS 版本）、npm，以及 Chrome 或 Edge。
 
 ```bash
 # 克隆仓库
@@ -221,12 +228,13 @@ npx playwright test --config=e2e/local-first.config.ts \
 - **Translation Modes**: Inline meanings, bilingual paragraphs, and full translation with difficult English words retained; display-only changes reuse existing results
 - **Progressive Paragraphs**: A complete paragraph appears as soon as it arrives over SSE, without waiting for the rest of the batch; JSON-only responses still wait for completion
 - **Refresh Reuse**: Reuses valid cache entries or joins an active background batch; worker restarts, cache expiry, and relevant configuration changes may require a new request
-- **Learning Tools**: Vocabulary list, review reminders, mastery tracking, and history
+- **Learning Tools**: Filtered vocabulary, flashcard review with undo before confirmation and retry after failed saves, current mastery snapshots, and recorded activity without invented historical trends
+- **Accessible Interface**: Reading-first popup, grouped responsive settings, keyboard-operated highlights with focus return, light/dark themes, and reduced-motion support
 - **Provider Options**: Cloud services and local Ollama; cloud requests may incur charges
 
 ### Quick Start
 
-1. Clone `https://github.com/davisjiahao/notOnlyTranslator.git`, run `npm install && npm run build`, then load `dist` as an unpacked Chrome/Edge extension
+1. Download and extract the ZIP from [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases), then load the folder containing `manifest.json` as an unpacked Chrome/Edge extension. Alternatively, clone the repository, run `npm install && npm run build`, and load `dist`.
 2. Set your English level; configure a provider if you need context-aware translation (local Ollama needs no API key by default)
 3. Read an English page and mark known or unknown words; offline lookup only works when local data covers the request
 

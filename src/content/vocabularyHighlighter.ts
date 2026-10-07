@@ -11,6 +11,7 @@ import { CSS_CLASSES } from '@/shared/constants';
 import { logger } from '@/shared/utils';
 import { createTranslatableTextWalker, getTranslatableText } from './pageScanner';
 import { TranslationDisplay } from './translationDisplay';
+import { captureFocusReturn } from './utils/focusReturn';
 
 /**
  * 词汇高亮配置
@@ -377,6 +378,8 @@ export class VocabularyHighlighter {
     mark.textContent = originalText;
     mark.title = `${wordData.word} (${wordData.level})`;
     mark.tabIndex = 0;
+    mark.setAttribute('role', 'button');
+    mark.setAttribute('aria-haspopup', 'dialog');
 
     // 添加数据属性
     mark.dataset.word = wordData.word;
@@ -585,11 +588,15 @@ export class VocabularyHighlighter {
    */
   rescan(): void {
     if (this.destroyed) return;
+    const active = document.activeElement;
+    const restoreFocus = active instanceof HTMLElement && active.matches('mark.not-translator-vocab-highlight')
+      ? captureFocusReturn(active) : null;
     const roots = this.getLiveRoots();
     TranslationDisplay.updateVocabularyHighlights([document.body], () => {
       this.clearOriginalHighlights();
       this.highlightOriginalElements(roots);
     });
+    restoreFocus?.();
   }
 
   /**
@@ -622,18 +629,19 @@ export class VocabularyHighlighter {
    */
   private refreshWord(word: string): void {
     if (this.destroyed) return;
-    TranslationDisplay.updateVocabularyHighlights([document.body], () => this.refreshOriginalWord(word));
-  }
-
-  private refreshOriginalWord(word: string): void {
     const normalized = word.toLowerCase().trim();
     if (!normalized) return;
+    const active = document.activeElement;
+    const restoreFocus = active instanceof HTMLElement && active.dataset.word?.toLowerCase() === normalized
+      ? captureFocusReturn(active) : null;
+    TranslationDisplay.updateVocabularyHighlights([document.body], () => this.refreshOriginalWord(normalized));
+    restoreFocus?.();
+  }
 
+  private refreshOriginalWord(normalized: string): void {
     this.restoreWordMarks(normalized);
 
-    if (this.vocabularyService.getKnownWords().has(normalized)) {
-      return;
-    }
+    if (this.vocabularyService.getKnownWords().has(normalized)) return;
 
     const containers = this.findContainersForWord(normalized);
     for (const el of containers) {

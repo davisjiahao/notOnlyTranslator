@@ -84,7 +84,8 @@ export const EXCLUDED_SELECTORS = [
   '[role="tooltip"]',
   '[role="alert"]',
   '[role="status"]',
-  '[role="button"]',
+  // 自有高亮虽可键盘操作，仍承载正文；宿主按钮及所有保护祖先继续排除。
+  '[role="button"]:not(mark.not-translator-highlight[data-word], mark.not-translator-vocab-highlight[data-word], mark.not-translator-highlighted-word[data-word], mark.not-translator-highlighted-translation[data-word], span.not-translator-grammar-highlight[data-grammar-original])',
   '[role="listbox"]',
   '[role="option"]',
   '[role="combobox"]',

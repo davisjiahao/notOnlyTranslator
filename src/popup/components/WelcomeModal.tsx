@@ -3,6 +3,7 @@ import type { UserSettings, ApiProvider } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants';
 import { validateApiKeyFormat } from '@/shared/utils';
 import { useFocusTrap } from '@/shared/hooks';
+import { dismissOnboarding, isTranslationReady } from '@/shared/utils/onboarding';
 
 interface WelcomeModalProps {
   settings: UserSettings | null;
@@ -35,9 +36,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   );
 
   // 检查是否需要显示引导
-  const needsSetup = !settings?.apiConfigs?.length ||
-    !settings.apiConfigs.some(c => c.tested) ||
-    !settings.activeApiConfigId;
+  const needsSetup = !isTranslationReady(settings);
 
   const handleQuickSetup = useCallback(async () => {
     if (!apiKey.trim()) {
@@ -99,7 +98,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
         }
 
         setTestResult('success');
-        setTimeout(() => setStep('success'), 500);
+        setStep('success');
       } else {
         setTestResult('error');
       }
@@ -141,7 +140,12 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   };
 
   const handleSkip = () => {
-    // 标记引导已完成，但未配置
+    dismissOnboarding(false);
+    onComplete();
+  };
+
+  const handleComplete = () => {
+    dismissOnboarding(true);
     onComplete();
   };
 
@@ -149,9 +153,9 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
     // WCAG 4.1.2: 添加 role="dialog" 和 aria-modal 支持屏幕阅读器
     // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
     <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full max-h-full overflow-y-auto">
         {testResult === 'save-error' && (
-          <p role="alert" className="px-6 pt-4 text-sm text-red-500">保存失败，请重新加载设置后重试</p>
+          <p role="alert" className="m-4 p-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950 rounded-lg">保存失败，请重新加载设置后重试</p>
         )}
         {/* 欢迎页 */}
         {step === 'welcome' && (
@@ -206,20 +210,20 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
 
             <div className="space-y-2">
               <button
-                onClick={() => setStep('quick-setup')}
-                className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-              >
-                开始配置
-              </button>
-              <button
                 onClick={handleFreeTrial}
                 disabled={isTesting}
-                className="w-full py-2 px-4 border-2 border-primary-200 dark:border-primary-800 text-primary-600 dark:text-primary-400 font-medium rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 flex items-center justify-center gap-2"
               >
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 无需 API Key，立即体验
+              </button>
+              <button
+                onClick={() => setStep('quick-setup')}
+                className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              >
+                开始配置
               </button>
               <button
                 onClick={handleSkip}
@@ -234,7 +238,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
         {/* 快速配置页 */}
         {step === 'quick-setup' && (
           <div className="p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h2 id="welcome-modal-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
               快速配置 API
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
@@ -391,14 +395,14 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h2 id="welcome-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               配置成功！
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-300 mb-6">
               你可以开始使用翻译功能了。打开任意英文网页试试吧！
             </p>
             <button
-              onClick={onComplete}
+              onClick={handleComplete}
               className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
               开始使用
@@ -414,7 +418,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h2 id="welcome-modal-title" className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               已开启免费翻译
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-300 mb-6">
@@ -423,7 +427,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               <span className="text-xs text-gray-500">（需要时可在设置中切换到 LLM 翻译引擎）</span>
             </p>
             <button
-              onClick={onComplete}
+              onClick={handleComplete}
               className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
               开始使用

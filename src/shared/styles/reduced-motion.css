@@ -1,0 +1,8 @@
+/* 仅由扩展自有页面导入；内容脚本使用独立的局部选择器。 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

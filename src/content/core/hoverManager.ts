@@ -71,9 +71,13 @@ export class HoverManager {
    */
   handleMouseOver(e: MouseEvent): void {
     const target = e.target as HTMLElement;
+    if (this.tooltip.contains(target)) {
+      this.clearHoverTimer();
+      return;
+    }
     const validElement = this.getValidHoverElement(target);
 
-    if (!validElement) return;
+    if (!validElement || this.tooltip.containsFocus() || this.tooltip.getPinned()) return;
 
     // 如果悬停在同一元素上，不重新触发
     if (this.hoverElement === validElement) return;
@@ -101,23 +105,19 @@ export class HoverManager {
   handleMouseOut(e: MouseEvent): void {
     const target = e.target as HTMLElement;
 
-    const isLeavingHighlight =
-      target.classList.contains(CSS_CLASSES.HIGHLIGHT) ||
-      target.classList.contains('not-translator-grammar-highlight') ||
-      target.classList.contains('not-translator-highlighted-word') ||
-      target.classList.contains('not-translator-highlighted-translation') ||
-      target.classList.contains('not-translator-vocab-highlight') ||
-      target.closest(`.${CSS_CLASSES.HIGHLIGHT}`) ||
-      target.closest('.not-translator-grammar-highlight') ||
-      target.closest('.not-translator-highlighted-word') ||
-      target.closest('.not-translator-highlighted-translation');
+    const next = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null;
+    const highlight = this.getValidHoverElement(target);
+    if (this.tooltip.contains(next) || (next && highlight?.contains(next))) return;
 
-    if (isLeavingHighlight) {
+    if (highlight || this.tooltip.contains(target)) {
       this.clearHoverTimer();
       this.hoverElement = null;
 
-      if (!this.tooltip.getPinned()) {
-        this.tooltip.hide();
+      if (!this.tooltip.getPinned() && !this.tooltip.containsFocus()) {
+        // 给鼠标跨越词条和浮层之间的间隙留出时间；进入浮层会取消定时器。
+        this.hoverTimer = setTimeout(() => {
+          if (!this.tooltip.getPinned() && !this.tooltip.containsFocus()) this.tooltip.hide();
+        }, 200);
       }
     }
   }

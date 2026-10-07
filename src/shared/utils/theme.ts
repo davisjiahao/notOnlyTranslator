@@ -1,5 +1,17 @@
 import type { ThemeMode } from '@/shared/types';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
+
+const readDarkTheme = () => document.documentElement.classList.contains('dark');
+const subscribeToTheme = (notify: () => void) => {
+  const observer = new MutationObserver(notify);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  return () => observer.disconnect();
+};
+
+/** 子组件只订阅页面主题，不以自己的默认设置覆盖全局主题。 */
+export function useIsDarkTheme(): boolean {
+  return useSyncExternalStore(subscribeToTheme, readDarkTheme, () => false);
+}
 
 /**
  * 获取实际应用的主题模式
@@ -44,6 +56,11 @@ export function useTheme(initialTheme: ThemeMode = 'system') {
     setTheme(mode);
     applyTheme(mode);
   }, [applyTheme]);
+
+  // 设置通过异步消息加载；外部值改变时同步内部主题。
+  useEffect(() => {
+    setTheme(initialTheme);
+  }, [initialTheme]);
 
   // 初始化主题
   useEffect(() => {

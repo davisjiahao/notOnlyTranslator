@@ -30,6 +30,8 @@ vi.mock('@/shared/utils', () => ({
 function createMockTooltip() {
   return {
     getPinned: vi.fn().mockReturnValue(false),
+    contains: vi.fn().mockReturnValue(false),
+    containsFocus: vi.fn().mockReturnValue(false),
     hide: vi.fn(),
   };
 }
@@ -64,6 +66,36 @@ describe('HoverManager', () => {
   afterEach(() => {
     manager.destroy();
     vi.useRealTimers();
+  });
+
+  it('移向浮层时不关闭，焦点在浮层时也不由 mouseout 关闭', () => {
+    const target = document.createElement('mark');
+    target.className = 'not-only-translator-highlight';
+    document.body.appendChild(target);
+    const event = mockMouseEvent('mouseout', target);
+    mockTooltip.contains.mockReturnValue(true);
+    manager.handleMouseOut(event);
+    expect(mockTooltip.hide).not.toHaveBeenCalled();
+    mockTooltip.contains.mockReturnValue(false);
+    mockTooltip.containsFocus.mockReturnValue(true);
+    manager.handleMouseOut(event);
+    expect(mockTooltip.hide).not.toHaveBeenCalled();
+  });
+
+  it('跨越间隙进入浮层取消待关闭，销毁也清理待关闭任务', () => {
+    const word = document.createElement('mark');
+    word.className = 'not-only-translator-highlight';
+    manager.handleMouseOut(mockMouseEvent('mouseout', word));
+    vi.advanceTimersByTime(100);
+    mockTooltip.contains.mockReturnValue(true);
+    manager.handleMouseOver(mockMouseEvent('mouseover', document.createElement('div')));
+    vi.advanceTimersByTime(500);
+    expect(mockTooltip.hide).not.toHaveBeenCalled();
+    mockTooltip.contains.mockReturnValue(false);
+    manager.handleMouseOut(mockMouseEvent('mouseout', word));
+    manager.destroy();
+    vi.advanceTimersByTime(500);
+    expect(mockTooltip.hide).not.toHaveBeenCalled();
   });
 
   describe('基本状态', () => {
@@ -261,6 +293,7 @@ describe('HoverManager', () => {
       const outEvent = mockMouseEvent('mouseout', child);
       manager.handleMouseOut(outEvent);
 
+      vi.advanceTimersByTime(200);
       expect(mockTooltip.hide).toHaveBeenCalled();
     });
 

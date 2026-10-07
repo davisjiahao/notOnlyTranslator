@@ -1,6 +1,7 @@
 import type { TranslatedWord, TranslatedSentence } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { captureFocusReturn } from './utils/focusReturn';
 
 export interface TooltipData {
   word?: TranslatedWord;
@@ -10,7 +11,7 @@ export interface TooltipData {
 export interface TooltipCallbacks {
   onMarkKnown: (word: string) => void;
   onMarkUnknown: (word: string, translation: string) => void;
-  onAddToVocabulary: (word: string, translation: string) => void;
+  onAddToVocabulary: (word: string, translation: string) => void | boolean | Promise<void | boolean>;
   /** 撤销最近一次标记操作（认识/不认识/生词本） */
   onUndoLastMark: () => void;
 }
@@ -30,6 +31,8 @@ export class Tooltip {
   private currentWord: string | null = null;
   /** 当前 tooltip 关联的目标元素 */
   private currentTarget: HTMLElement | null = null;
+  /** 仅主动操作浮层后关闭才返回此处，悬停不改变网页焦点。 */
+  private returnFocus: (() => void) | null = null;
   /** 是否已钉住（钉住后滚动不会隐藏） */
   private isPinned: boolean = false;
   /** 滚动隐藏的防抖定时器 */
@@ -71,11 +74,12 @@ export class Tooltip {
     const tooltip = document.createElement('div');
     tooltip.id = 'not-translator-tooltip';
     tooltip.className = CSS_CLASSES.TOOLTIP;
-    // WCAG 4.1.2: 添加 role 和 aria-live 以支持屏幕阅读器
-    // WCAG 4.1.3: aria-atomic 确保屏幕阅读器播报完整内容
-    tooltip.setAttribute('role', 'tooltip');
-    tooltip.setAttribute('aria-live', 'polite');
-    tooltip.setAttribute('aria-atomic', 'true');
+    // 带操作按钮的浮层是非模态对话框，不能使用只读 tooltip 语义。
+    tooltip.setAttribute('role', 'dialog');
+    tooltip.setAttribute('aria-label', '词典与翻译');
+    tooltip.setAttribute('aria-hidden', 'true');
+    tooltip.tabIndex = -1;
+    tooltip.inert = true;
     tooltip.innerHTML = `
       <div class="${CSS_CLASSES.TOOLTIP}-toolbar">
         <button type="button" class="${CSS_CLASSES.TOOLTIP}-help" aria-label="快捷键帮助"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.01"/><line x1="10" y1="10" x2="10" y2="10.01"/><line x1="14" y1="10" x2="14" y2="10.01"/><line x1="18" y1="10" x2="18" y2="10.01"/><line x1="8" y1="14" x2="16" y2="14"/></svg></button>
@@ -87,6 +91,7 @@ export class Tooltip {
 
     document.body.appendChild(tooltip);
     this.element = tooltip;
+    tooltip.addEventListener('focusout', this.handleFocusOut);
 
     // Close button handler
     const closeBtn = tooltip.querySelector(`.${CSS_CLASSES.TOOLTIP}-close`);
@@ -148,7 +153,7 @@ export class Tooltip {
           <kbd>Esc</kbd> <span>关闭弹窗</span>
         </div>
         <div class="not-translator-help-item">
-          <kbd>⌘/Ctrl+Z</kbd> <span>撤销上次标记（3 秒内）</span>
+          <kbd>⌘/Ctrl+Z</kbd> <span>撤销上次标记（提示保留时）</span>
         </div>
         <div class="not-translator-help-footer">
           <span>⌘/Ctrl + 悬停 可快速显示翻译</span>
@@ -160,6 +165,7 @@ export class Tooltip {
     const closeBtn = panel.querySelector('.not-translator-help-close');
     closeBtn?.addEventListener('click', () => this.hideHelpPanel());
 
+    panel.addEventListener('focusout', this.handleFocusOut);
     document.body.appendChild(panel);
     this.helpPanel = panel;
   }
@@ -181,27 +187,66 @@ export class Tooltip {
   private showHelpPanel(): void {
     if (!this.helpPanel || !this.element) return;
 
-    // 定位在 tooltip 旁边
-    const tooltipRect = this.element.getBoundingClientRect();
-    this.helpPanel.style.top = `${tooltipRect.top}px`;
-    this.helpPanel.style.left = `${tooltipRect.right + 10}px`;
-
-    // 确保不超出视口
-    const panelRect = this.helpPanel.getBoundingClientRect();
-    if (tooltipRect.right + 10 + panelRect.width > window.innerWidth) {
-      this.helpPanel.style.left = `${tooltipRect.left - panelRect.width - 10}px`;
-    }
-
+    // 隐藏元素没有可用尺寸，先显示再测量；绝对定位需计入页面滚动。
     this.helpPanel.style.display = 'block';
+    const tooltipRect = this.element.getBoundingClientRect();
+    const panelRect = this.helpPanel.getBoundingClientRect();
+    const preferredLeft = tooltipRect.right + panelRect.width + 10 <= window.innerWidth - 16
+      ? tooltipRect.right + 10 : tooltipRect.left - panelRect.width - 10;
+    const left = Math.max(16, Math.min(preferredLeft, window.innerWidth - panelRect.width - 16));
+    const top = Math.max(16, Math.min(tooltipRect.top, window.innerHeight - panelRect.height - 16));
+    this.helpPanel.style.left = `${left + window.scrollX}px`;
+    this.helpPanel.style.top = `${top + window.scrollY}px`;
+    this.helpPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   }
 
   /**
    * 隐藏快捷键帮助面板
    */
-  private hideHelpPanel(): void {
+  private hideHelpPanel(restoreFocus = true): void {
     if (this.helpPanel) {
+      const hadFocus = this.helpPanel.contains(document.activeElement);
       this.helpPanel.style.display = 'none';
+      if (restoreFocus && hadFocus) {
+        this.element?.querySelector<HTMLButtonElement>('.not-translator-tooltip-help')?.focus({ preventScroll: true });
+      }
     }
+  }
+
+  /** 对话框和帮助属于同一交互区域；Tab 可以自然离开，无焦点陷阱。 */
+  contains(node: Node | null): boolean {
+    return !!node && !!(this.element?.contains(node) || this.helpPanel?.contains(node));
+  }
+
+  containsFocus(): boolean {
+    return this.contains(document.activeElement);
+  }
+
+  private handleFocusOut = (event: FocusEvent): void => {
+    if (!this.undoBar && !this.isPinned && event.relatedTarget instanceof Node && !this.contains(event.relatedTarget)) this.hide(false);
+  };
+
+  /** 仅由明确的键盘激活调用，悬停和异步翻译结果不主动聚焦。 */
+  focus(): void {
+    if (this.isVisible()) this.element?.focus({ preventScroll: true });
+  }
+
+  private prepareToShow(target: HTMLElement, label: string): boolean {
+    if (!this.element) return false;
+    // 操作期间拒绝另一个悬停目标抢走当前词条。
+    if (this.isVisible() && this.containsFocus() && target !== this.currentTarget) return false;
+    if (!this.isVisible() || target !== this.currentTarget) {
+      const destination = target.isConnected && !target.closest('[aria-hidden="true"]')
+        ? target : document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      this.returnFocus = destination ? captureFocusReturn(destination) : null;
+    }
+    // 重绘内容区前把可能被移除的焦点安全移到稳定的对话框根节点。
+    if (this.element.querySelector('.not-translator-tooltip-content')?.contains(document.activeElement)) this.focus();
+    this.element.setAttribute('aria-label', label);
+    this.element.removeAttribute('aria-hidden');
+    this.element.inert = false;
+    this.clearLoadingSlowTimeout();
+    return true;
   }
 
   /**
@@ -212,7 +257,7 @@ export class Tooltip {
     // 创建事件处理函数并保存引用
     this.boundHandlers = {
       documentClick: (e: Event) => {
-        if (!this.element?.contains(e.target as Node)) {
+        if (!this.contains(e.target as Node)) {
           const target = e.target as HTMLElement;
           if (!target.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
             if (!this.isPinned) {
@@ -229,11 +274,18 @@ export class Tooltip {
       },
       documentScroll: () => this.handleScroll(),
       documentKeydown: (e: KeyboardEvent) => {
+        // 宿主网页的编辑行为优先，包括富文本编辑器内部的事件目标。
+        const activeEl = document.activeElement;
+        const target = e.target instanceof Element ? e.target : activeEl;
+        const editing = [target, activeEl].some(element =>
+          element?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
+        );
+        if (editing || e.isComposing) return;
+
         // Ctrl+Z 撤销：即使 tooltip 不可见，只要撤销栏存在就触发
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && this.undoBar) {
           e.preventDefault();
           this.callbacks.onUndoLastMark();
-          this.removeUndoBar();
           this.hide();
           return;
         }
@@ -241,19 +293,15 @@ export class Tooltip {
         if (!this.isVisible()) return;
 
         if (e.key === 'Escape') {
-          this.hide();
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.helpPanel?.style.display === 'block') this.hideHelpPanel();
+          else this.hide();
           return;
         }
 
-        const activeEl = document.activeElement;
-        if (
-          activeEl?.tagName === 'INPUT' ||
-          activeEl?.tagName === 'TEXTAREA' ||
-          (activeEl as HTMLElement)?.isContentEditable
-        ) {
-          return;
-        }
-
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (activeEl !== document.body && activeEl !== this.currentTarget && !this.containsFocus()) return;
         const key = e.key.toLowerCase();
         if (key === 'k') {
           const btn = this.element?.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`);
@@ -285,7 +333,7 @@ export class Tooltip {
   private handleScroll(): void {
     if (!this.isVisible()) return;
 
-    if (this.isPinned && this.currentTarget) {
+    if ((this.isPinned || this.containsFocus()) && this.currentTarget) {
       // 钉住状态：更新位置跟随目标
       this.positionTooltip(this.currentTarget);
     } else {
@@ -294,7 +342,7 @@ export class Tooltip {
         clearTimeout(this.scrollHideTimeout);
       }
       this.scrollHideTimeout = setTimeout(() => {
-        if (!this.isPinned) {
+        if (!this.isPinned && !this.containsFocus()) {
           this.hide();
         }
       }, 300);
@@ -351,6 +399,10 @@ export class Tooltip {
   ): void {
     if (!this.element) return;
 
+    // 同词的迟到结果不能覆盖用户刚完成的标记及撤销入口。
+    if (this.undoBar && this.currentWord === data.original) return;
+    if (!this.prepareToShow(targetElement, `${data.original} — 词典与翻译`)) return;
+    this.removeUndoBar();
     this.currentWord = data.original;
     this.currentTarget = targetElement;
     // 显示新 tooltip 时重置钉住状态
@@ -494,7 +546,7 @@ export class Tooltip {
     targetElement: HTMLElement,
     data: TranslatedSentence
   ): void {
-    if (!this.element) return;
+    if (!this.element || !this.prepareToShow(targetElement, '句子翻译')) return;
 
     this.currentWord = null;
     this.currentTarget = targetElement;
@@ -553,7 +605,7 @@ export class Tooltip {
     targetElement: HTMLElement,
     data: { original: string; explanation: string; type: string; position: [number, number] }
   ): void {
-    if (!this.element) return;
+    if (!this.element || !this.prepareToShow(targetElement, `${data.type} — 语法说明`)) return;
 
     this.currentWord = null;
     this.currentTarget = targetElement;
@@ -597,16 +649,21 @@ export class Tooltip {
   /**
    * Hide the tooltip
    */
-  hide(): void {
+  hide(restoreFocus = true): void {
+    const hadFocus = this.containsFocus();
+    const destination = this.returnFocus;
+    this.returnFocus = null;
     if (this.element) {
       this.element.classList.remove(CSS_CLASSES.TOOLTIP_VISIBLE);
+      this.element.setAttribute('aria-hidden', 'true');
+      this.element.inert = true;
       this.currentWord = null;
       this.currentTarget = null;
       this.isPinned = false;
       this.updatePinButtonState();
 
-      // 隐藏帮助面板
-      this.hideHelpPanel();
+      // 主浮层统一处理返回焦点，帮助不重复聚焦。
+      this.hideHelpPanel(false);
 
       // 清理撤销栏
       this.removeUndoBar();
@@ -620,6 +677,7 @@ export class Tooltip {
         this.scrollHideTimeout = null;
       }
     }
+    if (restoreFocus && hadFocus) destination?.();
   }
 
   /**
@@ -692,16 +750,44 @@ export class Tooltip {
             this.showUndoBar(data.original, '已标记为不认识');
             break;
           case 'add':
-            this.callbacks.onAddToVocabulary(data.original, data.translation);
-            this.showUndoBar(data.original, '已加入生词本');
+            this.saveToVocabulary(data, btn as HTMLButtonElement);
             break;
         }
       });
     });
   }
 
+  /** 收藏只有后台确认后才显示成功，迟到响应不得重开浮层。 */
+  private saveToVocabulary(data: TranslatedWord, button: HTMLButtonElement): void {
+    if (button.disabled) return;
+    const buttons = this.element?.querySelectorAll<HTMLButtonElement>(`.${CSS_CLASSES.MARK_BUTTON}`);
+    this.element?.querySelector('.not-translator-action-error')?.remove();
+    if (this.containsFocus()) this.focus();
+    buttons?.forEach(item => { item.disabled = true; });
+    button.setAttribute('aria-busy', 'true');
+    const finish = (success: boolean | void) => {
+      buttons?.forEach(item => { item.disabled = false; });
+      button.removeAttribute('aria-busy');
+      if (!button.isConnected || !this.isVisible() || this.currentWord !== data.original) return;
+      if (success !== false) {
+        this.showUndoBar(data.original, '已加入生词本');
+      } else {
+        const message = document.createElement('p');
+        message.className = 'not-translator-action-error not-translator-tooltip-error';
+        message.setAttribute('role', 'alert');
+        message.textContent = '加入生词本失败，请重试。未确认保存成功。';
+        button.closest('.not-translator-tooltip-content')?.appendChild(message);
+      }
+    };
+    try {
+      const saved = this.callbacks.onAddToVocabulary(data.original, data.translation);
+      if (saved instanceof Promise) void saved.then(finish, () => finish(false));
+      else finish(saved);
+    } catch { finish(false); }
+  }
+
   /**
-   * 显示撤销操作栏：3 秒倒计时内可撤销
+   * 显示撤销操作栏，保留至用户关闭或进行下一次操作
    */
   private showUndoBar(word: string, message: string): void {
     if (!this.element) return;
@@ -712,6 +798,7 @@ export class Tooltip {
       this.undoTimeout = null;
     }
 
+    const hadFocus = this.containsFocus();
     // 隐藏原来的操作按钮
     const actionsDiv = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-actions`);
     if (actionsDiv) {
@@ -723,30 +810,27 @@ export class Tooltip {
     bar.className = `${CSS_CLASSES.TOOLTIP}-undo-bar`;
     bar.setAttribute('role', 'status');
     bar.setAttribute('aria-live', 'polite');
-    bar.innerHTML = `
-      <span class="${CSS_CLASSES.TOOLTIP}-undo-msg">${message}</span>
-      <button type="button" class="${CSS_CLASSES.TOOLTIP}-undo-btn" aria-label="撤销对「${word}」的标记">
-        撤销
-      </button>
-    `;
+    const label = document.createElement('span');
+    label.className = `${CSS_CLASSES.TOOLTIP}-undo-msg`;
+    label.textContent = message;
+    const undoBtn = document.createElement('button');
+    undoBtn.type = 'button';
+    undoBtn.className = `${CSS_CLASSES.TOOLTIP}-undo-btn`;
+    undoBtn.setAttribute('aria-label', `撤销对「${word}」的标记`);
+    undoBtn.textContent = '撤销';
+    bar.append(label, undoBtn);
 
     const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
     content?.appendChild(bar);
     this.undoBar = bar;
-
-    const undoBtn = bar.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`);
     undoBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.callbacks.onUndoLastMark();
-      this.removeUndoBar();
       this.hide();
     });
 
-    // 3 秒后自动消失
-    this.undoTimeout = setTimeout(() => {
-      this.removeUndoBar();
-      this.hide();
-    }, 3000);
+    if (hadFocus) undoBtn.focus({ preventScroll: true });
+    // 不对撤销设强制倒计时，避免阅读或键盘操作较慢的用户错过。
   }
 
   /**
@@ -798,11 +882,9 @@ export class Tooltip {
    * 显示翻译加载中状态
    */
   showLoading(targetElement: HTMLElement, word?: string): void {
-    if (!this.element) return;
+    if (!this.element || !this.prepareToShow(targetElement, `${word || targetElement.dataset.word || '正在翻译'} — 词典与翻译`)) return;
 
-    if (word) {
-      this.currentWord = word;
-    }
+    this.currentWord = word || null;
     this.currentTarget = targetElement;
     this.isPinned = false;
     this.updatePinButtonState();
@@ -896,6 +978,7 @@ export class Tooltip {
     // 根据参数数量决定含义
     const word = errorMsg ? wordOrErrorMsg : undefined;
     const message = errorMsg || wordOrErrorMsg;
+    if (!this.prepareToShow(targetElement, `${word || '翻译失败'} — 词典与翻译`)) return;
 
     if (word) {
       this.currentWord = word;
@@ -967,6 +1050,7 @@ export class Tooltip {
    * Destroy the tooltip and clean up all resources
    */
   destroy(): void {
+    this.hide();
     // 清理事件监听器
     if (this.boundHandlers) {
       document.removeEventListener('click', this.boundHandlers.documentClick);

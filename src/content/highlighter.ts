@@ -142,6 +142,8 @@ export class Highlighter {
       mark.textContent = match.word.original;
       mark.title = `${match.word.original} — ${match.word.translation}`;
       mark.tabIndex = 0;
+      mark.setAttribute('role', 'button');
+      mark.setAttribute('aria-haspopup', 'dialog');
       mark.dataset.word = match.word.original;
       mark.dataset.translation = match.word.translation;
       mark.dataset.difficulty = String(match.word.difficulty);

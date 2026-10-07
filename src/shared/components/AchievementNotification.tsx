@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Achievement, TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
+import { useReducedMotion } from '@/shared/hooks/useReducedMotion';
 
 interface AchievementNotificationProps {
   achievements: Achievement[];
@@ -108,13 +109,14 @@ function NotificationToast({
   onViewAll,
 }: NotificationToastProps) {
   const { achievement, isExiting } = item;
+  const reducedMotion = useReducedMotion();
   const colors = TIER_COLORS[achievement.tier];
 
   return (
     <div
       className={`
         pointer-events-auto
-        ${isExiting ? 'animate-out slide-out-right fade-out' : 'animate-in slide-in-from-right fade-in'}
+        ${reducedMotion ? '' : isExiting ? 'animate-out fade-out' : 'animate-in fade-in'}
         transition-all duration-300 ease-out
       `}
       style={{
@@ -129,12 +131,12 @@ function NotificationToast({
         relative overflow-hidden
       `}>
         {/* 闪光效果 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent
-          -translate-x-full animate-shimmer" />
+        {!reducedMotion && <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent
+          -translate-x-full animate-shimmer" />}
 
         <div className="flex items-start gap-3 relative">
           {/* 图标 */}
-          <div className="text-3xl animate-bounce" aria-hidden="true">
+          <div className="text-3xl" aria-hidden="true">
             {achievement.icon}
           </div>
 

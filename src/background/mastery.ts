@@ -95,6 +95,8 @@ export class MasteryManager {
       ...entry,
       ...wordEntry, // 更新上下文信息
       word: entry.word, // 保持原单词（小写）
+      markedAt: entry.markedAt, // 复习不能把首次保存时间改成今天
+      reviewCount: entry.reviewCount,
       masteryLevel: updateResult.newMasteryLevel,
       confidence: updateResult.newConfidence,
       knownCount: entry.knownCount + (isKnown ? 1 : 0),
@@ -175,6 +177,8 @@ export class MasteryManager {
           ...entry,
           ...wordEntry,
           word: entry.word,
+          markedAt: entry.markedAt,
+          reviewCount: entry.reviewCount,
           masteryLevel: updateResult.newMasteryLevel,
           confidence: updateResult.newConfidence,
           knownCount: entry.knownCount + (isKnown ? 1 : 0),

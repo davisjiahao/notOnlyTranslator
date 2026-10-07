@@ -1,8 +1,9 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import MasteryCard from '@/popup/components/MasteryCard';
-import type { LearningStatistics, ReviewReminder, WordMasteryStats } from '@/shared/types/mastery';
+import type { MessageResponse } from '@/shared/types';
+import type { ReviewReminder, WordMasteryStats } from '@/shared/types/mastery';
 import { logger } from '@/shared/utils';
 
 const mockSendMessage = vi.fn();
@@ -24,40 +25,21 @@ const reviews: ReviewReminder[] = [
   { word: 'serendipity', masteryLevel: 0.5, daysOverdue: -1, context: '', translation: '' },
 ];
 
-const learning: LearningStatistics = {
-  totalStudyDays: 10,
-  currentStreak: 7,
-  longestStreak: 8,
-  weeklyStudyDays: 7,
-  monthlyStudyDays: 10,
-  averageDailyWords: 5,
-  totalStudyMinutes: 100,
-  heatmapData: Array.from({ length: 8 }, (_, index) => ({
-    date: `2026-09-${20 + index}`,
-    intensity: index % 5,
-    count: index * 2,
-    type: 'mixed' as const,
-  })),
-  recentActivity: [],
-};
+type MasteryMessage = 'GET_MASTERY_OVERVIEW' | 'GET_REVIEW_WORDS';
 
-type MasteryMessage = 'GET_MASTERY_OVERVIEW' | 'GET_REVIEW_WORDS' | 'GET_LEARNING_STATISTICS';
-type ResponseData = WordMasteryStats | ReviewReminder[] | LearningStatistics;
-type MasteryResponse = { success: boolean; data?: ResponseData; error?: string };
-
-function respondWith(overrides: Partial<Record<MasteryMessage, MasteryResponse>> = {}) {
-  const responses: Record<MasteryMessage, MasteryResponse> = {
-    GET_MASTERY_OVERVIEW: { success: true, data: overview },
+function respondWith(overrides: Partial<Record<MasteryMessage, MessageResponse>> = {}) {
+  const responses: Record<MasteryMessage, MessageResponse> = {
+    GET_MASTERY_OVERVIEW: { success: true, data: { profile: null, stats: overview } },
     GET_REVIEW_WORDS: { success: true, data: reviews },
-    GET_LEARNING_STATISTICS: { success: true, data: learning },
     ...overrides,
   };
   mockSendMessage.mockImplementation(async ({ type }: { type: MasteryMessage }) => responses[type]);
+  return responses;
 }
 
 beforeEach(() => {
   mockSendMessage.mockReset();
-  mockCreateTab.mockReset();
+  mockCreateTab.mockReset().mockResolvedValue(undefined);
   mockGetURL.mockClear();
   vi.stubGlobal('chrome', {
     runtime: { sendMessage: mockSendMessage, getURL: mockGetURL },
@@ -74,28 +56,31 @@ afterEach(() => {
 });
 
 describe('MasteryCard', () => {
-  it('并行请求掌握度、五个复习词和三十天统计，全部返回前显示加载状态', async () => {
-    let resolveReviews!: (value: MasteryResponse) => void;
-    mockSendMessage.mockImplementation(({ type }: { type: MasteryMessage }) => {
-      if (type === 'GET_REVIEW_WORDS') return new Promise(resolve => { resolveReviews = resolve; });
-      return Promise.resolve({ success: true, data: type === 'GET_MASTERY_OVERVIEW' ? overview : learning });
-    });
-    render(<MasteryCard />);
-    expect(screen.getByRole('status', { name: '加载掌握度数据' })).toBeInTheDocument();
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    expect(mockSendMessage).toHaveBeenCalledWith({ type: 'GET_MASTERY_OVERVIEW' });
-    expect(mockSendMessage).toHaveBeenCalledWith({ type: 'GET_REVIEW_WORDS', payload: { limit: 5 } });
-    expect(mockSendMessage).toHaveBeenCalledWith({ type: 'GET_LEARNING_STATISTICS', payload: { days: 30 } });
-    await act(async () => { await Promise.resolve(); });
-    expect(screen.getByRole('status')).toBeInTheDocument();
+  it.each(['GET_MASTERY_OVERVIEW', 'GET_REVIEW_WORDS'] as const)(
+    '并行请求嵌套概览与五个复习词，%s 返回前保持加载状态', async delayedType => {
+      const responses = respondWith();
+      let resolveDelayed!: (value: MessageResponse) => void;
+      mockSendMessage.mockImplementation(({ type }: { type: MasteryMessage }) => type === delayedType
+        ? new Promise(resolve => { resolveDelayed = resolve; })
+        : Promise.resolve(responses[type]));
+      render(<MasteryCard />);
+      expect(screen.getByRole('status', { name: '加载掌握度数据' })).toBeInTheDocument();
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
+      expect(mockSendMessage).toHaveBeenCalledWith({ type: 'GET_MASTERY_OVERVIEW' });
+      expect(mockSendMessage).toHaveBeenCalledWith({ type: 'GET_REVIEW_WORDS', payload: { limit: 5 } });
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(screen.queryByText('12')).not.toBeInTheDocument();
 
-    await act(async () => { resolveReviews({ success: true, data: reviews }); });
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '词汇掌握度' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '待复习单词：3 个' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
-  });
+      await act(async () => { resolveDelayed(responses[delayedType]); });
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '词汇掌握度估算' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '待复习单词：3 个' })).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByText('12')).toBeInTheDocument();
+      expect(screen.getByText('20')).toBeInTheDocument();
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it('展开复习列表显示翻译、上下文回退和逾期天数，再次点击收起', async () => {
     render(<MasteryCard />);
@@ -103,119 +88,131 @@ describe('MasteryCard', () => {
     expect(screen.queryByText('resilient')).not.toBeInTheDocument();
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('需要复习的单词')).toBeInTheDocument();
-    expect(screen.getByText('resilient')).toBeInTheDocument();
-    expect(screen.getByText('有韧性的')).toBeInTheDocument();
-    expect(screen.queryByText('A resilient community.')).not.toBeInTheDocument();
-    expect(screen.getByText('A subtle nuance.')).toBeInTheDocument();
-    expect(screen.getByText('serendipity')).toBeInTheDocument();
-    expect(screen.getAllByText(/逾期/)).toHaveLength(1);
-    expect(screen.getByText('逾期 2 天')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '开始复习 (3)' })).not.toBeInTheDocument();
+    const words = within(screen.getByRole('list')).getAllByRole('listitem');
+    expect(words).toHaveLength(3);
+    expect(words[0]).toHaveTextContent('resilient · 有韧性的（逾期 2 天）');
+    expect(words[0]).not.toHaveTextContent('A resilient community.');
+    expect(words[1]).toHaveTextContent('nuance · A subtle nuance.');
+    expect(words[2]).toHaveTextContent('serendipity');
+    expect(words.filter(word => word.textContent?.includes('逾期'))).toHaveLength(1);
+    expect(screen.getByRole('button', { name: '开始复习 (3)' })).toBeEnabled();
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText('需要复习的单词')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '开始复习 (3)' })).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByText('resilient')).not.toBeInTheDocument();
   });
 
-  it('开始复习按钮展开待复习内容', async () => {
+  it('开始复习直接打开复习页，不把展开预览伪装成开始复习', async () => {
     render(<MasteryCard />);
     fireEvent.click(await screen.findByRole('button', { name: '开始复习 (3)' }));
-    expect(screen.getByRole('button', { name: '待复习单词：3 个' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('resilient')).toBeInTheDocument();
-    expect(mockCreateTab).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '待复习单词：3 个' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(mockGetURL).toHaveBeenCalledExactlyOnceWith('src/options/index.html');
+    expect(mockCreateTab).toHaveBeenCalledExactlyOnceWith({
+      url: 'chrome-extension://test-extension/src/options/index.html?tab=review',
+    });
   });
 
-  it('热力图仅显示最近七天并区分全部五档强度', async () => {
+  it('仅展示掌握度快照及解释，不请求学习统计或推算连续天数与热力图', async () => {
     render(<MasteryCard />);
-    await screen.findByText('近7天学习');
-    expect(screen.getAllByRole('img')).toHaveLength(7);
-    expect(screen.queryByRole('img', { name: '2026-09-20: 0 个单词' })).not.toBeInTheDocument();
-    const colors = ['bg-gray-100', 'bg-green-200', 'bg-green-300', 'bg-green-400', 'bg-green-500'];
-    for (const day of learning.heatmapData.slice(-7)) {
-      const label = `${day.date}: ${day.count} 个单词`;
-      const cell = screen.getByRole('img', { name: label });
-      expect(cell).toHaveAttribute('title', label);
-      expect(cell).toHaveClass(colors[day.intensity]);
-    }
+    await screen.findByRole('heading', { name: '词汇掌握度估算' });
+    expect(screen.getByText('估算已掌握：标记与复习模型的掌握度 ≥ 80%，不等同于已标记认识。')).toBeInTheDocument();
+    expect(screen.getByText('跟踪词汇')).toBeInTheDocument();
+    expect(mockSendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'GET_LEARNING_STATISTICS' }));
+    expect(screen.queryByText('近7天学习')).not.toBeInTheDocument();
+    expect(screen.queryByText(/连续.*天/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
   it.each([
     ['查看全部', 'vocabulary'], ['详情', 'mastery'],
-  ])('%s 打开对应扩展选项页 %s', async (label, tab) => {
+  ])('%s 通过统一扩展入口打开对应选项页 %s', async (label, tab) => {
     render(<MasteryCard />);
     fireEvent.click(await screen.findByRole('button', { name: label }));
-    expect(mockGetURL).toHaveBeenCalledExactlyOnceWith(`options.html?tab=${tab}`);
+    expect(mockGetURL).toHaveBeenCalledExactlyOnceWith('src/options/index.html');
     expect(mockCreateTab).toHaveBeenCalledExactlyOnceWith({
-      url: `chrome-extension://test-extension/options.html?tab=${tab}`,
+      url: `chrome-extension://test-extension/src/options/index.html?tab=${tab}`,
     });
   });
 
-  it('零统计和空数据隐藏复习提醒、列表和热力图', async () => {
-    respondWith({
-      GET_MASTERY_OVERVIEW: { success: true, data: { ...overview, masteredWords: 0, dueForReview: 0 } },
-      GET_REVIEW_WORDS: { success: true, data: [] },
-      GET_LEARNING_STATISTICS: { success: true, data: { ...learning, currentStreak: 0, heatmapData: [] } },
-    });
+  it.each([null, { ...overview, totalWords: 0, masteredWords: 0, dueForReview: 0 }])(
+    '成功读取空档案或零统计 %j 时才显示零数量和手动复习指引', async stats => {
+      respondWith({
+        GET_MASTERY_OVERVIEW: { success: true, data: { profile: null, stats } },
+        GET_REVIEW_WORDS: { success: true, data: [] },
+      });
+      render(<MasteryCard />);
+      const toggle = await screen.findByRole('button', { name: '待复习单词：0 个' });
+      expect(screen.getAllByText('0')).toHaveLength(3);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /开始复习/ })).not.toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('暂无到期待复习词，可从生词本手动开始。')).toBeInTheDocument();
+      expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(['GET_MASTERY_OVERVIEW', 'GET_REVIEW_WORDS'] as const)(
+    '%s 失败时不把部分响应伪装为零数量，重试成功后恢复完整快照', async failedType => {
+      respondWith({ [failedType]: { success: false, error: '后台内部错误详情' } });
+      render(<MasteryCard />);
+      expect(await screen.findByRole('alert')).toHaveTextContent('掌握度加载失败，无法确认当前数量。');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /待复习单词/ })).not.toBeInTheDocument();
+      expect(screen.queryByText('0')).not.toBeInTheDocument();
+      expect(screen.queryByText('12')).not.toBeInTheDocument();
+      expect(screen.queryByText('resilient')).not.toBeInTheDocument();
+      expect(screen.queryByText('后台内部错误详情')).not.toBeInTheDocument();
+
+      respondWith();
+      fireEvent.click(screen.getByRole('button', { name: '重试加载' }));
+      await screen.findByRole('button', { name: '待复习单词：3 个' });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.getByText('12')).toBeInTheDocument();
+      expect(mockSendMessage).toHaveBeenCalledTimes(4);
+      fireEvent.click(screen.getByRole('button', { name: '待复习单词：3 个' }));
+      expect(screen.getByText('resilient')).toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ['GET_MASTERY_OVERVIEW', undefined], ['GET_REVIEW_WORDS', null], ['GET_REVIEW_WORDS', {}],
+  ] as const)('%s 成功响应缺少合法数据 %j 时不能显示空成功状态', async (type, data) => {
+    respondWith({ [type]: { success: true, data } });
     render(<MasteryCard />);
-    const toggle = await screen.findByRole('button', { name: '待复习单词：0 个' });
-    expect(screen.getAllByText('0')).toHaveLength(3);
-    expect(screen.queryByRole('button', { name: /开始复习/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('近7天学习')).not.toBeInTheDocument();
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.queryByText('需要复习的单词')).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('无法确认当前数量');
+    expect(screen.queryByRole('button', { name: /待复习单词/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试加载' })).toBeEnabled();
   });
 
-  it('掌握度接口失败仅清空概览，不丢失已返回的复习词和学习统计', async () => {
-    respondWith({ GET_MASTERY_OVERVIEW: { success: false, error: '概览读取失败' } });
-    render(<MasteryCard />);
-    fireEvent.click(await screen.findByRole('button', { name: '待复习单词：0 个' }));
-    expect(screen.getByText('resilient')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
-    expect(screen.queryByText('12')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('img')).toHaveLength(7);
-  });
-
-  it('复习接口失败保留概览统计，展开后不显示伪造的复习词', async () => {
-    respondWith({ GET_REVIEW_WORDS: { success: false, error: '复习列表读取失败' } });
-    render(<MasteryCard />);
-    fireEvent.click(await screen.findByRole('button', { name: '开始复习 (3)' }));
-    expect(screen.getByRole('button', { name: '待复习单词：3 个' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.queryByText('需要复习的单词')).not.toBeInTheDocument();
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('近7天学习')).toBeInTheDocument();
-  });
-
-  it('学习统计接口失败时连续天数归零且隐藏热力图', async () => {
-    respondWith({ GET_LEARNING_STATISTICS: { success: false, error: '统计读取失败' } });
-    render(<MasteryCard />);
-    await screen.findByRole('heading', { name: '词汇掌握度' });
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.queryByText('近7天学习')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '详情' })).not.toBeInTheDocument();
-  });
-
-  it('全部接口返回失败时仍显示可用的空卡片', async () => {
+  it('全部接口失败时明确提示未知数量，仍可导航到生词本或详情', async () => {
     mockSendMessage.mockResolvedValue({ success: false });
     render(<MasteryCard />);
-    await screen.findByRole('heading', { name: '词汇掌握度' });
-    expect(screen.getAllByText('0')).toHaveLength(3);
+    await screen.findByRole('alert');
+    expect(screen.getByRole('heading', { name: '词汇掌握度估算' })).toBeInTheDocument();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '查看全部' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '详情' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '详情' }));
+    expect(mockCreateTab).toHaveBeenCalledWith({
+      url: 'chrome-extension://test-extension/src/options/index.html?tab=mastery',
+    });
   });
 
-  it('消息拒绝时结束加载并记录异常，不向用户暴露错误详情', async () => {
+  it('消息拒绝时结束加载并记录异常，不向用户暴露错误详情或假装空记录', async () => {
     const error = new Error('扩展后台暂时不可用');
     const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
     mockSendMessage.mockRejectedValue(error);
     render(<MasteryCard />);
-    await screen.findByRole('heading', { name: '词汇掌握度' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('无法确认当前数量');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getAllByText('0')).toHaveLength(3);
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
     expect(screen.queryByText(error.message)).not.toBeInTheDocument();
-    expect(logError).toHaveBeenCalledExactlyOnceWith('Failed to load mastery data:', error);
+    expect(logError).toHaveBeenCalledExactlyOnceWith('加载掌握度概览失败', error);
+    expect(screen.getByRole('button', { name: '重试加载' })).toBeEnabled();
   });
 });

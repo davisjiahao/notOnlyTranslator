@@ -95,6 +95,8 @@ class NotOnlyTranslator {
 
   private handleMouseUp = (e: MouseEvent): void => {
     if (!this.settings?.enabled) return;
+    // 扩展控件上的操作不是网页划词，不能用旧选区重开浮层覆盖撤销反馈。
+    if ((e.target as Element | null)?.closest('.not-translator-tooltip, .not-translator-floating-btn')) return;
     setTimeout(() => {
       this.handleTextSelection(e);
     }, TIMING.SELECTION_DELAY);
@@ -102,8 +104,8 @@ class NotOnlyTranslator {
 
   private handleMouseDown = (e: MouseEvent): void => {
     const target = e.target as HTMLElement;
-    if (!target.closest('.not-translator-tooltip')) {
-      this.tooltip.hide();
+    if (!this.tooltip.contains(target)) {
+      this.tooltip.hide(false);
     }
   };
 
@@ -350,7 +352,8 @@ class NotOnlyTranslator {
     tooltipGeneration: number;
   }): boolean {
     return this.isTranslationRequestCurrent(token.translationGeneration)
-      && token.tooltipGeneration === this.tooltipRequestGeneration;
+      && token.tooltipGeneration === this.tooltipRequestGeneration
+      && this.tooltip.isVisible();
   }
 
   /** 作废所有在途翻译，并清除不再有效的加载状态
@@ -368,16 +371,21 @@ class NotOnlyTranslator {
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
-    if (!this.settings?.enabled) return;
+    if (!this.settings?.enabled || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
 
     const activeEl = document.activeElement;
-    if (
-      activeEl?.tagName === 'INPUT' ||
-      activeEl?.tagName === 'TEXTAREA' ||
-      (activeEl as HTMLElement)?.isContentEditable
-    ) {
+    if (activeEl?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+
+    const highlight = activeEl?.closest<HTMLElement>(`.${CSS_CLASSES.HIGHLIGHT}, .not-translator-grammar-highlight, .not-translator-highlighted-word, .not-translator-highlighted-translation, .not-translator-vocab-highlight`);
+    if (highlight && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      this.hoverManager?.clearHoverState();
+      this.handleHoverShow(highlight);
+      this.tooltip.focus();
       return;
     }
+    // 宿主网页的按钮、链接等仍使用其原生键盘行为。
+    if (!highlight && activeEl?.closest('button, a, [role="button"], [role="combobox"]')) return;
 
     // 如果 Tooltip 可见，不处理导航快捷键（让 Tooltip 处理 K/U/A 等操作）
     if (this.tooltip.isVisible()) {
@@ -405,18 +413,15 @@ class NotOnlyTranslator {
     _direction: 'next' | 'prev'
   ): void {
     // 滚动到元素
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    element.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
 
-    // WCAG 2.4.3: 将键盘焦点移动到目标元素
-    // 导航的元素可能没有 tabindex，临时设置为可编程聚焦
-    element.setAttribute('tabindex', '-1');
-    element.focus();
-    // 失去焦点时恢复，避免干扰页面原有焦点顺序
-    const onBlur = () => {
-      element.removeAttribute('tabindex');
-      element.removeEventListener('blur', onBlur);
-    };
-    element.addEventListener('blur', onBlur);
+    // 保留高亮词既有的 Tab 入口，不覆盖 tabIndex=0。
+    if (!element.hasAttribute('tabindex')) {
+      element.tabIndex = -1;
+      element.addEventListener('blur', () => element.removeAttribute('tabindex'), { once: true });
+    }
+    element.focus({ preventScroll: true });
 
     // 添加导航高亮效果
     this.navigationManager.highlightNavigationElement(element);
@@ -985,7 +990,8 @@ class NotOnlyTranslator {
     document.addEventListener('mousedown', this.handleMouseDown);
     document.addEventListener('dblclick', this.handleDoubleClick);
 
-    // 悬停触发 Tooltip
+    // 键盘路径不依赖是否开启鼠标悬停。
+    this.setupNavigationListeners();
     this.setupHoverListeners();
   }
 
@@ -1004,8 +1010,6 @@ class NotOnlyTranslator {
 
     logger.info(`NotOnlyTranslator: 悬停触发已启用，延迟 ${hoverDelay}ms`);
 
-    // 键盘导航事件监听
-    this.setupNavigationListeners();
   }
 
   /**
@@ -1020,6 +1024,8 @@ class NotOnlyTranslator {
    * 处理悬停显示 Tooltip
    */
   private handleHoverShow(element: HTMLElement): void {
+    // 即使新目标已有缓存，也要作废上一个词条的在途结果。
+    this.tooltipRequestGeneration++;
     // 语法高亮
     if (element.classList.contains('not-translator-grammar-highlight')) {
       const explanation = element.dataset.grammarExplanation || '';
@@ -1622,16 +1628,26 @@ class NotOnlyTranslator {
   private async handleAddToVocabulary(
     word: string,
     translation: string
-  ): Promise<void> {
+  ): Promise<boolean> {
+    const previousAction = this.lastMarkAction;
+    const action = { type: 'add' as const, word, translation };
+    this.lastMarkAction = action;
     try {
       const context = this.marker.getSelectionContext();
-      this.lastMarkAction = { type: 'add', word, translation };
-      await this.marker.addToVocabulary(word, translation, context);
+      const saved = await this.marker.addToVocabulary(word, translation, context);
+      if (!saved) {
+        if (this.lastMarkAction === action) this.lastMarkAction = previousAction;
+        return false;
+      }
+      // 只保留本次占位，不覆盖等待期间用户对其他词的新动作。
       this.updateWordPresentation(word, false);
       this.highlighter.markAsUnknown(word);
       this.vocabHighlighter?.addUnknownWord(word);
+      return true;
     } catch (error) {
-      logger.error('Failed to add to vocabulary:', error);
+      if (this.lastMarkAction === action) this.lastMarkAction = previousAction;
+      logger.error('加入生词本失败', error);
+      return false;
     }
   }
 

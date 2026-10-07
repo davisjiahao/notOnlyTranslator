@@ -353,12 +353,22 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       // 确定实际的认识状态和难度（兼容旧调用和闪卡复习调用）
       const actualIsKnown = isKnown ?? true;
       const actualDifficulty = wordDifficulty ?? 5;
-      const actualContext = context || '';
-      const actualTranslation = translation || '';
+      const currentProfile = await StorageManager.getUserProfile();
+      const existing = currentProfile.unknownWords.find(entry => entry.word.toLowerCase() === word.toLowerCase().trim());
+      const wordEntry: UnknownWordEntry = {
+        ...existing,
+        word,
+        context: context || existing?.context || '',
+        translation: translation || existing?.translation || '',
+        markedAt: existing?.markedAt ?? Date.now(),
+        reviewCount: existing?.reviewCount ?? 0,
+      };
 
-      // 添加到已知词汇列表（如果认识）
+      // 复习忘记时也要移回生词本，不能继续留在已认识列表。
       if (actualIsKnown) {
         await StorageManager.addKnownWord(word);
+      } else {
+        await StorageManager.addUnknownWord(wordEntry);
       }
 
       // 更新用户档案
@@ -369,13 +379,6 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       );
 
       // 更新掌握度系统
-      const wordEntry: UnknownWordEntry = {
-        word,
-        context: actualContext,
-        translation: actualTranslation,
-        markedAt: Date.now(),
-        reviewCount: 0,
-      };
       const masteryResult = await MasteryManager.markWord(
         wordEntry,
         actualIsKnown,
@@ -497,7 +500,16 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
     }
 
     case 'ADD_TO_VOCABULARY': {
-      const entry = message.payload as UnknownWordEntry;
+      const payload = message.payload as UnknownWordEntry & { skipIfExists?: boolean };
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+        || (payload.skipIfExists !== undefined && typeof payload.skipIfExists !== 'boolean')) {
+        return { success: false, error: '数据格式无效' };
+      }
+      const { skipIfExists, ...entry } = payload;
+      if (skipIfExists === true) {
+        const added = await StorageManager.addUnknownWord(entry, { skipIfExists: true });
+        return { success: true, data: { added } };
+      }
       await StorageManager.addUnknownWord(entry);
       return { success: true };
     }

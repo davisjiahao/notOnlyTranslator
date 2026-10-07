@@ -1,20 +1,3 @@
-import React from 'react';
-import { useTheme } from '@/shared/utils';
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from 'recharts';
-
 interface StatsChartsProps {
   vocabularySize: number;
   knownCount: number;
@@ -22,109 +5,29 @@ interface StatsChartsProps {
   confidence: number;
 }
 
-/**
- * 词汇能力雷达图 + 增长趋势面积图
- */
-export const StatsCharts: React.FC<StatsChartsProps> = ({
-  vocabularySize,
-  knownCount,
-  unknownCount,
-  confidence,
-}) => {
-  const { isDark } = useTheme();
-
-  // 根据主题设置颜色
-  const gridColor = isDark ? '#374151' : '#e5e7eb';
-  const axisTextColor = isDark ? '#9ca3af' : '#4b5563';
-  const cartesianGridColor = isDark ? '#1f2937' : '#f3f4f6';
-  const xAxisTextColor = isDark ? '#6b7280' : '#9ca3af';
-  const tooltipBgColor = isDark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-  const tooltipTextColor = isDark ? '#e5e7eb' : '#1f2937';
-  // 能力模型雷达图数据
-  const radarData = [
-    { subject: '词汇量', A: Math.min(100, (vocabularySize / 10000) * 100), fullMark: 100 },
-    { subject: '阅读量', A: Math.min(100, (knownCount + unknownCount) / 5), fullMark: 100 },
-    { subject: '掌握度', A: Math.min(100, (knownCount / (knownCount + unknownCount || 1)) * 100), fullMark: 100 },
-    { subject: '活跃度', A: 85, fullMark: 100 },
-    { subject: '难度', A: 70, fullMark: 100 },
-    { subject: '置信度', A: confidence * 100, fullMark: 100 },
+/** 当前快照没有时间序列，不用模拟图表补齐历史。主题沿用页面根元素。 */
+export function StatsCharts({ vocabularySize, knownCount, unknownCount, confidence }: StatsChartsProps) {
+  const metrics = [
+    ['学习估算词汇量', vocabularySize.toLocaleString()],
+    ['已标记认识', knownCount.toLocaleString()],
+    ['生词本收藏', unknownCount.toLocaleString()],
+    ['词汇量估算置信度', `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`],
   ];
-
-  // 词汇量增长趋势数据（模拟）
-  const growthData = [
-    { name: '周一', words: vocabularySize - 50 },
-    { name: '周二', words: vocabularySize - 40 },
-    { name: '周三', words: vocabularySize - 35 },
-    { name: '周四', words: vocabularySize - 20 },
-    { name: '周五', words: vocabularySize - 10 },
-    { name: '周六', words: vocabularySize - 5 },
-    { name: '周日', words: vocabularySize },
-  ];
-
   return (
-    <div className="space-y-4">
-      {/* 雷达图：能力模型 */}
-      <div>
-        <h3 id="radar-chart-label" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">能力模型</h3>
-        <div className="h-64 w-full" role="img" aria-labelledby="radar-chart-label">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-              <PolarGrid stroke={gridColor} />
-              <PolarAngleAxis
-                dataKey="subject"
-                tick={{ fill: axisTextColor, fontSize: 12, fontWeight: 500 }}
-              />
-              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-              <Radar
-                name="能力值"
-                dataKey="A"
-                stroke="#8b5cf6"
-                strokeWidth={2}
-                fill="#8b5cf6"
-                fillOpacity={0.6}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* 面积图：增长趋势 */}
-      <div>
-        <h3 id="area-chart-label" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">词汇量增长趋势</h3>
-        <div className="h-32 w-full" role="img" aria-labelledby="area-chart-label">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={growthData}>
-              <defs>
-                <linearGradient id="colorWords" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={cartesianGridColor} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: xAxisTextColor }} axisLine={false} tickLine={false} />
-              <YAxis hide domain={['dataMin - 100', 'dataMax + 100']} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: tooltipBgColor,
-                  borderRadius: '8px',
-                  border: 'none',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                  fontSize: '12px',
-                  color: tooltipTextColor,
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="words"
-                stroke="#10b981"
-                fillOpacity={1}
-                fill="url(#colorWords)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+    <div className="space-y-5 text-sm text-gray-700 dark:text-gray-300">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        {metrics.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p>已标记认识是你的选择，不等于通过复习估算已掌握；置信度也不是正确率。</p>
+      <section className="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <h3 className="font-medium text-gray-900 dark:text-white">词汇量历史：数据不足</h3>
+        <p className="mt-2">尚未记录历史词汇量，暂不展示增长趋势。当前估算会随标记和水平设置变化。</p>
+      </section>
     </div>
   );
-};
+}

@@ -53,6 +53,12 @@ function mount(options: { settings?: UserSettings | null; user?: UserProfile | n
 
 beforeEach(() => {
   vi.clearAllMocks();
+  Element.prototype.scrollIntoView = vi.fn();
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  } });
   sendMessage = vi.fn();
   query = vi.fn();
   sendTabMessage = vi.fn();
@@ -83,11 +89,19 @@ describe('弹窗设置与导航', () => {
     release({ success: true, data: profile() });
     expect(await screen.findByText('3,500')).toBeInTheDocument();
     expect(screen.getByText('中级')).toBeInTheDocument();
-    expect(screen.getByText('2 已掌握')).toBeInTheDocument();
-    expect(screen.getByText('1 待学习')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar', { name: '置信度' })).toHaveAttribute('aria-valuenow', '76');
+    expect(screen.getByText('2 已标记认识')).toBeInTheDocument();
+    expect(screen.getByText('1 生词本收藏')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '词汇量估算置信度' })).toHaveAttribute('aria-valuenow', '76');
     expect(screen.getByRole('switch', { name: 'example.com 网站翻译' })).toHaveAttribute('aria-checked', 'true');
     expect(mocks.useTheme).toHaveBeenCalledWith('system');
+  });
+
+  it('置信度说明只响应自身按钮的悬停和焦点范围', async () => {
+    mount();
+    const trigger = await screen.findByRole('button', { name: '置信度说明' });
+    const group = trigger.closest('.group');
+    expect(group).not.toBeNull();
+    expect(group?.parentElement?.closest('.group')).toBeNull();
   });
 
   it('未配置 API 时提供引导，且可从引导打开设置', async () => {
@@ -96,6 +110,26 @@ describe('弹窗设置与导航', () => {
     fireEvent.click(screen.getByText('开始配置'));
     fireEvent.click(screen.getByText('需要更多配置选项？'));
     expect(openOptionsPage).toHaveBeenCalledOnce();
+  });
+
+  it('免费引擎不要求 API 配置，直接显示当前服务', async () => {
+    mount({ settings: { ...DEFAULT_SETTINGS, apiProvider: 'free_google_translate' } });
+    await screen.findByRole('switch', { name: '全局翻译已启用' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Google 免费翻译')).toBeInTheDocument();
+    expect(screen.queryByText('默认配置')).not.toBeInTheDocument();
+  });
+
+  it('跳过引导后修改设置或重开弹窗不重复打断', async () => {
+    const view = mount({ settings: DEFAULT_SETTINGS });
+    fireEvent.click(await screen.findByText('稍后再说'));
+    fireEvent.click(await screen.findByRole('radio', { name: '双语对照' }));
+    await screen.findByText('已切换到 双语对照 模式');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    view.unmount();
+    mount({ settings: DEFAULT_SETTINGS });
+    await screen.findByRole('switch', { name: '全局翻译已启用' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('非 HTTP 页面不展示站点开关，档案失败时保留占位内容', async () => {
@@ -191,24 +225,34 @@ describe('弹窗设置与导航', () => {
     await waitFor(() => expect(reload).toHaveBeenCalledWith(42));
   });
 
-  it('取消刷新回滚站点黑名单，恢复站点开关', async () => {
+  it('撤销更改回滚站点黑名单，恢复站点开关', async () => {
     mount();
     fireEvent.click(await screen.findByRole('switch', { name: 'example.com 网站翻译' }));
-    fireEvent.click(await screen.findByRole('button', { name: '取消，下次生效' }));
+    fireEvent.click(await screen.findByRole('button', { name: '撤销更改' }));
     await waitFor(() => expect(screen.getByRole('switch', { name: 'example.com 网站翻译' })).toHaveAttribute('aria-checked', 'true'));
     expect(sendMessage).toHaveBeenLastCalledWith({ type: 'UPDATE_SETTINGS', payload: expect.objectContaining({ blacklist: [] }) });
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it('取消刷新回滚失败时保留确认框，不能假装已经撤销', async () => {
+  it('撤销更改失败时保留确认框，不能假装已经撤销', async () => {
     mount();
     const toggle = await screen.findByRole('switch', { name: 'example.com 网站翻译' });
     fireEvent.click(toggle);
     expect(await screen.findByRole('dialog', { name: '刷新页面确认' })).toBeInTheDocument();
     sendMessage.mockImplementation(async () => ({ success: false }));
-    fireEvent.click(screen.getByRole('button', { name: '取消，下次生效' }));
+    fireEvent.click(screen.getByRole('button', { name: '撤销更改' }));
     expect(await screen.findByText('设置保存失败，请重试')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: '刷新页面确认' })).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('稍后刷新保留已经保存的站点更改', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('switch', { name: 'example.com 网站翻译' }));
+    fireEvent.click(await screen.findByRole('button', { name: '稍后刷新' }));
+    expect(screen.queryByRole('dialog', { name: '刷新页面确认' })).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'example.com 网站翻译' })).toHaveAttribute('aria-checked', 'false');
+    expect(sendMessage.mock.calls.filter(([m]) => m.type === 'UPDATE_SETTINGS')).toHaveLength(1);
     expect(reload).not.toHaveBeenCalled();
   });
 
@@ -264,7 +308,7 @@ describe('弹窗设置与导航', () => {
         { id: 'secondary', name: '备用配置', provider: 'openai', apiKey: 'test2', tested: true, createdAt: 2 },
       ],
     } });
-    const select = await screen.findByRole('combobox', { name: '选择翻译服务配置' });
+    const select = await screen.findByRole('combobox', { name: '选择翻译服务配置，当前：主配置' });
     fireEvent.click(select);
     sendMessage.mockImplementation(async () => ({ success: false }));
     fireEvent.click(screen.getByRole('option', { name: /备用配置/ }));
@@ -282,7 +326,7 @@ describe('弹窗设置与导航', () => {
         { id: 'secondary', name: '备用配置', provider: 'openai', apiKey: 'test2', tested: true, createdAt: 2 },
       ],
     } });
-    const select = await screen.findByRole('combobox', { name: '选择翻译服务配置' });
+    const select = await screen.findByRole('combobox', { name: '选择翻译服务配置，当前：主配置' });
     fireEvent.click(select);
     fireEvent.click(screen.getByRole('option', { name: /备用配置/ }));
     await waitFor(() => expect(select).toHaveAttribute('aria-expanded', 'false'));
@@ -296,6 +340,6 @@ describe('弹窗设置与导航', () => {
     fireEvent.click(options);
     fireEvent.click(screen.getByRole('button', { name: '生词本 (1)' }));
     expect(openOptionsPage).toHaveBeenCalledOnce();
-    expect(createTab).toHaveBeenCalledWith({ url: 'chrome-extension://extension/options.html?tab=vocabulary' });
+    expect(createTab).toHaveBeenCalledWith({ url: 'chrome-extension://extension/src/options/index.html?tab=vocabulary' });
   });
 });

@@ -551,7 +551,7 @@ export default function ApiSettings({
             <div>
               <p className="font-medium">安全提示</p>
               <p className="mt-1">
-                API 密钥将加密存储在您的浏览器中，不会传输到任何第三方服务器。请妥善保管您的密钥。
+                API 密钥保存在浏览器扩展存储中；启用浏览器同步时，配置可能同步到您的其他设备。测试连接与翻译时，密钥和相关文本会发送给您选择的服务商。插件未提供额外的密钥加密，请勿使用不可信的服务地址。
               </p>
             </div>
           </div>

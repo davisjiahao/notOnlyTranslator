@@ -114,8 +114,8 @@ export class StorageManager {
       hybridCredentialsRevision: data[STORAGE_KEYS.SYNC.SETTINGS]?.hybridCredentialsRevision ?? 0,
     };
 
-    // 如果有激活的 API 配置（或者只有一个配置时自动激活），应用配置中的值
-    if (settings.apiConfigs?.length > 0) {
+    // 免费引擎是用户的显式选择；保留旧配置供以后切换，但不覆盖当前引擎。
+    if (settings.apiProvider !== 'free_google_translate' && settings.apiConfigs?.length > 0) {
       const activeId = settings.activeApiConfigId || settings.apiConfigs[0].id;
       const activeConfig = settings.apiConfigs.find(
         (config: ApiConfig) => config.id === activeId
@@ -400,9 +400,19 @@ export class StorageManager {
     entry: UnknownWordEntry,
     options?: { skipIfExists: boolean }
   ): Promise<boolean> {
-    if (options?.skipIfExists) {
-      const result = await this.importUnknownWords([entry]);
-      return result.imported === 1;
+    if (options?.skipIfExists === true) {
+      // 撤销允许应用自身保存的空释义，但仍校验字段并在同一队列内保护新标记。
+      const validated = this.normalizeImportedEntry(entry, Date.now(), true);
+      return this.updateProfile(async (profile) => {
+        if (profile.knownWords.some(word => word.toLowerCase().trim() === validated.word)
+          || profile.unknownWords.some(word => word.word.toLowerCase().trim() === validated.word)) {
+          return false;
+        }
+        await this.saveImportedProfile(
+          { ...profile, unknownWords: [...profile.unknownWords, validated] }, profile
+        );
+        return true;
+      });
     }
 
     return this.updateProfile(async (profile) => {
