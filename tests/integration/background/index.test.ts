@@ -524,6 +524,18 @@ describe('消息监听器真实存储行为', () => {
     expect(localData.unknownWords).toEqual([]);
   });
 
+  it('复习忘记已认识词时移回生词本，再次评分不覆盖收藏时间', async () => {
+    expect(localData.knownWords).toContain('hello');
+    const first = await dispatch({ type: 'MARK_WORD_KNOWN', payload: { word: 'hello', isKnown: false, translation: '你好', context: 'hello world' } });
+    expect(first.success).toBe(true);
+    expect(localData.knownWords).not.toContain('hello');
+    const entry = (localData.unknownWords as Array<{ word: string; markedAt: number }>)[0];
+    expect(entry).toMatchObject({ word: 'hello', translation: '你好' });
+    const second = await dispatch({ type: 'MARK_WORD_KNOWN', payload: { word: 'hello', isKnown: false } });
+    expect(second.success).toBe(true);
+    expect(localData.unknownWords).toEqual([expect.objectContaining({ markedAt: entry.markedAt, translation: '你好' })]);
+  });
+
   it('已知词标记兼容复习用 isKnown=false，不误写已知列表', async () => {
     const response = await dispatch({ type: 'MARK_WORD_KNOWN', payload: {
       word: 'River', isKnown: false, wordDifficulty: 7, context: 'by the river', translation: '河流',

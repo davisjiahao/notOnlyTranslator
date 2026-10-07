@@ -1,263 +1,136 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { UnknownWordEntry } from '@/shared/types';
 import { formatDate, logger } from '@/shared/utils';
 import VocabularyExportImport from './VocabularyExportImport';
+import FlashcardReview from './FlashcardReview';
 
-interface VocabularySettingsProps {
-  isSaving: boolean;
-}
+interface VocabularySettingsProps { isSaving: boolean }
+const action = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500';
 
 export default function VocabularySettings({ isSaving }: VocabularySettingsProps) {
   const [words, setWords] = useState<UnknownWordEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'alpha'>('recent');
   const [pendingClear, setPendingClear] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [removed, setRemoved] = useState<UnknownWordEntry | null>(null);
+  const [review, setReview] = useState<UnknownWordEntry[] | null>(null);
+  const lock = useRef(false);
+  const loadId = useRef(0);
+  const search = useRef<HTMLInputElement>(null);
+  const undo = useRef<HTMLButtonElement>(null);
+  const restoreSearchFocus = useRef(false);
 
-  useEffect(() => {
-    loadVocabulary();
-  }, []);
-
-  const loadVocabulary = async () => {
-    setIsLoading(true);
+  const load = useCallback(async () => {
+    const id = ++loadId.current;
+    setLoading(true);
+    setLoadError(false);
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' });
-      if (response.success && response.data) {
-        setWords(response.data);
-      }
-    } catch (error) {
-      logger.error('Failed to load vocabulary:', error);
-    } finally {
-      setIsLoading(false);
+      if (!response?.success || !Array.isArray(response.data)) throw new Error('加载失败');
+      if (id === loadId.current) setWords(response.data);
+    } catch (failure) {
+      if (id === loadId.current) { setLoadError(true); logger.error('加载生词本失败', failure); }
+    } finally { if (id === loadId.current) setLoading(false); }
+  }, []);
+  useEffect(() => {
+    const generation = loadId;
+    void load();
+    return () => { generation.current++; };
+  }, [load]);
+  useEffect(() => {
+    if (removed && document.activeElement === document.body) undo.current?.focus();
+  }, [removed]);
+  useEffect(() => {
+    if (restoreSearchFocus.current && !isLoading && !review) {
+      restoreSearchFocus.current = false;
+      if (document.activeElement === document.body) search.current?.focus();
     }
-  };
+  }, [isLoading, review]);
 
-  const removeWord = async (word: string) => {
+  const mutate = async (operation: () => Promise<void>) => {
+    if (lock.current || isSaving) return;
+    lock.current = true;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try { await operation(); } finally { lock.current = false; setBusy(false); }
+  };
+  const removeWord = (entry: UnknownWordEntry) => void mutate(async () => {
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: 'REMOVE_FROM_VOCABULARY',
-        payload: { word }
-      });
-      if (response.success) {
-        setWords(words.filter(w => w.word !== word));
-      }
-    } catch (error) {
-      logger.error('Failed to remove word:', error);
-    }
-  };
-
-  const requestClearAll = () => {
-    setPendingClear(true);
-  };
-
-  const executeClearAll = async () => {
+      const response = await chrome.runtime.sendMessage({ type: 'REMOVE_FROM_VOCABULARY', payload: { word: entry.word } });
+      if (!response?.success) throw new Error('移除未成功');
+      setWords(previous => previous.filter(word => word.word !== entry.word));
+      setRemoved(entry);
+      setNotice(`已移除 ${entry.word}。仅移出生词本，掌握度记录不变。`);
+    } catch (failure) { setError('移除失败，词条已保留。请核对后重试。'); logger.error('移除词条失败', failure); }
+  });
+  const undoRemove = () => void mutate(async () => {
+    if (!removed) return;
     try {
-      // 逐个删除所有单词
-      for (const word of words) {
-        await chrome.runtime.sendMessage({
-          type: 'REMOVE_FROM_VOCABULARY',
-          payload: { word: word.word }
-        });
+      // 恢复保留原词条并跳过已有新状态的词，允许应用自身保存的空释义。
+      const response = await chrome.runtime.sendMessage({ type: 'ADD_TO_VOCABULARY', payload: { ...removed, skipIfExists: true } });
+      if (!response?.success) throw new Error('恢复未成功');
+      setRemoved(null);
+      setNotice(response.data?.added === true ? `已恢复 ${removed.word}。` : '词条已有新状态，未覆盖；请核对当前生词本。');
+      restoreSearchFocus.current = true;
+      await load();
+    } catch (failure) { setError('恢复失败，可再次撤销移除。'); logger.error('恢复词条失败', failure); }
+  });
+  const clearAll = () => void mutate(async () => {
+    let count = 0;
+    setRemoved(null);
+    try {
+      for (const entry of words) {
+        const response = await chrome.runtime.sendMessage({ type: 'REMOVE_FROM_VOCABULARY', payload: { word: entry.word } });
+        if (!response?.success) throw new Error('清空未完成');
+        count++;
+        setWords(previous => previous.filter(word => word.word !== entry.word));
       }
-      setWords([]);
-    } catch (error) {
-      logger.error('Failed to clear vocabulary:', error);
-    } finally {
-      setPendingClear(false);
-    }
-  };
+      setNotice(`已移除 ${count} 个收藏，掌握度记录不变。`);
+    } catch (failure) {
+      setError(`清空未完成：已移除 ${count} 个，其余词条已保留，请核对后重试。`);
+      logger.error('清空生词本失败', failure);
+    } finally { setPendingClear(false); search.current?.focus(); }
+  });
+  const filtered = words.filter(word => `${word.word}\n${word.translation}`.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    .sort((a, b) => sortBy === 'recent' ? b.markedAt - a.markedAt : a.word.localeCompare(b.word));
+  const disabled = busy || isSaving;
 
-  const cancelClearAll = () => {
-    setPendingClear(false);
-  };
-
-  // Filter and sort words
-  const filteredWords = words
-    .filter((w) =>
-      w.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      w.translation.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      if (sortBy === 'recent') {
-        return b.markedAt - a.markedAt;
-      }
-      return a.word.localeCompare(b.word);
-    });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="加载生词本">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  if (review) return <FlashcardReview isSaving={isSaving} initialWords={review} onExit={() => { setReview(null); restoreSearchFocus.current = true; void load(); }} />;
+  if (isLoading) return <p role="status" aria-label="加载生词本" className="py-8 text-gray-600 dark:text-gray-300">加载生词本…</p>;
+  if (loadError) return <div role="alert" className="text-red-700 dark:text-red-300">加载生词本失败，无法确认收藏数量。<button onClick={() => void load()} className={`${action} ml-2`}>重试加载</button></div>;
 
   return (
-    <div className="space-y-6">
-      {/* 统计信息 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">生词本</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">{words.length}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-300">总词汇</div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {words.filter(w => w.reviewCount > 0).length}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-300">已复习</div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {words.filter(w => Date.now() - w.markedAt < 7 * 24 * 60 * 60 * 1000).length}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-300">本周新增</div>
-          </div>
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
+      <fieldset disabled={disabled}><legend className="sr-only">生词本导入导出</legend><VocabularyExportImport words={words} onImportComplete={load} /></fieldset>
+      <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4">
+        <h2 className="text-lg font-semibold">生词本收藏</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300">收藏不等于掌握度记录。可直接复习当前列表，每轮最多 20 词；到期复习另按已建立的掌握度记录安排。</p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 min-w-0"><label htmlFor="vocab-search" className="sr-only">搜索单词或翻译</label><input ref={search} id="vocab-search" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} placeholder="搜索单词或翻译..." className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500" /></div>
+          <label htmlFor="vocab-sort" className="sr-only">排序方式</label><select id="vocab-sort" value={sortBy} onChange={event => setSortBy(event.target.value as 'recent' | 'alpha')} className="px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-900"><option value="recent">最近添加</option><option value="alpha">字母排序</option></select>
         </div>
-      </div>
-
-      {/* 数据导入导出 */}
-      <VocabularyExportImport words={words} onImportComplete={loadVocabulary} />
-
-      {/* 词汇列表 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        {/* Search and sort */}
-        <div className="flex gap-3 mb-4">
-          <div className="flex-1 relative">
-            <label htmlFor="vocab-search" className="sr-only">搜索单词或翻译</label>
-            <input
-              id="vocab-search"
-              type="text"
-              placeholder="搜索单词或翻译..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-            />
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <label htmlFor="vocab-sort" className="sr-only">排序方式</label>
-          <select
-            id="vocab-sort"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'recent' | 'alpha')}
-            className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 dark:text-white"
-          >
-            <option value="recent">最近添加</option>
-            <option value="alpha">字母排序</option>
-          </select>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">共 {filtered.length} 个词汇{searchTerm && `（筛选自 ${words.length} 个）`}</p>
+          <button disabled={disabled || filtered.length === 0} onClick={() => { setRemoved(null); setPendingClear(false); setError(''); setNotice(''); setReview(filtered.slice(0, 20)); }} className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">{searchTerm ? `复习筛选结果（${Math.min(filtered.length, 20)}）` : `开始复习（${Math.min(filtered.length, 20)}）`}</button>
         </div>
-
-        {/* Word list */}
-        {words.length === 0 ? (
-          <div className="text-center py-12" role="status">
-            <div className="text-gray-400 dark:text-gray-300 mb-3">
-              <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <p className="text-gray-500 dark:text-gray-300 mb-1">生词本为空</p>
-            <p className="text-sm text-gray-400 dark:text-gray-300">
-              阅读时标记不认识的词汇，它们会出现在这里
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto mb-4">
-              {filteredWords.map((entry) => (
-                <div
-                  key={entry.word}
-                  className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 dark:text-white">{entry.word}</span>
-                        {entry.reviewCount > 0 && (
-                          <span className="px-2 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full">
-                            复习 {entry.reviewCount} 次
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-300 mt-1">{entry.translation}</p>
-                      {entry.context && (
-                        <p className="text-sm text-gray-500 dark:text-gray-300 mt-2 italic truncate">
-                          "{entry.context}"
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-400 dark:text-gray-300 mt-2">
-                        {formatDate(entry.markedAt)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeWord(entry.word)}
-                      disabled={isSaving}
-                      aria-label={`移除：${entry.word}`}
-                      className="ml-3 p-2 text-gray-500 dark:text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {filteredWords.length === 0 && searchTerm && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-300" role="status">
-                  未找到匹配的词汇
-                </div>
-              )}
-            </div>
-
-            {/* 底部操作 */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-              <span className="text-sm text-gray-500 dark:text-gray-300">
-                共 {filteredWords.length} 个词汇
-                {searchTerm && ` (筛选自 ${words.length} 个)`}
-              </span>
-              {words.length > 0 && (
-                pendingClear ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-red-600 dark:text-red-400" role="alert">
-                      确定要清空生词本吗？此操作不可恢复。
-                    </span>
-                    <button
-                      onClick={executeClearAll}
-                      disabled={isSaving}
-                      className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                    >
-                      确定
-                    </button>
-                    <button
-                      onClick={cancelClearAll}
-                      className="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                    >
-                      取消
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={requestClearAll}
-                    disabled={isSaving}
-                    className="px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                  >
-                    清空生词本
-                  </button>
-                )
-              )}
-            </div>
-          </>
-        )}
-      </div>
+        {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
+        {(notice || removed) && <div className="flex flex-wrap gap-3 items-center text-sm"><p role="status">{notice}</p>{removed && <button ref={undo} disabled={disabled} onClick={undoRemove} className={action}>撤销移除</button>}</div>}
+        {words.length === 0 ? <div role="status" className="py-8 text-center"><p>生词本为空</p><p className="text-sm text-gray-600 dark:text-gray-300 mt-2">阅读时收藏词汇，或从文件导入后开始复习。</p></div> : filtered.length === 0 ? <div role="status" className="py-8 text-center"><p>未找到匹配的词汇</p><button onClick={() => { setSearchTerm(''); search.current?.focus(); }} className={`${action} mt-3`}>清除筛选</button></div> : <ul className="space-y-2 max-h-[480px] overflow-y-auto">
+          {filtered.map(entry => <li key={entry.word} className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 flex items-start gap-3">
+            <div className="flex-1 min-w-0 break-words"><h3 className="font-medium">{entry.word}</h3><p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{entry.translation || '暂无释义'}</p>{entry.context && <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{entry.context}</p>}<p className="text-xs text-gray-600 dark:text-gray-300 mt-2">收藏于 {formatDate(entry.markedAt)}</p></div>
+            <button onClick={() => removeWord(entry)} aria-label={`移除：${entry.word}`} disabled={disabled} className={`${action} text-sm shrink-0`}>移除</button>
+          </li>)}
+        </ul>}
+        {words.length > 0 && <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          {pendingClear ? <div className="flex flex-wrap items-center gap-3"><p className="text-sm text-red-700 dark:text-red-300">清空整个生词本的 {words.length} 个收藏？不受当前筛选限制，无法批量撤销。</p><button onClick={clearAll} disabled={disabled} className={action}>确认清空</button><button onClick={() => setPendingClear(false)} disabled={disabled} className={action}>取消</button></div> : <button onClick={() => setPendingClear(true)} disabled={disabled} className={`${action} text-sm text-red-700 dark:text-red-300`}>清空生词本</button>}
+        </div>}
+      </section>
     </div>
   );
 }

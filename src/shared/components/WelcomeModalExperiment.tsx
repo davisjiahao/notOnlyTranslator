@@ -662,7 +662,7 @@ function ApiStep({
             </button>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-            密钥仅存储在本地，我们不会也无法访问
+            密钥保存在浏览器扩展存储中，可能随浏览器同步；请求会发送到所选服务商。
           </p>
           {testResult === 'error' && (
             <p role="alert" className="mt-1 text-xs text-red-500">连接测试失败，请检查 API Key 或网络</p>

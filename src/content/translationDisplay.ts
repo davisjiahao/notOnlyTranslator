@@ -160,6 +160,9 @@ export class TranslationDisplay {
         // 1. 创建语法高亮 span (波浪线部分)
         const grammarSpan = document.createElement('span');
         grammarSpan.className = 'not-translator-grammar-highlight';
+        grammarSpan.tabIndex = 0;
+        grammarSpan.setAttribute('role', 'button');
+        grammarSpan.setAttribute('aria-haspopup', 'dialog');
         grammarSpan.dataset.grammarExplanation = point.explanation;
         grammarSpan.dataset.grammarType = point.type || '语法点';
         grammarSpan.dataset.grammarOriginal = point.original;
@@ -348,6 +351,8 @@ export class TranslationDisplay {
       highlightMark2.className = 'not-translator-highlighted-translation';
       highlightMark2.title = `${highlight.word} → ${highlight.translation}`;
       highlightMark2.tabIndex = 0;
+      highlightMark2.setAttribute('role', 'button');
+      highlightMark2.setAttribute('aria-haspopup', 'dialog');
       highlightMark2.dataset.index = String(highlight.index);
       highlightMark2.dataset.word = highlight.word;
       highlightMark2.textContent = highlight.translation;
@@ -397,7 +402,7 @@ export class TranslationDisplay {
 
   /** 全文期间暂停旧英语装饰与交互，恢复属性复用同一批安全撤销预检。 */
   private static suspendVocabularyHighlights(paragraph: HTMLElement): void {
-    const names = ['class', 'title', 'tabindex', 'data-word', 'data-level', 'data-difficulty', 'data-confidence'];
+    const names = ['class', 'title', 'tabindex', 'role', 'aria-haspopup', 'data-word', 'data-level', 'data-difficulty', 'data-confidence'];
     for (const mark of paragraph.querySelectorAll<HTMLElement>('mark.not-translator-vocab-highlight')) {
       if (isInExcludedArea(mark)) continue;
       const attributes = names.map(name => [name, mark.getAttribute(name)] as const);
@@ -484,6 +489,8 @@ export class TranslationDisplay {
     if (word.isPhrase) mark.dataset.isPhrase = 'true';
     mark.title = `${word.original} — ${word.translation}`;
     mark.tabIndex = 0;
+    mark.setAttribute('role', 'button');
+    mark.setAttribute('aria-haspopup', 'dialog');
     mark.textContent = word.translation;
     const annotation = document.createElement('span');
     annotation.className = 'not-translator-inline-translation';
@@ -570,6 +577,8 @@ export class TranslationDisplay {
           mark.className = CSS_CLASSES.HIGHLIGHT;
           mark.title = `${word.original} — ${word.translation}`;
           mark.tabIndex = 0;
+          mark.setAttribute('role', 'button');
+          mark.setAttribute('aria-haspopup', 'dialog');
           mark.dataset.difficulty = String(word.difficulty);
           mark.dataset.translation = word.translation;
           mark.dataset.word = word.original;

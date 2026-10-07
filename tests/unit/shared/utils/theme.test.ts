@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { getEffectiveTheme, useTheme, THEME_OPTIONS } from '@/shared/utils/theme';
+import { getEffectiveTheme, useTheme, useIsDarkTheme, THEME_OPTIONS } from '@/shared/utils/theme';
 import type { ThemeMode } from '@/shared/types';
 
 // Mock window.matchMedia
@@ -72,6 +72,24 @@ describe('useTheme', () => {
     expect(result.current.theme).toBe('light');
     expect(result.current.effectiveTheme).toBe('light');
     expect(result.current.isDark).toBe(false);
+  });
+
+  it('异步读取或再次修改主题时同步到 DOM', () => {
+    const { result, rerender } = renderHook(({ mode }: { mode: ThemeMode }) => useTheme(mode), { initialProps: { mode: 'system' as ThemeMode } });
+    rerender({ mode: 'dark' });
+    expect(result.current.theme).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    rerender({ mode: 'light' });
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+
+  it('只读主题订阅不覆盖页面主题，并跟随变化', async () => {
+    document.documentElement.classList.add('dark');
+    const { result } = renderHook(() => useIsDarkTheme());
+    expect(result.current).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    await act(async () => { document.documentElement.classList.remove('dark'); });
+    expect(result.current).toBe(false);
   });
 
   it('应该切换主题', () => {

@@ -7,6 +7,8 @@ import RecruitmentBanner from './components/RecruitmentBanner';
 import WelcomeModal from './components/WelcomeModal';
 import { FeedbackButton } from './components/Feedback';
 import MasteryCard from './components/MasteryCard';
+import { isOnboardingDismissed, isTranslationReady } from '@/shared/utils/onboarding';
+import { getOptionsUrl, HELP_URL } from '@/shared/utils/extensionPages';
 
 interface Stats {
   estimatedVocabulary: number;
@@ -31,8 +33,7 @@ export default function App() {
   const [showConfirmRefresh, setShowConfirmRefresh] = useState(false);
   /** 待确认的站点名（取消时用于回滚设置） */
   const [pendingHostname, setPendingHostname] = useState<string>('');
-  /** 翻译模式切换视觉反馈 */
-  const [showModeTransition, setShowModeTransition] = useState(false);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(isOnboardingDismissed);
 
   // 初始化主题
   useTheme(settings?.theme ?? 'system');
@@ -40,11 +41,8 @@ export default function App() {
   // 检测是否需要显示欢迎引导
   const checkWelcomeNeeded = useCallback(() => {
     if (!settings) return false;
-    // 没有配置任何 API 或没有测试通过的配置
-    return !settings.apiConfigs?.length ||
-           !settings.apiConfigs.some(c => c.tested) ||
-           !settings.activeApiConfigId;
-  }, [settings]);
+    return !welcomeDismissed && !isTranslationReady(settings);
+  }, [settings, welcomeDismissed]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     // 基于内容长度计算持续时间：每 10 字符 +0.5 秒，最少 2 秒，最多 6 秒
@@ -203,13 +201,6 @@ export default function App() {
       settingsRef.current = next;
       setSettings(next);
 
-      if (newSettingsPart.translationMode && newSettingsPart.translationMode !== current.translationMode) {
-        // 触发模式切换动画
-        setShowModeTransition(true);
-        // 短暂延迟后隐藏（0.5 秒）
-        setTimeout(() => setShowModeTransition(false), 500);
-      }
-
       if (newSettingsPart.translationMode) {
         const modeNames: Record<string, string> = {
           'inline-only': '生词高亮',
@@ -232,7 +223,7 @@ export default function App() {
   const openVocabulary = () => {
     // 打开设置页面并跳转到生词本视图
     chrome.tabs.create({
-      url: chrome.runtime.getURL('options.html?tab=vocabulary')
+      url: getOptionsUrl('vocabulary')
     });
   };
 
@@ -253,7 +244,11 @@ export default function App() {
       {showWelcomeModal && (
         <WelcomeModal
           settings={settings}
-          onComplete={() => setShowWelcomeModal(false)}
+          onComplete={() => {
+            setWelcomeDismissed(true);
+            setShowWelcomeModal(false);
+            void loadData();
+          }}
           onOpenSettings={() => {
             setShowWelcomeModal(false);
             openOptions();
@@ -266,8 +261,8 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2 pr-8 rounded-lg shadow-lg z-50 text-sm font-medium ${
-            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          className={`fixed bottom-3 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-1.5rem)] px-4 py-2 pr-8 rounded-lg shadow-lg z-50 text-sm font-medium ${
+            toast.type === 'success' ? 'bg-green-700 text-white' : 'bg-red-700 text-white'
           }`}
         >
           {toast.message}
@@ -281,22 +276,6 @@ export default function App() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        </div>
-      )}
-
-      {/* 翻译模式切换视觉反馈 — 模式图标动画 */}
-      {showModeTransition && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center"
-        >
-          <div className="animate-ping absolute w-32 h-32 bg-primary-500/10 dark:bg-primary-400/10 rounded-full" />
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-xl border border-primary-200 dark:border-primary-700 animate-bounce">
-            <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-            </svg>
-          </div>
         </div>
       )}
 
@@ -329,83 +308,73 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 p-3 flex flex-col gap-2">
 
-        {/* 用户研究招募 Banner */}
-        {showBanner && <RecruitmentBanner onDismiss={handleBannerDismiss} />}
-
-        {/* 词汇量卡片（含统计） */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="text-xs text-gray-500 dark:text-gray-300 mb-0.5">词汇量估算</div>
-              <div className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                {stats?.estimatedVocabulary.toLocaleString() || '---'}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-primary-600 font-medium bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full inline-block mb-1">
-                {stats?.level || '未评估'}
-              </div>
-              {profile && (
-                <div className="text-xs text-gray-400 dark:text-gray-300">
-                  {EXAM_DISPLAY_NAMES[profile.examType]}
+        {/* 网站开关 */}
+        {currentHostname ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
+            {showConfirmRefresh ? (
+              /* 刷新确认对话框 */
+              <div role="dialog" aria-label="刷新页面确认" className="py-2">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                  刷新页面以应用更改？
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div className="h-px bg-gray-100 dark:bg-gray-700 mb-2"></div>
-
-          {/* 统计行 */}
-          <div className="flex items-center gap-4 mb-2">
-            <span className="text-xs text-green-600 font-medium">
-              <svg aria-hidden="true" className="w-3 h-3 inline-block mr-0.5 -mt-px" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" />
-              </svg>
-              {stats?.knownWordsCount || 0} 已掌握
-            </span>
-            <span className="text-xs text-orange-500 font-medium">
-              <svg aria-hidden="true" className="w-3 h-3 inline-block mr-0.5 -mt-px" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
-              </svg>
-              {stats?.unknownWordsCount || 0} 待学习
-            </span>
-          </div>
-
-          {/* 置信度进度条 */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-300 flex-shrink-0">置信度</span>
-            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-              <div
-                className="bg-primary-500 h-1.5 rounded-full transition-all"
-                role="progressbar"
-                aria-valuenow={confidencePercent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="置信度"
-                style={{ width: `${confidencePercent}%` }}
-              />
-            </div>
-            <span className="text-xs text-gray-500 dark:text-gray-300 font-medium flex-shrink-0">{confidencePercent}%</span>
-            <span className="relative group flex-shrink-0">
-              <button
-                type="button"
-                aria-label="置信度说明"
-                className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-              >
-                <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <div className="absolute bottom-full right-0 mb-1 w-64 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-opacity z-50">
-                置信度反映系统对你词汇量估算的可靠程度。标记的词汇越多越准确，建议达到 70% 以上。
-                <div className="absolute top-full right-3 -mt-px w-3 h-3 bg-gray-900 dark:bg-gray-700 transform rotate-45" />
+                <div className="text-xs text-gray-500 dark:text-gray-300 mb-3">
+                  设置已保存。若页面尚未更新，可以立即刷新或稍后刷新。
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={cancelPageReload}
+                    className="flex-1 py-2 px-3 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    撤销更改
+                  </button>
+                  <button
+                    onClick={confirmPageReload}
+                    className="flex-1 py-2 px-3 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    确认刷新
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmRefresh(false)}
+                    className="w-full py-2 text-sm text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                  >
+                    稍后刷新
+                  </button>
+                </div>
               </div>
-            </span>
+            ) : (
+              /* 正常显示 */
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0 mr-3">
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={currentHostname}>
+                    {currentHostname}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">
+                    {isSiteTranslationEnabled ? '翻译已开启' : '翻译已禁用'}
+                  </div>
+                </div>
+                <button
+                  onClick={toggleSiteTranslation}
+                  role="switch"
+                  aria-checked={isSiteTranslationEnabled ? 'true' : 'false'}
+                  aria-label={`${currentHostname} 网站翻译`}
+                  className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
+                    isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                      isSiteTranslationEnabled ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* 词汇掌握度卡片 */}
-        <MasteryCard />
+        ) : (
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center text-gray-500 dark:text-gray-300 text-xs">
+            当前页面不支持翻译
+          </div>
+        )}
 
         {/* 翻译模式 + API 切换 */}
         {settings && (
@@ -486,68 +455,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 网站开关 */}
-        {currentHostname ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-            {showConfirmRefresh ? (
-              /* 刷新确认对话框 */
-              <div role="dialog" aria-label="刷新页面确认" className="py-2">
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                  刷新页面以应用更改？
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-300 mb-3">
-                  切换网站翻译设置后需要刷新页面才能生效
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={cancelPageReload}
-                    className="flex-1 py-2 px-3 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                  >
-                    取消，下次生效
-                  </button>
-                  <button
-                    onClick={confirmPageReload}
-                    className="flex-1 py-2 px-3 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                  >
-                    确认刷新
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* 正常显示 */
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0 mr-3">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={currentHostname}>
-                    {currentHostname}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-300">
-                    {isSiteTranslationEnabled ? '翻译已开启' : '翻译已禁用'}
-                  </div>
-                </div>
-                <button
-                  onClick={toggleSiteTranslation}
-                  role="switch"
-                  aria-checked={isSiteTranslationEnabled ? 'true' : 'false'}
-                  aria-label={`${currentHostname} 网站翻译`}
-                  className={`flex-shrink-0 w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
-                    isSiteTranslationEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
-                  }`}
-                >
-                  <div
-                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                      isSiteTranslationEnabled ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center text-gray-500 dark:text-gray-300 text-xs">
-            当前页面不支持翻译
-          </div>
-        )}
-
         {/* 底部快捷按钮 */}
         <div className="grid grid-cols-2 gap-2 mt-auto">
           <button
@@ -571,11 +478,95 @@ export default function App() {
           </button>
         </div>
 
+        <details>
+          <summary className="cursor-pointer rounded-lg px-2 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500">学习概览</summary>
+          <div className="space-y-2 mt-2">
+        {/* 词汇量卡片（含统计） */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-xs text-gray-500 dark:text-gray-300 mb-0.5">词汇量估算</div>
+              <div className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                {stats?.estimatedVocabulary.toLocaleString() || '---'}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-primary-600 font-medium bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full inline-block mb-1">
+                {stats?.level || '未评估'}
+              </div>
+              {profile && (
+                <div className="text-xs text-gray-400 dark:text-gray-300">
+                  {EXAM_DISPLAY_NAMES[profile.examType]}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="h-px bg-gray-100 dark:bg-gray-700 mb-2"></div>
+
+          {/* 统计行 */}
+          <div className="flex items-center gap-4 mb-2">
+            <span className="text-xs text-green-600 font-medium">
+              <svg aria-hidden="true" className="w-3 h-3 inline-block mr-0.5 -mt-px" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" />
+              </svg>
+              {stats?.knownWordsCount || 0} 已标记认识
+            </span>
+            <span className="text-xs text-orange-500 font-medium">
+              <svg aria-hidden="true" className="w-3 h-3 inline-block mr-0.5 -mt-px" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
+              </svg>
+              {stats?.unknownWordsCount || 0} 生词本收藏
+            </span>
+          </div>
+
+          {/* 置信度进度条 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-300 flex-shrink-0">估算置信度</span>
+            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+              <div
+                className="bg-primary-500 h-1.5 rounded-full transition-all"
+                role="progressbar"
+                aria-valuenow={confidencePercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="词汇量估算置信度"
+                style={{ width: `${confidencePercent}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-300 font-medium flex-shrink-0">{confidencePercent}%</span>
+            <span className="relative group flex-shrink-0">
+              <button
+                type="button"
+                aria-label="置信度说明"
+                className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+              >
+                <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <div className="absolute bottom-full right-0 mb-1 w-64 p-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-opacity z-50">
+                这是模型对词汇量估算的置信度，不是测试正确率；已标记认识也不等于复习掌握。
+                <div className="absolute top-full right-3 -mt-px w-3 h-3 bg-gray-900 dark:bg-gray-700 transform rotate-45" />
+              </div>
+            </span>
+          </div>
+        </div>
+
+        {/* 词汇掌握度卡片 */}
+        <MasteryCard />
+
+          </div>
+        </details>
+
+        {/* 招募不抢占阅读控制的首屏空间 */}
+        {showBanner && <RecruitmentBanner onDismiss={handleBannerDismiss} />}
+
         {/* 反馈按钮 + 帮助链接 */}
         <div className="flex items-center justify-center gap-3">
           <FeedbackButton variant="minimal" size="sm" />
           <a
-            href="https://github.com/yourusername/notOnlyTranslator#readme"
+            href={HELP_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"

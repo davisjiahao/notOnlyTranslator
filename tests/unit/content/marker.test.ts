@@ -140,12 +140,7 @@ describe('MarkerService', () => {
 
       expect(mockSendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          payload: expect.objectContaining({
-            entry: expect.objectContaining({
-              word: 'difficult',
-              translation: '困难的',
-            }),
-          }),
+          payload: expect.objectContaining({ word: 'difficult', translation: '困难的' }),
         }),
         expect.any(Function)
       );
@@ -158,11 +153,7 @@ describe('MarkerService', () => {
 
       expect(mockSendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          payload: expect.objectContaining({
-            entry: expect.objectContaining({
-              context: 'This is a difficult problem.',
-            }),
-          }),
+          payload: expect.objectContaining({ context: 'This is a difficult problem.' }),
         }),
         expect.any(Function)
       );
@@ -353,13 +344,7 @@ describe('MarkerService', () => {
       expect(mockSendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'ADD_TO_VOCABULARY',
-          payload: expect.objectContaining({
-            entry: expect.objectContaining({
-              word: 'test',
-              translation: '测试',
-              context: 'This is a test.',
-            }),
-          }),
+          payload: expect.objectContaining({ word: 'test', translation: '测试', context: 'This is a test.' }),
         }),
         expect.any(Function)
       );
@@ -370,7 +355,7 @@ describe('MarkerService', () => {
         if (callback) callback({ success: false, error: 'Failed to add' });
       });
 
-      await markerService.addToVocabulary('test', '测试', 'context');
+      expect(await markerService.addToVocabulary('test', '测试', 'context')).toBe(false);
 
       expect(mockCallbacks.onError).toHaveBeenCalledWith('test', 'Failed to add');
     });

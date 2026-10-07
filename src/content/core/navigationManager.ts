@@ -47,6 +47,7 @@ export class NavigationManager {
       '.not-translator-grammar-highlight',
       '.not-translator-highlighted-word',
       '.not-translator-highlighted-translation',
+      '.not-translator-vocab-highlight',
     ];
 
     const elements: HTMLElement[] = [];

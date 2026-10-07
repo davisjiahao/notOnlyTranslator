@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Achievement, TIER_COLORS, TIER_NAMES } from '@/shared/types/achievements';
 import { useFocusTrap } from '@/shared/hooks';
+import { useReducedMotion } from '@/shared/hooks/useReducedMotion';
 
 interface AchievementUnlockModalProps {
   achievement: Achievement;
@@ -18,6 +19,7 @@ export function AchievementUnlockModal({
   onShare,
 }: AchievementUnlockModalProps) {
   const [showConfetti, setShowConfetti] = useState(true);
+  const reducedMotion = useReducedMotion();
   const colors = TIER_COLORS[achievement.tier];
   const isUnlocked = !!achievement.unlockedAt;
 
@@ -35,11 +37,11 @@ export function AchievementUnlockModal({
     // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
     <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="achievement-modal-title">
       {/* Confetti 效果 */}
-      {showConfetti && isUnlocked && <ConfettiAnimation />}
+      {showConfetti && isUnlocked && !reducedMotion && <ConfettiAnimation />}
 
       <div className={`
         relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-8
-        animate-in fade-in zoom-in duration-300
+        motion-safe:animate-in motion-safe:fade-in duration-200
       `}>
         {/* 关闭按钮 */}
         <button
@@ -56,7 +58,7 @@ export function AchievementUnlockModal({
         <div className={`
           w-24 h-24 mx-auto rounded-full flex items-center justify-center text-5xl mb-4
           ${colors.bg} ${colors.border} border-4
-          ${isUnlocked ? 'animate-bounce' : 'grayscale'}
+          ${isUnlocked ? '' : 'grayscale'}
         `} aria-hidden="true">
           {achievement.icon}
         </div>

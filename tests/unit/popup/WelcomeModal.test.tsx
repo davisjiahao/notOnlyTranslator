@@ -7,6 +7,11 @@ import WelcomeModal from '@/popup/components/WelcomeModal';
 const mockSendMessage = vi.fn();
 beforeEach(() => {
   mockSendMessage.mockReset();
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  } });
   Object.defineProperty(global, 'chrome', {
     value: {
       runtime: { sendMessage: mockSendMessage },
@@ -25,6 +30,30 @@ function createSettings(overrides?: Record<string, unknown>) {
 }
 
 describe('WelcomeModal', () => {
+  it('免费启用仅提交增量设置，并在保存成功后完成引导', async () => {
+    mockSendMessage.mockResolvedValue({ success: true });
+    render(<WelcomeModal settings={createSettings()} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+    await act(async () => fireEvent.click(screen.getByText('无需 API Key，立即体验')));
+    expect(mockSendMessage).toHaveBeenCalledWith({ type: 'UPDATE_SETTINGS', payload: { apiProvider: 'free_google_translate', activeApiConfigId: undefined } });
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('已开启免费翻译');
+    fireEvent.click(screen.getByText('开始使用'));
+    expect(localStorage.getItem('not_onboarding_completed')).toBe('true');
+  });
+
+  it('免费设置保存失败不谎报成功，可重试', async () => {
+    mockSendMessage.mockResolvedValue({ success: false });
+    render(<WelcomeModal settings={createSettings()} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+    await act(async () => fireEvent.click(screen.getByText('无需 API Key，立即体验')));
+    expect(screen.getByRole('alert')).toHaveTextContent('保存失败');
+    expect(screen.queryByText('已开启免费翻译')).not.toBeInTheDocument();
+    expect(localStorage.getItem('not_onboarding_completed')).toBeNull();
+  });
+
+  it('每一步都有有效的对话框名称', () => {
+    render(<WelcomeModal settings={createSettings()} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+    fireEvent.click(screen.getByText('开始配置'));
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('快速配置 API');
+  });
   // --- Render conditions ---
 
   it('renders when needsSetup is true (empty apiConfigs)', () => {

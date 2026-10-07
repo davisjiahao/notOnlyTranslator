@@ -392,5 +392,7 @@ describe('设置页增量保存', () => {
     await waitFor(() => expect(screen.getByText('保存失败')).toBeInTheDocument());
     expect(screen.getByText('主题：light；高亮：true')).toBeInTheDocument();
     expect(sendMessage.mock.calls.filter(([message]) => message.type === 'GET_SETTINGS')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('保存失败');
+    expect(screen.getByRole('alert')).not.toHaveClass('bg-green-500');
   });
 });

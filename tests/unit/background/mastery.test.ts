@@ -159,6 +159,16 @@ describe('MasteryManager', () => {
       expect(result.newConfidence).toBeGreaterThan(0.2);
     });
 
+    it.each([false, true])('重复标记保留首次时间与已有复习计数，批量 %s', async batch => {
+      const first = makeWordEntry({ markedAt: 1000, reviewCount: 4 });
+      await MasteryManager.markWord(first, false);
+      const next = makeWordEntry({ markedAt: Date.now(), reviewCount: 0, context: '新语境' });
+      if (batch) await MasteryManager.batchMarkWords([{ wordEntry: next, isKnown: true }]);
+      else await MasteryManager.markWord(next, true);
+      const saved = await StorageManager.getWordMastery(first.word);
+      expect(saved).toMatchObject({ markedAt: 1000, reviewCount: 4, context: '新语境', lastReviewAt: Date.now() });
+    });
+
     it('答错时降低掌握度', async () => {
       const wordEntry = makeWordEntry();
 

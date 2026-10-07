@@ -161,7 +161,7 @@ export class MarkerService {
 
         const response = await this.sendMessage({
           type: 'MARK_WORD_UNKNOWN',
-          payload: { entry },
+          payload: entry,
         });
 
         if (response.success) {
@@ -306,7 +306,7 @@ export class MarkerService {
     word: string,
     translation: string,
     context: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const entry: UnknownWordEntry = {
       word,
       translation: translation || '',
@@ -318,14 +318,17 @@ export class MarkerService {
     try {
       const response = await this.sendMessage({
         type: 'ADD_TO_VOCABULARY',
-        payload: { entry },
+        payload: entry,
       });
 
       if (!response.success) {
         this.callbacks.onError?.(word, response.error || 'Failed to add to vocabulary');
+        return false;
       }
+      return true;
     } catch (error) {
       this.callbacks.onError?.(word, String(error));
+      return false;
     }
   }
 

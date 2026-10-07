@@ -37,7 +37,12 @@ describe('全文模式不把英语CEFR装饰与交互赋给中文片段', () => 
     const wrappers = Array.from(element.querySelectorAll<HTMLElement>('mark.not-translator-vocab-highlight'));
     expect(wrappers.length).toBeGreaterThan(1);
     const shown: HTMLElement[] = [];
-    const hover = new HoverManager({ hide() {}, getPinned: () => false } as Tooltip, target => shown.push(target));
+    const hover = new HoverManager({
+      hide() {},
+      getPinned: () => false,
+      contains: () => false,
+      containsFocus: () => false,
+    } as Tooltip, target => shown.push(target));
     const style = document.createElement('style');
     style.textContent = readFileSync('src/content/styles.css', 'utf8');
     document.head.appendChild(style);
@@ -76,7 +81,12 @@ describe('全文模式不把英语CEFR装饰与交互赋给中文片段', () => 
     highlighter.highlightElement(element);
     const wrapper = element.querySelector<HTMLElement>('[data-word="publishing"]')!;
     const shown: HTMLElement[] = [];
-    const hover = new HoverManager({ hide() {}, getPinned: () => false } as Tooltip, target => shown.push(target));
+    const hover = new HoverManager({
+      hide() {},
+      getPinned: () => false,
+      contains: () => false,
+      containsFocus: () => false,
+    } as Tooltip, target => shown.push(target));
     try {
       TranslationDisplay.applyTranslation(element, response, 'full-translate');
       expect(wrapper.textContent).toMatch(/\p{Script=Han}/u);

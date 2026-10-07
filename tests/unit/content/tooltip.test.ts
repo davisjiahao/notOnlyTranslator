@@ -670,6 +670,28 @@ describe('Tooltip', () => {
   });
 
   describe('undo bar', () => {
+    it.each(['input', 'textarea', 'contenteditable'])('保留 %s 内原生撤销，不触发标词快捷键', (kind) => {
+      tooltip.showWord(mockTarget, { original: 'test', translation: '测试', position: [0, 4], difficulty: 5, isPhrase: false });
+      (document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement).click();
+      const editor = document.createElement(kind === 'contenteditable' ? 'div' : kind);
+      if (kind === 'contenteditable') { editor.setAttribute('contenteditable', 'true'); editor.tabIndex = 0; }
+      document.body.appendChild(editor);
+      editor.focus();
+      const event = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true });
+      editor.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(mockCallbacks.onUndoLastMark).not.toHaveBeenCalled();
+    });
+    it('同词的迟到查词结果不能覆盖撤销反馈', () => {
+      const data: TranslatedWord = { original: 'test', translation: '测试', position: [0, 4], difficulty: 5, isPhrase: false };
+      tooltip.showWord(mockTarget, data);
+      (document.querySelector(`.${CSS_CLASSES.MARK_BUTTON}.known`) as HTMLElement).click();
+      tooltip.showWord(mockTarget, data);
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`)).not.toBeNull();
+      tooltip.showWord(mockTarget, { ...data, original: 'another' });
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-btn`)).toBeNull();
+    });
+
     it('should show undo bar after marking word as known', () => {
       tooltip.showWord(mockTarget, {
         original: 'test',
@@ -755,7 +777,7 @@ describe('Tooltip', () => {
       expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).toBeNull();
     });
 
-    it('should auto-hide after 3 seconds via timer', () => {
+    it('撤销操作不设置强制倒计时，等待用户关闭', () => {
       tooltip.showWord(mockTarget, {
         original: 'test',
         translation: '测试',
@@ -770,11 +792,10 @@ describe('Tooltip', () => {
       // Undo bar should be present
       expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).not.toBeNull();
 
-      // Advance timers by 3 seconds
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(30000);
 
-      expect(tooltip.isVisible()).toBe(false);
-      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).toBeNull();
+      expect(tooltip.isVisible()).toBe(true);
+      expect(document.querySelector(`.${CSS_CLASSES.TOOLTIP}-undo-bar`)).not.toBeNull();
     });
 
     it('should have correct message for each action type', () => {
