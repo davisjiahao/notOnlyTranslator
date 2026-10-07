@@ -281,6 +281,57 @@ ${text}`;
   }
 }
 
+// ============ 轻量词汇模式提示词（本地优先） ============
+
+/**
+ * 轻量词汇模式提示词输入
+ *
+ * 本地优先流程中，候选词、难度与原句位置均已在本地确定；
+ * 模型只负责补充候选词在当前语境下的中文释义。
+ * 短语/语法增强不在本提示词范围内，由用户显式开关走完整翻译流程。
+ */
+export interface VocabOnlyPromptInput {
+  /** 包含候选词的原句（保留原始语境） */
+  sentence: string;
+  /** 可选的上下文（与原句不同时附加） */
+  context?: string;
+  /** 需要语境释义的候选词（原文原样） */
+  candidates: string[];
+}
+
+/**
+ * 构建轻量词汇模式提示词
+ *
+ * 明确禁止模型输出位置偏移、难度评级与全文翻译：
+ * 位置与难度由本地计算，避免小模型（如 Ollama）生成无法验证的字符偏移。
+ */
+export function buildVocabOnlyPrompt(
+  input: VocabOnlyPromptInput
+): { systemPrompt: string; userPrompt: string } {
+  const { sentence, context, candidates } = input;
+
+  const systemPrompt = `你是英语词汇释义助手。用户会给你一个英文句子和若干候选词，你只需给出每个候选词在该句子语境中的中文释义。
+
+严格要求：
+1. 只翻译给定的候选词，不添加任何其他词汇
+2. 每个候选词只输出一个简短的中文义项（词语或短语，禁止整句翻译、禁止输出解释）
+3. 不要输出单词位置、难度评级、全文翻译或任何解释
+4. 只输出 JSON，格式：{"words":[{"original":"候选词原样","translation":"简短中文义项"}]}`;
+
+  const candidateList = candidates.map((c, i) => `${i + 1}. ${c}`).join('\n');
+  const contextSection = context && context !== sentence ? `\n\n上下文：\n${context}` : '';
+
+  const userPrompt = `句子：
+${sentence}${contextSection}
+
+候选词：
+${candidateList}
+
+请只输出 JSON：{"words":[{"original":"...","translation":"..."}]}，其中 translation 必须是该词在句中的简短中文义项，禁止整句翻译。`;
+
+  return { systemPrompt, userPrompt };
+}
+
 // ============ 提示词版本管理 ============
 
 /**

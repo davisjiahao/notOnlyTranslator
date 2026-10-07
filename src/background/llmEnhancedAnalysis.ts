@@ -5,7 +5,8 @@
 
 import type { TranslatedWord, UserSettings, GrammarPoint } from '@/shared/types';
 import { logger } from '@/shared/utils';
-import { TranslationApiService } from './translationApi';
+import { TranslationApiService, type TranslationApiRequestOptions } from './translationApi';
+import { TransportError } from '@/shared/utils/translationErrors';
 
 /**
  * 生词详细释义
@@ -173,6 +174,16 @@ const DEFAULT_OPTIONS: AnalysisOptions = {
   maxPhrases: 5,
 };
 
+function throwIfRequestAborted(options?: TranslationApiRequestOptions): void {
+  if (options?.signal?.aborted) {
+    throw TransportError.cancelled();
+  }
+}
+
+function isRequestInterrupted(error: unknown): error is TransportError {
+  return error instanceof TransportError && (error.kind === 'cancelled' || error.kind === 'timeout');
+}
+
 /**
  * LLM 增强分析服务
  * 提供生词、短语、语法、文化背景的深度分析
@@ -184,8 +195,10 @@ export class LlmEnhancedAnalysisService {
   static async analyze(
     text: string,
     settings: UserSettings,
-    options: Partial<AnalysisOptions> = {}
+    options: Partial<AnalysisOptions> = {},
+    requestOptions?: TranslationApiRequestOptions
   ): Promise<LlmEnhancedAnalysisResult> {
+    throwIfRequestAborted(requestOptions);
     const startTime = performance.now();
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
@@ -206,11 +219,18 @@ export class LlmEnhancedAnalysisService {
     try {
       // 并行执行各项分析
       const analyses = await Promise.allSettled([
-        opts.analyzeWords ? this.analyzeWords(text, settings, opts) : Promise.resolve([]),
-        opts.analyzePhrases ? this.analyzePhrases(text, settings, opts) : Promise.resolve([]),
-        opts.analyzeGrammar ? this.analyzeGrammar(text, settings) : Promise.resolve([]),
-        opts.analyzeCultural ? this.analyzeCultural(text, settings) : Promise.resolve([]),
+        opts.analyzeWords ? this.analyzeWords(text, settings, opts, requestOptions) : Promise.resolve([]),
+        opts.analyzePhrases ? this.analyzePhrases(text, settings, opts, requestOptions) : Promise.resolve([]),
+        opts.analyzeGrammar ? this.analyzeGrammar(text, settings, requestOptions) : Promise.resolve([]),
+        opts.analyzeCultural ? this.analyzeCultural(text, settings, requestOptions) : Promise.resolve([]),
       ]);
+
+      for (const analysis of analyses) {
+        if (analysis.status === 'rejected' && isRequestInterrupted(analysis.reason)) {
+          throw analysis.reason;
+        }
+      }
+      throwIfRequestAborted(requestOptions);
 
       // 合并结果
       if (analyses[0].status === 'fulfilled') {
@@ -238,6 +258,9 @@ export class LlmEnhancedAnalysisService {
 
       return result;
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       logger.error('LlmEnhancedAnalysisService: Analysis failed', error);
       result.analysisTime = performance.now() - startTime;
       return result;
@@ -250,9 +273,12 @@ export class LlmEnhancedAnalysisService {
   private static async analyzeWords(
     text: string,
     settings: UserSettings,
-    options: AnalysisOptions
+    options: AnalysisOptions,
+    requestOptions?: TranslationApiRequestOptions
   ): Promise<WordDetailAnalysis[]> {
+    throwIfRequestAborted(requestOptions);
     const apiKey = await this.getApiKey(settings);
+    throwIfRequestAborted(requestOptions);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
     }
@@ -264,11 +290,17 @@ export class LlmEnhancedAnalysisService {
         this.getSystemPrompt('word_analysis'),
         prompt,
         apiKey || '',
-        settings
+        settings,
+        undefined,
+        requestOptions
       );
+      throwIfRequestAborted(requestOptions);
 
       return this.parseWordAnalysisResponse(content);
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       logger.error('Word analysis failed:', error);
       return [];
     }
@@ -280,9 +312,12 @@ export class LlmEnhancedAnalysisService {
   private static async analyzePhrases(
     text: string,
     settings: UserSettings,
-    options: AnalysisOptions
+    options: AnalysisOptions,
+    requestOptions?: TranslationApiRequestOptions
   ): Promise<PhraseAnalysis[]> {
+    throwIfRequestAborted(requestOptions);
     const apiKey = await this.getApiKey(settings);
+    throwIfRequestAborted(requestOptions);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
     }
@@ -294,11 +329,17 @@ export class LlmEnhancedAnalysisService {
         this.getSystemPrompt('phrase_analysis'),
         prompt,
         apiKey || '',
-        settings
+        settings,
+        undefined,
+        requestOptions
       );
+      throwIfRequestAborted(requestOptions);
 
       return this.parsePhraseAnalysisResponse(content);
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       logger.error('Phrase analysis failed:', error);
       return [];
     }
@@ -309,9 +350,12 @@ export class LlmEnhancedAnalysisService {
    */
   private static async analyzeGrammar(
     text: string,
-    settings: UserSettings
+    settings: UserSettings,
+    requestOptions?: TranslationApiRequestOptions
   ): Promise<GrammarAnalysis[]> {
+    throwIfRequestAborted(requestOptions);
     const apiKey = await this.getApiKey(settings);
+    throwIfRequestAborted(requestOptions);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
     }
@@ -323,11 +367,17 @@ export class LlmEnhancedAnalysisService {
         this.getSystemPrompt('grammar_analysis'),
         prompt,
         apiKey || '',
-        settings
+        settings,
+        undefined,
+        requestOptions
       );
+      throwIfRequestAborted(requestOptions);
 
       return this.parseGrammarAnalysisResponse(content);
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       logger.error('Grammar analysis failed:', error);
       return [];
     }
@@ -338,9 +388,12 @@ export class LlmEnhancedAnalysisService {
    */
   private static async analyzeCultural(
     text: string,
-    settings: UserSettings
+    settings: UserSettings,
+    requestOptions?: TranslationApiRequestOptions
   ): Promise<CulturalNote[]> {
+    throwIfRequestAborted(requestOptions);
     const apiKey = await this.getApiKey(settings);
+    throwIfRequestAborted(requestOptions);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
     }
@@ -352,11 +405,17 @@ export class LlmEnhancedAnalysisService {
         this.getSystemPrompt('cultural_analysis'),
         prompt,
         apiKey || '',
-        settings
+        settings,
+        undefined,
+        requestOptions
       );
+      throwIfRequestAborted(requestOptions);
 
       return this.parseCulturalAnalysisResponse(content);
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       logger.error('Cultural analysis failed:', error);
       return [];
     }
@@ -365,10 +424,10 @@ export class LlmEnhancedAnalysisService {
   /**
    * 获取 API Key
    */
-  private static async getApiKey(_settings: UserSettings): Promise<string | null> {
-    // 从 storage 获取 API Key
+  private static async getApiKey(settings: UserSettings): Promise<string | null> {
+    // 从同一配置快照读取密钥，避免等待期间切换配置后误发
     const { StorageManager } = await import('./storage');
-    return StorageManager.getApiKey();
+    return StorageManager.getApiKey(settings);
   }
 
   /**

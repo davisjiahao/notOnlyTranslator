@@ -122,10 +122,11 @@ export function stopPageViewTracking(): PageViewData | null {
   // 追踪页面离开事件
   trackPageLeaveEvent(currentPageView);
 
+  const result = { ...currentPageView };
+
   // 清理
   cleanup();
 
-  const result = { ...currentPageView };
   return result;
 }
 

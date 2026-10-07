@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UserProfile, UserSettings } from '@/shared/types';
 import { EXAM_DISPLAY_NAMES } from '@/shared/constants';
 import { logger, useTheme } from '@/shared/utils';
@@ -19,6 +19,8 @@ interface Stats {
 export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const settingsRef = useRef<UserSettings | null>(null);
+  const updateQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentHostname, setCurrentHostname] = useState<string>('');
@@ -121,6 +123,7 @@ export default function App() {
 
       const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
       if (settingsRes.success && settingsRes.data) {
+        settingsRef.current = settingsRes.data;
         setSettings(settingsRes.data);
       }
     } catch (error) {
@@ -132,14 +135,13 @@ export default function App() {
 
   const toggleGlobalEnabled = async () => {
     if (!settings) return;
-    const newEnabled = !settings.enabled;
-    await updateSettings({ enabled: newEnabled, autoHighlight: newEnabled });
+    let newEnabled = false;
+    if (!await updateSettings(current => {
+      newEnabled = !current.enabled;
+      return { enabled: newEnabled, autoHighlight: newEnabled };
+    })) return;
+    // 后台保存设置后已广播 SETTINGS_UPDATED，不能再发送反向切换消息。
     showToast(newEnabled ? '翻译已启用' : '翻译已暂停');
-
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_ENABLED' });
-    }
   };
 
   const toggleSiteTranslation = async () => {
@@ -150,7 +152,7 @@ export default function App() {
       ? settings.blacklist.filter(h => h !== currentHostname)
       : [...(settings.blacklist || []), currentHostname];
 
-    await updateSettings({ blacklist: newBlacklist });
+    if (!await updateSettings({ blacklist: newBlacklist })) return;
 
     // 弹出确认对话框，而不是自动刷新
     setPendingHostname(currentHostname);
@@ -168,7 +170,6 @@ export default function App() {
 
   /** 取消刷新：回滚网站黑名单设置 */
   const cancelPageReload = async () => {
-    setShowConfirmRefresh(false);
     if (!settings || !pendingHostname) return;
 
     const isCurrentlyBlacklisted = settings.blacklist?.includes(pendingHostname);
@@ -176,34 +177,52 @@ export default function App() {
       ? settings.blacklist.filter(h => h !== pendingHostname)
       : [...(settings.blacklist || []), pendingHostname];
 
-    await updateSettings({ blacklist: restoredBlacklist });
+    if (await updateSettings({ blacklist: restoredBlacklist })) {
+      setShowConfirmRefresh(false);
+    }
   };
 
-  const updateSettings = async (newSettingsPart: Partial<UserSettings>) => {
-    if (!settings) return;
-    const newSettings = { ...settings, ...newSettingsPart };
+  const updateSettings = (change: Partial<UserSettings> | ((current: UserSettings) => Partial<UserSettings>)): Promise<boolean> => {
+    const update = async (): Promise<boolean> => {
+      const current = settingsRef.current;
+      if (!current) return false;
+      const newSettingsPart = typeof change === 'function' ? change(current) : change;
+      const next = { ...current, ...newSettingsPart };
 
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_SETTINGS',
-      payload: newSettings,
-    });
-    setSettings(newSettings);
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'UPDATE_SETTINGS',
+          payload: newSettingsPart,
+        });
+        if (!response?.success) throw new Error('设置保存失败');
+      } catch (error) {
+        logger.error('Failed to update settings:', error);
+        showToast('设置保存失败，请重试', 'error');
+        return false;
+      }
+      settingsRef.current = next;
+      setSettings(next);
 
-    if (newSettingsPart.translationMode && newSettingsPart.translationMode !== settings.translationMode) {
-      // 触发模式切换动画
-      setShowModeTransition(true);
-      // 短暂延迟后隐藏（0.5 秒）
-      setTimeout(() => setShowModeTransition(false), 500);
-    }
+      if (newSettingsPart.translationMode && newSettingsPart.translationMode !== current.translationMode) {
+        // 触发模式切换动画
+        setShowModeTransition(true);
+        // 短暂延迟后隐藏（0.5 秒）
+        setTimeout(() => setShowModeTransition(false), 500);
+      }
 
-    if (newSettingsPart.translationMode) {
-      const modeNames: Record<string, string> = {
-        'inline-only': '生词高亮',
-        'bilingual': '双语对照',
-        'full-translate': '全文翻译',
-      };
-      showToast(`已切换到 ${modeNames[newSettingsPart.translationMode]} 模式`);
-    }
+      if (newSettingsPart.translationMode) {
+        const modeNames: Record<string, string> = {
+          'inline-only': '生词高亮',
+          'bilingual': '双语对照',
+          'full-translate': '全文翻译',
+        };
+        showToast(`已切换到 ${modeNames[newSettingsPart.translationMode]} 模式`);
+      }
+      return true;
+    };
+    const result = updateQueue.current.then(update);
+    updateQueue.current = result;
+    return result;
   };
 
   const openOptions = () => {

@@ -100,6 +100,13 @@ describe('TranslationApiService — PROVIDER_CONFIGS', () => {
       expect(body.messages).toHaveLength(1);
     });
 
+    it('uses bounded max_tokens from options', () => {
+      const body = configs.anthropic.buildBody(
+        'claude-3', [{ role: 'user', content: 'hi' }], false, { maxTokens: 3000 }
+      );
+      expect(body.max_tokens).toBe(3000);
+    });
+
     it('extracts content from Anthropic response', () => {
       const response = { content: [{ text: 'anthropic reply' }] };
       const extracted = configs.anthropic.responseExtractor.extractContent(response);
@@ -122,7 +129,8 @@ describe('TranslationApiService — PROVIDER_CONFIGS', () => {
       const body = configs.gemini.buildBody('gemini-pro', [{ role: 'user', content: 'hi' }], false);
       expect(body.contents).toHaveLength(1);
       expect(body.contents[0].parts[0].text).toBe('hi');
-      expect(body.generationConfig.maxOutputTokens).toBe(100);
+      // 有界默认值（传输层 TRANSPORT_DEFAULTS.defaultTextMaxTokens），替代旧固定 100，避免长句截断
+      expect(body.generationConfig.maxOutputTokens).toBe(1024);
     });
 
     it('builds body with JSON mime type when enabled', () => {
@@ -150,9 +158,9 @@ describe('TranslationApiService — PROVIDER_CONFIGS', () => {
       expect(headers.Authorization).toBe('Bearer ollama');
     });
 
-    it('builds body without max_tokens when JSON format enabled', () => {
+    it('builds JSON body with the bounded max_tokens budget', () => {
       const body = configs.ollama.buildBody('llama3', [{ role: 'user', content: 'hi' }], true);
-      expect(body.max_tokens).toBeUndefined();
+      expect(body.max_tokens).toBe(1024);
     });
 
     it('reuses OpenAI extractor', () => {

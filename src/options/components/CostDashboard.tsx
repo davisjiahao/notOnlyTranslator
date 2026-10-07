@@ -3,17 +3,20 @@
  *
  * 展示 API 调用成本、Token 使用量、预算状态等信息
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CostDashboardData,
   CostSummary,
   ProviderCostDetail,
   BudgetStatus,
   CostWarning,
+  DEFAULT_COST_TRACKER_CONFIG,
 } from '@/shared/cost/types';
 import { getCostTracker, getCostDashboardData } from '@/shared/cost/tracker';
 import { logger } from '@/shared/utils';
 import EmptyState from '@/shared/components/EmptyState';
+
+const COST_BUDGET_KEY = 'costDashboardMonthlyBudget';
 
 /**
  * 成本监控面板组件
@@ -24,6 +27,15 @@ export default function CostDashboard() {
   const [periodDays, setPeriodDays] = useState(30);
   const [monthlyBudget, setMonthlyBudget] = useState(10);
   const [pendingClear, setPendingClear] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [budgetError, setBudgetError] = useState('');
+  const [budgetReady, setBudgetReady] = useState(false);
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [budgetCorrupt, setBudgetCorrupt] = useState(false);
+  const [budgetConflict, setBudgetConflict] = useState(false);
+  const budgetEdited = useRef(false);
+  const budgetBaseline = useRef<number | undefined>(undefined);
+  const budgetReadId = useRef(0);
 
   // 加载数据
   const loadData = useCallback(() => {
@@ -32,8 +44,11 @@ export default function CostDashboard() {
       const tracker = getCostTracker();
       const data = getCostDashboardData(periodDays);
       setDashboardData(data);
-      setMonthlyBudget(tracker.getConfig().monthlyBudget);
+      if (!budgetEdited.current) setMonthlyBudget(tracker.getConfig().monthlyBudget);
+      setLoadFailed(false);
     } catch (error) {
+      setDashboardData(null);
+      setLoadFailed(true);
       logger.error('加载成本数据失败:', error);
     } finally {
       setIsLoading(false);
@@ -50,18 +65,113 @@ export default function CostDashboard() {
     return unsubscribe;
   }, [loadData]);
 
-  // 更新预算配置
+  const restoreBudget = useCallback(async () => {
+    const requestId = ++budgetReadId.current;
+    setBudgetReady(false);
+    setBudgetCorrupt(false);
+    setBudgetConflict(false);
+    setBudgetError('');
+    try {
+      const stored = await chrome.storage.sync.get(COST_BUDGET_KEY);
+      if (requestId !== budgetReadId.current) return;
+      const saved = stored[COST_BUDGET_KEY];
+      if (saved !== undefined) {
+        if (typeof saved !== 'number' || !Number.isFinite(saved) || saved < 0) {
+          setBudgetCorrupt(true);
+          setBudgetError('预算数据无效，请重试读取或重置为默认预算');
+          return;
+        }
+        const tracker = getCostTracker();
+        if (tracker.getConfig().monthlyBudget !== saved) tracker.updateConfig({ monthlyBudget: saved });
+        budgetEdited.current = false;
+        setMonthlyBudget(saved);
+      }
+      budgetBaseline.current = saved;
+      setBudgetReady(true);
+    } catch (error) {
+      if (requestId !== budgetReadId.current) return;
+      logger.error('读取成本预算失败:', error);
+      setBudgetError('读取预算失败，请重试');
+    }
+  }, []);
+
+  useEffect(() => {
+    void restoreBudget();
+    return () => { budgetReadId.current += 1; };
+  }, [restoreBudget]);
+
+  useEffect(() => {
+    const onBudgetChanged = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area !== 'sync' || !(COST_BUDGET_KEY in changes)) return;
+      budgetReadId.current += 1;
+      const saved = changes[COST_BUDGET_KEY].newValue;
+      if (saved !== undefined && (typeof saved !== 'number' || !Number.isFinite(saved) || saved < 0)) {
+        setBudgetReady(false);
+        setBudgetCorrupt(true);
+        setBudgetError('预算数据无效，请重试读取或重置为默认预算');
+        return;
+      }
+      const value = saved ?? DEFAULT_COST_TRACKER_CONFIG.monthlyBudget;
+      const tracker = getCostTracker();
+      if (tracker.getConfig().monthlyBudget !== value) tracker.updateConfig({ monthlyBudget: value });
+      setBudgetReady(true);
+      setBudgetCorrupt(false);
+      if (!budgetEdited.current) {
+        budgetBaseline.current = saved;
+        setMonthlyBudget(value);
+        setBudgetError('');
+      }
+    };
+    chrome.storage.onChanged.addListener(onBudgetChanged);
+    return () => chrome.storage.onChanged.removeListener(onBudgetChanged);
+  }, []);
+
+  // 先写入扩展存储，成功后再同步内存配置
+  const persistBudget = async (value: number, overrideCorrupt = false) => {
+    setBudgetSaving(true);
+    try {
+      if (!overrideCorrupt) {
+        const current = (await chrome.storage.sync.get(COST_BUDGET_KEY))[COST_BUDGET_KEY];
+        if (current !== budgetBaseline.current) {
+          setBudgetConflict(true);
+          setBudgetError('预算已在其他页面更新，请刷新预算后重试');
+          return;
+        }
+      }
+      await chrome.storage.sync.set({ [COST_BUDGET_KEY]: value });
+      budgetBaseline.current = value;
+      getCostTracker().updateConfig({ monthlyBudget: value });
+      budgetEdited.current = false;
+      setMonthlyBudget(value);
+      setBudgetReady(true);
+      setBudgetCorrupt(false);
+      setBudgetConflict(false);
+      setBudgetError('');
+    } catch (error) {
+      logger.error('保存成本预算失败:', error);
+      setBudgetError('预算保存失败，请重试');
+    } finally {
+      setBudgetSaving(false);
+    }
+  };
+
   const handleBudgetUpdate = () => {
-    const tracker = getCostTracker();
-    tracker.updateConfig({ monthlyBudget });
-    loadData();
+    if (!budgetReady || budgetSaving) return;
+    if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
+      setBudgetError('请输入有效的月度预算');
+      return;
+    }
+    void persistBudget(monthlyBudget);
+  };
+
+  const resetCorruptBudget = () => {
+    if (budgetCorrupt && !budgetSaving) void persistBudget(DEFAULT_COST_TRACKER_CONFIG.monthlyBudget, true);
   };
 
   // 确认警告
   const handleAcknowledgeWarning = (warningId: string) => {
     const tracker = getCostTracker();
     tracker.acknowledgeWarning(warningId);
-    loadData();
   };
 
   // 请求清空数据（显示内联确认）
@@ -74,7 +184,6 @@ export default function CostDashboard() {
     const tracker = getCostTracker();
     tracker.clear();
     setPendingClear(false);
-    loadData();
   };
 
   const cancelClear = () => {
@@ -96,10 +205,23 @@ export default function CostDashboard() {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">成本监控</h2>
+        <label htmlFor="cost-period" className="sr-only">时间范围</label>
+        <select
+          id="cost-period"
+          value={periodDays}
+          onChange={(e) => setPeriodDays(Number(e.target.value))}
+          className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        >
+          <option value={7}>最近 7 天</option>
+          <option value={14}>最近 14 天</option>
+          <option value={30}>最近 30 天</option>
+          <option value={90}>最近 90 天</option>
+        </select>
         <EmptyState
           icon="chart"
           title="暂无成本数据"
-          description="使用翻译服务后会自动记录成本信息"
+          description={loadFailed ? '加载成本数据失败，请重试' : '使用翻译服务后会自动记录成本信息'}
+          action={loadFailed ? { label: '重试', onClick: loadData } : undefined}
         />
       </div>
     );
@@ -139,9 +261,22 @@ export default function CostDashboard() {
       <BudgetSection
         budget={dashboardData.budget}
         monthlyBudget={monthlyBudget}
-        onBudgetChange={setMonthlyBudget}
+        onBudgetChange={(value) => { budgetEdited.current = true; setMonthlyBudget(value); }}
         onBudgetUpdate={handleBudgetUpdate}
+        disabled={!budgetReady || budgetSaving}
       />
+      {budgetError && (
+        <div role="alert" className="text-sm text-red-600">
+          {budgetError}
+          {!budgetReady && <button onClick={restoreBudget} disabled={budgetSaving} className="ml-2 underline">重新读取预算</button>}
+          {budgetConflict && <button onClick={restoreBudget} disabled={budgetSaving} className="ml-2 underline">刷新预算</button>}
+          {budgetCorrupt && (
+            <button onClick={resetCorruptBudget} disabled={budgetSaving} className="ml-2 underline">
+              重置损坏预算为默认值
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 提供商详情 */}
       <ProviderDetailsSection details={dashboardData.providerDetails} />
@@ -342,11 +477,13 @@ function BudgetSection({
   monthlyBudget,
   onBudgetChange,
   onBudgetUpdate,
+  disabled,
 }: {
   budget: BudgetStatus;
   monthlyBudget: number;
   onBudgetChange: (value: number) => void;
   onBudgetUpdate: () => void;
+  disabled: boolean;
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -362,6 +499,7 @@ function BudgetSection({
             <input
               id="monthly-budget"
               type="number"
+              disabled={disabled}
               value={monthlyBudget}
               onChange={(e) => onBudgetChange(Number(e.target.value))}
               min={0}
@@ -374,6 +512,7 @@ function BudgetSection({
         </div>
         <button
           onClick={onBudgetUpdate}
+          disabled={disabled}
           className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           保存

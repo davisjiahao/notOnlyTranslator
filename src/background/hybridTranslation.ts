@@ -4,9 +4,10 @@ import type {
   UserSettings,
   TranslatedWord,
 } from '@/shared/types';
-import { logger, generateCacheKey } from '@/shared/utils';
+import { logger } from '@/shared/utils';
 import { StorageManager } from './storage';
-import { TranslationApiService } from './translationApi';
+import { TranslationApiService, type TranslationApiRequestOptions } from './translationApi';
+import { TransportError } from '@/shared/utils/translationErrors';
 import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts';
 import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
@@ -16,6 +17,16 @@ import {
   type LlmEnhancedAnalysisResult,
   type AnalysisOptions,
 } from './llmEnhancedAnalysis';
+
+function throwIfRequestAborted(options?: TranslationApiRequestOptions): void {
+  if (options?.signal?.aborted) {
+    throw TransportError.cancelled();
+  }
+}
+
+function isRequestInterrupted(error: unknown): error is TransportError {
+  return error instanceof TransportError && (error.kind === 'cancelled' || error.kind === 'timeout');
+}
 
 /**
  * 翻译引擎类型
@@ -112,7 +123,7 @@ export class HybridTranslationService {
    */
   static updateConfig(newConfig: Partial<HybridTranslationConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    logger.info('HybridTranslationService config updated:', this.config);
+    logger.info('HybridTranslationService config updated');
   }
 
   /**
@@ -126,9 +137,14 @@ export class HybridTranslationService {
    * 主翻译方法
    * 根据配置选择不同的翻译策略
    */
-  static async translate(request: TranslationRequest): Promise<TranslationResult> {
+  static async translate(
+    request: TranslationRequest,
+    options?: TranslationApiRequestOptions
+  ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const settings = await StorageManager.getSettings();
+    throwIfRequestAborted(options);
 
     // 获取混合翻译配置
     const engine = this.getEngineForRequest(request, settings);
@@ -143,16 +159,17 @@ export class HybridTranslationService {
 
     switch (engine) {
       case 'traditional':
-        result = await this.translateWithTraditional(request, settings);
+        result = await this.translateWithTraditional(request, settings, options);
         break;
       case 'llm':
-        result = await this.translateWithLLM(request, settings);
+        result = await this.translateWithLLM(request, settings, options);
         break;
       case 'hybrid':
       default:
-        result = await this.translateWithHybrid(request, settings);
+        result = await this.translateWithHybrid(request, settings, options);
         break;
     }
+    throwIfRequestAborted(options);
 
     const duration = performance.now() - startTime;
     recordMetric(MetricType.TRANSLATION_TOTAL_TIME, 'hybrid_translate', duration, true, {
@@ -218,31 +235,30 @@ export class HybridTranslationService {
    */
   private static async translateWithTraditional(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, userLevel } = request;
 
-    // 获取传统API配置
-    const traditionalSettings: UserSettings = {
-      ...settings,
-      apiProvider: this.config.traditionalProvider,
-    };
-
-    // 从storage获取传统API的API Key
-    const traditionalApiKey = await this.getTraditionalApiKey();
-    if (!traditionalApiKey) {
+    const traditional = await this.getTraditionalConfig(settings, options);
+    throwIfRequestAborted(options);
+    if (!traditional) {
       logger.warn('Traditional API key not configured, falling back to LLM');
-      return this.translateWithLLM(request, settings);
+      return this.translateWithLLM(request, settings, options);
     }
+    const { apiKey: traditionalApiKey, settings: traditionalSettings } = traditional;
 
     try {
       // 调用传统API进行翻译
       const translatedText = await TranslationApiService.quickTranslate(
         text,
         traditionalApiKey,
-        traditionalSettings
+        traditionalSettings,
+        options
       );
+      throwIfRequestAborted(options);
 
       if (!translatedText) {
         throw new Error('Traditional translation returned empty result');
@@ -250,7 +266,7 @@ export class HybridTranslationService {
 
       const apiDuration = performance.now() - startTime;
       recordMetric(MetricType.API_RESPONSE_TIME, 'traditional_translate', apiDuration, true, {
-        provider: this.config.traditionalProvider,
+        provider: traditionalSettings.apiProvider,
         textLength: text.length,
       });
 
@@ -267,15 +283,19 @@ export class HybridTranslationService {
       };
 
       // 异步分析生词（不阻塞主流程，但需要等待完成）
-      const words = await this.analyzeWordsAsync(text, translatedText, userLevel, settings);
+      const words = await this.analyzeWordsAsync(text, translatedText, userLevel, settings, options);
+      throwIfRequestAborted(options);
       result.words = words;
 
       return result;
     } catch (error) {
-      logger.error('Traditional translation failed:', error);
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
+      logger.error('Traditional translation failed');
       // 失败时回退到LLM
       logger.info('Falling back to LLM translation');
-      return this.translateWithLLM(request, settings);
+      return this.translateWithLLM(request, settings, options);
     }
   }
 
@@ -285,19 +305,25 @@ export class HybridTranslationService {
    */
   private static async translateWithLLM(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, mode } = request;
 
     // 初始化缓存
     await enhancedCache.initialize();
+    throwIfRequestAborted(options);
 
     // 生成缓存键
-    const cacheKey = generateCacheKey(text, mode);
+    const cacheKey = enhancedCache.generateHash(text, mode, {
+      settings, userLevel: request.userLevel, context: request.context, engine: 'hybrid',
+    });
 
     // 检查缓存
     const cached = await enhancedCache.get(cacheKey);
+    throwIfRequestAborted(options);
     if (cached) {
       const duration = performance.now() - startTime;
       recordMetric(MetricType.CACHE_OPERATION, 'cache_get', duration, true, { cacheHit: true });
@@ -305,7 +331,9 @@ export class HybridTranslationService {
     }
 
     // 获取API配置
-    const apiKey = await StorageManager.getApiKey();
+    const cacheGeneration = enhancedCache.getGeneration();
+    const apiKey = await StorageManager.getApiKey(settings);
+    throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       throw new Error('API key not configured');
     }
@@ -319,8 +347,11 @@ export class HybridTranslationService {
       systemPrompt,
       userPrompt,
       apiKey || '',
-      settings
+      settings,
+      undefined,
+      options
     );
+    throwIfRequestAborted(options);
     const apiDuration = performance.now() - apiStartTime;
 
     // 解析结果
@@ -328,7 +359,9 @@ export class HybridTranslationService {
 
     // 缓存结果
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
-    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm');
+    throwIfRequestAborted(options);
+    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm', cacheGeneration);
+    throwIfRequestAborted(options);
 
     // 记录指标
     recordMetric(MetricType.API_RESPONSE_TIME, 'llm_translate', apiDuration, true, {
@@ -346,20 +379,23 @@ export class HybridTranslationService {
    */
   private static async translateWithHybrid(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, userLevel } = request;
 
     // 如果启用并行翻译，使用并行策略
     if (this.config.enableParallelTranslation) {
-      return this.translateWithParallel(request, settings);
+      return this.translateWithParallel(request, settings, options);
     }
 
     // 串行策略：先传统API，再LLM补充分析
     try {
       // 步骤1: 使用传统API快速翻译
-      const traditionalResult = await this.translateWithTraditional(request, settings);
+      const traditionalResult = await this.translateWithTraditional(request, settings, options);
+      throwIfRequestAborted(options);
 
       // 步骤2: 检查是否需要增强分析
       const complexityAnalysis = TextComplexityAnalyzer.analyze(text);
@@ -368,7 +404,8 @@ export class HybridTranslationService {
 
       // 步骤3: 执行增强分析（如启用）
       if (needsEnhancedAnalysis) {
-        const apiKey = await StorageManager.getApiKey();
+        const apiKey = await StorageManager.getApiKey(settings);
+        throwIfRequestAborted(options);
         if (apiKey || settings.apiProvider === 'ollama') {
           try {
             logger.info('HybridTranslationService: Performing enhanced analysis');
@@ -382,8 +419,10 @@ export class HybridTranslationService {
             const enhancedResult = await LlmEnhancedAnalysisService.analyze(
               text,
               settings,
-              analysisOptions
+              analysisOptions,
+              options
             );
+            throwIfRequestAborted(options);
 
             // 合并增强分析结果
             this.mergeEnhancedAnalysis(traditionalResult, enhancedResult);
@@ -395,7 +434,10 @@ export class HybridTranslationService {
               grammarCount: enhancedResult.grammarAnalysis.length,
             });
           } catch (error) {
-            logger.warn('Enhanced analysis failed in hybrid mode:', error);
+            if (isRequestInterrupted(error)) {
+              throw error;
+            }
+            logger.warn('Enhanced analysis failed in hybrid mode');
             // 增强分析失败不影响主翻译结果
           }
         }
@@ -404,10 +446,12 @@ export class HybridTranslationService {
         const wordsToAnalyze = traditionalResult.words.filter(w => w.difficulty >= 7);
 
         if (wordsToAnalyze.length > 0) {
-          const apiKey = await StorageManager.getApiKey();
+          const apiKey = await StorageManager.getApiKey(settings);
+          throwIfRequestAborted(options);
           if (apiKey || settings.apiProvider === 'ollama') {
             try {
-              const analysis = await this.analyzeWithLLM(wordsToAnalyze, text, settings);
+              const analysis = await this.analyzeWithLLM(wordsToAnalyze, text, settings, options);
+              throwIfRequestAborted(options);
 
               // 合并分析结果
               traditionalResult.words = this.mergeWordAnalysis(
@@ -415,12 +459,16 @@ export class HybridTranslationService {
                 analysis
               );
             } catch (error) {
-              logger.warn('LLM analysis failed in hybrid mode:', error);
+              if (isRequestInterrupted(error)) {
+                throw error;
+              }
+              logger.warn('LLM analysis failed in hybrid mode');
             }
           }
         }
       }
 
+      throwIfRequestAborted(options);
       const duration = performance.now() - startTime;
       logger.info('Hybrid translation completed:', {
         duration: `${duration.toFixed(2)}ms`,
@@ -430,9 +478,12 @@ export class HybridTranslationService {
 
       return traditionalResult;
     } catch (error) {
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
       // 使用增强的错误回退
-      logger.error('Hybrid translation failed, using fallback:', error);
-      return this.translateWithFallback(request, settings);
+      logger.error('Hybrid translation failed, using fallback');
+      return this.translateWithFallback(request, settings, options);
     }
   }
 
@@ -492,6 +543,7 @@ export class HybridTranslationService {
       for (const gp of grammarPoints) {
         if (!existingKeys.has(gp.original)) {
           result.grammarPoints.push(gp);
+          existingKeys.add(gp.original);
         }
       }
     }
@@ -512,6 +564,7 @@ export class HybridTranslationService {
       for (const phrase of phraseWords) {
         if (!existingKeys.has(phrase.original.toLowerCase())) {
           result.words.push(phrase);
+          existingKeys.add(phrase.original.toLowerCase());
         }
       }
     }
@@ -537,9 +590,12 @@ export class HybridTranslationService {
     originalText: string,
     _translatedText: string,
     userLevel: { estimatedVocabulary: number },
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslatedWord[]> {
-    const apiKey = await StorageManager.getApiKey();
+    throwIfRequestAborted(options);
+    const apiKey = await StorageManager.getApiKey(settings);
+    throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
     }
@@ -574,12 +630,18 @@ Only include words that would be challenging for a learner with ~${userLevel.est
         'You are an English learning assistant. Always respond with valid JSON.',
         prompt,
         apiKey || '',
-        settings
+        settings,
+        undefined,
+        options
       );
+      throwIfRequestAborted(options);
 
       return this.parseWordAnalysis(content);
     } catch (error) {
-      logger.error('Word analysis failed:', error);
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
+      logger.error('Word analysis failed');
       return [];
     }
   }
@@ -590,9 +652,12 @@ Only include words that would be challenging for a learner with ~${userLevel.est
   private static async analyzeWithLLM(
     words: TranslatedWord[],
     context: string,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslatedWord[]> {
-    const apiKey = await StorageManager.getApiKey();
+    throwIfRequestAborted(options);
+    const apiKey = await StorageManager.getApiKey(settings);
+    throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return words;
     }
@@ -624,12 +689,17 @@ Return JSON:
         'You are an English learning assistant. Always respond with valid JSON.',
         prompt,
         apiKey || '',
-        settings
+        settings,
+        options
       );
+      throwIfRequestAborted(options);
 
       return this.parseWordAnalysis(content);
     } catch (error) {
-      logger.error('LLM analysis failed:', error);
+      if (isRequestInterrupted(error)) {
+        throw error;
+      }
+      logger.error('LLM analysis failed');
       return words;
     }
   }
@@ -679,8 +749,8 @@ Return JSON:
         partOfSpeech: w.partOfSpeech ? String(w.partOfSpeech) : undefined,
         examples: Array.isArray(w.examples) ? w.examples.map(String) : undefined,
       }));
-    } catch (error) {
-      logger.error('Failed to parse word analysis:', error);
+    } catch {
+      logger.error('HybridTranslationService: 词汇分析响应解析失败');
       return [];
     }
   }
@@ -710,27 +780,42 @@ Return JSON:
   }
 
   /**
-   * 获取传统API的API Key
+   * 以用户选择的传统提供商为准；未设置时才使用服务默认值
    */
-  private static async getTraditionalApiKey(): Promise<string | null> {
-    // 从storage获取传统API的API Key
-    const settings = await StorageManager.getSettings();
-    const hybridSettings = settings as UserSettings & { hybridTranslation?: HybridTranslationConfig };
+  private static getTraditionalProvider(settings: UserSettings): TraditionalProvider | null {
+    const provider = settings.hybridTranslation?.traditionalProvider ?? this.config.traditionalProvider;
+    return provider === 'deepl' || provider === 'youdao' || provider === 'google_translate' ? provider : null;
+  }
 
-    if (hybridSettings.hybridTranslation?.traditionalApiKey) {
-      return hybridSettings.hybridTranslation.traditionalApiKey;
-    }
+  /**
+   * 端点和凭据必须来自同一配置，不能继承当前 LLM 的连接设置。
+   */
+  private static async getTraditionalConfig(
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
+  ): Promise<{ apiKey: string; settings: UserSettings } | null> {
+    throwIfRequestAborted(options);
+    const provider = this.getTraditionalProvider(settings);
+    if (!provider) return null;
+    const independentKey = settings.hybridTranslation?.traditionalProvider === provider
+      ? settings.hybridTranslation.traditionalApiKey
+      : undefined;
+    // 独立密钥没有绑定自定义端点，只能使用提供商默认端点。
+    const config = independentKey ? undefined : settings.apiConfigs?.find(config => config.provider === provider);
+    const apiKey = independentKey || config?.apiKey;
+    if (!apiKey) return null;
 
-    // 尝试从apiConfigs中查找传统API的配置
-    const traditionalConfig = settings.apiConfigs?.find(
-      config => config.provider === this.config.traditionalProvider
-    );
-
-    if (traditionalConfig?.apiKey) {
-      return traditionalConfig.apiKey;
-    }
-
-    return null;
+    return {
+      apiKey,
+      settings: {
+        ...settings,
+        apiProvider: provider,
+        customApiUrl: config?.apiUrl || '',
+        customModelName: config?.modelName || '',
+        secondaryApiKey: config?.secondaryApiKey || '',
+        activeApiConfigId: config?.id,
+      },
+    };
   }
 
   /**
@@ -829,8 +914,8 @@ Return JSON:
       }
 
       return result;
-    } catch (error) {
-      logger.error('Failed to parse LLM response:', error);
+    } catch {
+      logger.error('HybridTranslationService: 翻译响应解析失败');
       throw new Error('Failed to parse translation response');
     }
   }
@@ -843,8 +928,10 @@ Return JSON:
    */
   private static async translateWithParallel(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, userLevel } = request;
 
@@ -854,29 +941,32 @@ Return JSON:
     });
 
     // 创建两个翻译Promise
-    const traditionalPromise = this.translateWithTraditional(request, settings)
+    const traditionalPromise = this.translateWithTraditional(request, settings, options)
       .then(result => ({ source: 'traditional' as const, result, duration: performance.now() - startTime }))
       .catch(error => ({ source: 'traditional' as const, error, duration: performance.now() - startTime }));
 
-    const llmPromise = this.translateWithLLM(request, settings)
+    const llmPromise = this.translateWithLLM(request, settings, options)
       .then(result => ({ source: 'llm' as const, result, duration: performance.now() - startTime }))
       .catch(error => ({ source: 'llm' as const, error, duration: performance.now() - startTime }));
 
     // 使用Promise.race获取第一个完成的
     const firstResult = await Promise.race([traditionalPromise, llmPromise]);
+    throwIfRequestAborted(options);
 
     if ('error' in firstResult) {
+      if (isRequestInterrupted(firstResult.error)) {
+        throw firstResult.error;
+      }
       // 第一个完成的失败了，等待另一个
-      logger.warn(`Parallel translation: ${firstResult.source} failed first, waiting for other`, {
-        error: firstResult.error,
-      });
+      logger.warn(`Parallel translation: ${firstResult.source} failed first, waiting for other`);
 
-      const secondResult = await Promise.race([
-        traditionalPromise,
-        llmPromise,
-      ]);
+      const secondResult = await (firstResult.source === 'traditional' ? llmPromise : traditionalPromise);
+      throwIfRequestAborted(options);
 
       if ('error' in secondResult) {
+        if (isRequestInterrupted(secondResult.error)) {
+          throw secondResult.error;
+        }
         // 两个都失败了
         throw new Error('Both traditional and LLM translation failed');
       }
@@ -902,7 +992,7 @@ Return JSON:
         logger.info('Parallel translation: Traditional result accepted for simple text');
 
         // 异步补充生词分析
-        this.enrichResultWithWordAnalysis(firstResult.result, text, userLevel, settings);
+        this.enrichResultWithWordAnalysis(firstResult.result, text, userLevel, settings, options);
 
         return firstResult.result;
       }
@@ -918,7 +1008,11 @@ Return JSON:
 
     // 等待LLM完成（如果传统API先返回但文本复杂）
     const llmResult = await llmPromise;
+    throwIfRequestAborted(options);
     if ('error' in llmResult) {
+      if (isRequestInterrupted(llmResult.error)) {
+        throw llmResult.error;
+      }
       // LLM失败，回退到传统API结果
       logger.warn('Parallel translation: LLM failed, falling back to traditional');
       return firstResult.result;
@@ -933,11 +1027,11 @@ Return JSON:
    */
   private static async translateWithFallback(
     request: TranslationRequest,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<TranslationResult> {
+    throwIfRequestAborted(options);
     const { text } = request;
-    const errors: Array<{ source: string; error: Error }> = [];
-
     // 根据回退策略确定尝试顺序
     const strategies = this.getFallbackStrategies();
 
@@ -947,9 +1041,9 @@ Return JSON:
 
         switch (strategy) {
           case 'traditional':
-            return await this.translateWithTraditional(request, settings);
+            return await this.translateWithTraditional(request, settings, options);
           case 'llm':
-            return await this.translateWithLLM(request, settings);
+            return await this.translateWithLLM(request, settings, options);
           case 'simple':
             // 极简回退：直接返回原文作为译文
             return this.createSimpleResult(text);
@@ -957,14 +1051,15 @@ Return JSON:
             continue;
         }
       } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        errors.push({ source: strategy, error: err });
-        logger.warn(`Fallback strategy ${strategy} failed:`, err.message);
+        if (isRequestInterrupted(error)) {
+          throw error;
+        }
+        logger.warn(`Fallback strategy ${strategy} failed`);
       }
     }
 
     // 所有策略都失败，返回原文
-    logger.error('All fallback strategies failed:', errors);
+    logger.error('All fallback strategies failed');
     return this.createSimpleResult(text);
   }
 
@@ -1004,39 +1099,46 @@ Return JSON:
     result: TranslationResult,
     originalText: string,
     userLevel: { estimatedVocabulary: number },
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<void> {
     try {
-      const words = await this.analyzeWordsAsync(originalText, '', userLevel, settings);
+      const words = await this.analyzeWordsAsync(originalText, '', userLevel, settings, options);
+      throwIfRequestAborted(options);
       result.words = words;
     } catch (error) {
-      logger.error('Failed to enrich result with word analysis:', error);
+      if (!isRequestInterrupted(error)) {
+        logger.error('Failed to enrich result with word analysis');
+      }
     }
   }
 
   /**
    * 快速翻译单个词/短语
    */
-  static async quickTranslate(text: string): Promise<string> {
+  static async quickTranslate(
+    text: string,
+    options?: TranslationApiRequestOptions
+  ): Promise<string> {
+    throwIfRequestAborted(options);
     const settings = await StorageManager.getSettings();
-    const apiKey = await this.getTraditionalApiKey();
+    throwIfRequestAborted(options);
+    const traditional = await this.getTraditionalConfig(settings, options);
+    throwIfRequestAborted(options);
 
-    if (apiKey) {
-      // 优先使用传统API
-      const traditionalSettings: UserSettings = {
-        ...settings,
-        apiProvider: this.config.traditionalProvider,
-      };
-      return TranslationApiService.quickTranslate(text, apiKey, traditionalSettings);
+    if (traditional) {
+      // 优先使用传统API，沿用与密钥同源的端点配置。
+      return TranslationApiService.quickTranslate(text, traditional.apiKey, traditional.settings, options);
     }
 
     // 回退到LLM快速翻译
-    const llmApiKey = await StorageManager.getApiKey();
+    const llmApiKey = await StorageManager.getApiKey(settings);
+    throwIfRequestAborted(options);
     if (!llmApiKey && settings.apiProvider !== 'ollama') {
       throw new Error('No API key configured');
     }
 
-    return TranslationApiService.quickTranslate(text, llmApiKey || '', settings);
+    return TranslationApiService.quickTranslate(text, llmApiKey || '', settings, options);
   }
 }
 

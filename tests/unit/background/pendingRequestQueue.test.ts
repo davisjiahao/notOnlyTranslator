@@ -5,7 +5,7 @@
  * Mock chrome.storage.local 用于测试
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PendingRequestQueue, type PendingRequestEntry } from '@/background/pendingRequestQueue';
 
 /**
@@ -55,6 +55,46 @@ function makeEntry(overrides: Partial<PendingRequestEntry> = {}): PendingRequest
     ...overrides,
   };
 }
+
+describe('PendingRequestQueue — 清空前的收尾屏障', () => {
+  it.each([false, true])('前置写入失败=%s 时也完成清理并等待真实写入落盘', async fails => {
+    const mock = createMockChromeStorage();
+    const savedChrome = (globalThis as unknown as Record<string, unknown>).chrome;
+    (globalThis as unknown as Record<string, unknown>).chrome = mock.chrome;
+    try {
+      const queue = new PendingRequestQueue();
+      const entry = makeEntry({ id: 'waiting-cleanup' });
+      await queue.add(entry);
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      queue.trackCleanup(fails ? gate.then(() => { throw new Error('前置写入失败'); }) : gate, entry.id);
+      let settled = false;
+      const barrier = queue.settleWrites().then(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      release();
+      await barrier;
+      expect(await queue.getAll()).toEqual([]);
+    } finally {
+      (globalThis as unknown as Record<string, unknown>).chrome = savedChrome;
+    }
+  });
+
+  it('无前置写入的收尾同样进入清空屏障', async () => {
+    const mock = createMockChromeStorage();
+    const savedChrome = (globalThis as unknown as Record<string, unknown>).chrome;
+    (globalThis as unknown as Record<string, unknown>).chrome = mock.chrome;
+    try {
+      const queue = new PendingRequestQueue();
+      await queue.add(makeEntry({ id: 'immediate-cleanup' }));
+      queue.trackCleanup(undefined, 'immediate-cleanup');
+      await queue.settleWrites();
+      expect(await queue.size()).toBe(0);
+    } finally {
+      (globalThis as unknown as Record<string, unknown>).chrome = savedChrome;
+    }
+  });
+});
 
 describe('PendingRequestQueue — add/complete', () => {
   it('adds and completes a request', async () => {

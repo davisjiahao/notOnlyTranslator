@@ -51,8 +51,45 @@ export class PendingRequestQueue {
   /** 内存中的回调映射 */
   private resolveCallbacks: Map<string, RequestCompleteCallback> = new Map();
   private rejectCallbacks: Map<string, RequestFailCallback> = new Map();
+  /** 在途写入链（含已排队但尚未开始的续链），清空数据前必须等待其落盘 */
+  private writeChains: Set<Promise<unknown>> = new Set();
   /** 是否已加载 */
   private initialized = false;
+
+  /**
+   * 登记一条写入链。链的注册与其创建同步完成，
+   * 因此屏障不会漏掉"已排队但尚未开始"的迟到写入。
+   */
+  private trackWriteChain(chain: Promise<unknown>): void {
+    this.writeChains.add(chain);
+    void chain.then(
+      () => { this.writeChains.delete(chain); },
+      () => { this.writeChains.delete(chain); },
+    );
+  }
+
+  /**
+   * 等待所有在途写入链结束。清空数据前必须调用：
+   * 取消翻译后消息 Promise 提前返回，队列的迟到写入
+   * 若不等完就会在清空成功后把旧正文回填进存储。
+   */
+  async settleWrites(): Promise<void> {
+    while (this.writeChains.size > 0) {
+      await Promise.allSettled([...this.writeChains]);
+    }
+  }
+
+  /**
+   * 在前置写入完成后清理请求条目，整条链登记为在途写入。
+   * 不阻塞调用方（已取消请求的响应需立即返回），由 settleWrites 负责等待。
+   */
+  trackCleanup(prerequisite: Promise<void> | undefined, id: string): void {
+    const chain = (prerequisite ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => this.complete(id))
+      .catch(() => logger.warn('翻译队列清理失败，将在过期清理时重试'));
+    this.trackWriteChain(chain);
+  }
 
   /**
    * 初始化，从存储恢复未完成的请求

@@ -80,6 +80,16 @@ export interface HistoryStats {
 
 // IndexedDB 连接实例
 let dbInstance: IDBDatabase | null = null;
+const pendingSaveIds = new Set<string>();
+let pendingWrites = 0;
+let cleanupQueue: Promise<void> = Promise.resolve();
+
+function releaseSaveProtections(): void {
+  const queue = cleanupQueue;
+  void queue.then(() => {
+    if (pendingWrites === 0 && cleanupQueue === queue) pendingSaveIds.clear();
+  });
+}
 
 /**
  * 打开 IndexedDB 数据库连接
@@ -136,7 +146,7 @@ export async function saveTranslationHistory(
   userProfile?: UserProfile,
   pageTitle?: string
 ): Promise<TranslationHistoryEntry> {
-  const db = await openDB();
+  if (typeof originalText !== 'string') throw new Error('保存翻译历史失败');
 
   const entry: TranslationHistoryEntry = {
     id: generateId(),
@@ -154,28 +164,49 @@ export async function saveTranslationHistory(
       : undefined,
     charCount: originalText.length,
   };
+  if (!isValidHistoryEntry(entry)) throw new Error('保存翻译历史失败');
+  pendingSaveIds.add(entry.id);
+  pendingWrites++;
+  let db: IDBDatabase;
+  try {
+    db = await openDB();
+  } catch (error) {
+    pendingSaveIds.delete(entry.id);
+    pendingWrites--;
+    releaseSaveProtections();
+    throw error;
+  }
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
 
-    const request = store.put(entry);
-
-    request.onsuccess = () => {
-      logger.debug('翻译历史已保存:', entry.id);
-      resolve(entry);
-    };
-
-    request.onerror = () => {
-      logger.error('保存翻译历史失败:', request.error);
+    let finished = false;
+    const fail = () => {
+      if (finished) return;
+      finished = true;
+      pendingWrites--;
+      pendingSaveIds.delete(entry.id);
+      releaseSaveProtections();
+      logger.error('保存翻译历史事务失败');
       reject(new Error('保存翻译历史失败'));
     };
+    const request = store.put(entry);
+    request.onerror = fail;
+    transaction.onabort = transaction.onerror = fail;
 
     transaction.oncomplete = () => {
-      // 异步执行清理，不阻塞主操作
-      cleanupOldEntries().catch((err) => {
-        logger.error('清理历史记录失败:', err);
+      if (finished) return;
+      finished = true;
+      pendingWrites--;
+      logger.debug('翻译历史已保存:', entry.id);
+      resolve(entry);
+      // 串行清理，共享保护所有并发保存，直到最后一次清理提交。
+      const cleanup = cleanupQueue.then(() => cleanupOldEntries(entry.id)).catch(() => {
+        logger.error('清理历史记录失败');
       });
+      cleanupQueue = cleanup;
+      releaseSaveProtections();
     };
   });
 }
@@ -295,14 +326,16 @@ export async function deleteHistoryEntry(id: string): Promise<void> {
 
     const request = store.delete(id);
 
-    request.onsuccess = () => {
+    request.onerror = () => {
+      logger.error('删除历史记录失败');
+      reject(new Error('删除历史记录失败'));
+    };
+    transaction.onabort = transaction.onerror = () => {
+      reject(new Error('删除历史记录失败'));
+    };
+    transaction.oncomplete = () => {
       logger.debug('历史记录已删除:', id);
       resolve();
-    };
-
-    request.onerror = () => {
-      logger.error('删除历史记录失败:', request.error);
-      reject(new Error('删除历史记录失败'));
     };
   });
 }
@@ -311,34 +344,31 @@ export async function deleteHistoryEntry(id: string): Promise<void> {
  * 批量删除历史记录
  */
 export async function deleteHistoryEntries(ids: string[]): Promise<void> {
+  if (!Array.isArray(ids) || ids.some(id => typeof id !== 'string' || id.length === 0 || id.length > 200)) {
+    throw new Error('批量删除历史记录失败');
+  }
+  if (ids.length === 0) return;
   const db = await openDB();
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
 
-    let completed = 0;
-    let hasError = false;
-
-    ids.forEach((id) => {
-      const request = store.delete(id);
-
-      request.onsuccess = () => {
-        completed++;
-        if (completed === ids.length && !hasError) {
-          resolve();
-        }
-      };
-
-      request.onerror = () => {
-        hasError = true;
-        logger.error('批量删除历史记录失败:', request.error);
-        reject(new Error('批量删除历史记录失败'));
-      };
-    });
-
-    if (ids.length === 0) {
-      resolve();
+    transaction.onabort = transaction.onerror = () => {
+      reject(new Error('批量删除历史记录失败'));
+    };
+    transaction.oncomplete = () => resolve();
+    try {
+      ids.forEach((id) => {
+        const request = store.delete(id);
+        request.onerror = () => {
+          logger.error('批量删除历史记录失败');
+          reject(new Error('批量删除历史记录失败'));
+        };
+      });
+    } catch {
+      transaction.abort();
+      reject(new Error('批量删除历史记录失败'));
     }
   });
 }
@@ -355,14 +385,16 @@ export async function clearAllHistory(): Promise<void> {
 
     const request = store.clear();
 
-    request.onsuccess = () => {
+    request.onerror = () => {
+      logger.error('清空历史记录失败');
+      reject(new Error('清空历史记录失败'));
+    };
+    transaction.onabort = transaction.onerror = () => {
+      reject(new Error('清空历史记录失败'));
+    };
+    transaction.oncomplete = () => {
       logger.info('所有翻译历史已清空');
       resolve();
-    };
-
-    request.onerror = () => {
-      logger.error('清空历史记录失败:', request.error);
-      reject(new Error('清空历史记录失败'));
     };
   });
 }
@@ -372,7 +404,7 @@ export async function clearAllHistory(): Promise<void> {
  * - 保留最近 1000 条
  * - 删除 30 天前的记录
  */
-export async function cleanupOldEntries(): Promise<void> {
+export async function cleanupOldEntries(protectedId?: string): Promise<void> {
   const db = await openDB();
 
   const cutoffTime = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -381,6 +413,8 @@ export async function cleanupOldEntries(): Promise<void> {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
     const index = store.index('timestamp');
+    transaction.onabort = transaction.onerror = () => reject(new Error('清理历史记录失败'));
+    transaction.oncomplete = () => resolve();
 
     // 获取所有条目计数
     const countRequest = store.count();
@@ -397,11 +431,12 @@ export async function cleanupOldEntries(): Promise<void> {
         deleteRequest.onsuccess = (event) => {
           const cursor = (event.target as IDBRequest).result;
           if (cursor) {
-            store.delete(cursor.primaryKey);
+            if (cursor.primaryKey !== protectedId && !pendingSaveIds.has(String(cursor.primaryKey))) {
+              store.delete(cursor.primaryKey);
+            }
             cursor.continue();
           } else {
             logger.debug('过期历史记录清理完成');
-            resolve();
           }
         };
 
@@ -413,29 +448,34 @@ export async function cleanupOldEntries(): Promise<void> {
         return;
       }
 
-      // 总数超过限制，需要删除最旧的记录
       const entriesToDelete = totalCount - MAX_ENTRIES;
       logger.info(`历史记录超过限制，将删除最旧的 ${entriesToDelete} 条记录`);
-
-      const cursorRequest = index.openCursor();
       let deletedCount = 0;
 
-      cursorRequest.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result;
-        if (cursor && deletedCount < entriesToDelete) {
-          store.delete(cursor.primaryKey);
-          deletedCount++;
-          cursor.continue();
-        } else {
-          logger.info(`已清理 ${deletedCount} 条历史记录，当前保留 ${MAX_ENTRIES} 条`);
-          resolve();
-        }
+      const removeEntries = (range: IDBKeyRange | null, onExhausted?: () => void) => {
+        const cursorRequest = index.openCursor(range);
+        cursorRequest.onsuccess = (event) => {
+          const cursor = (event.target as IDBRequest).result as IDBCursorWithValue | null;
+          if (deletedCount === entriesToDelete) {
+            logger.info(`已清理 ${deletedCount} 条历史记录，当前保留 ${MAX_ENTRIES} 条`);
+          } else if (!cursor) {
+            if (onExhausted) onExhausted();
+          } else {
+            if (cursor.primaryKey !== protectedId && !pendingSaveIds.has(String(cursor.primaryKey))) {
+              store.delete(cursor.primaryKey);
+              deletedCount++;
+            }
+            cursor.continue();
+          }
+        };
+        cursorRequest.onerror = () => {
+          logger.error('清理历史记录失败:', cursorRequest.error);
+          reject(new Error('清理历史记录失败'));
+        };
       };
 
-      cursorRequest.onerror = () => {
-        logger.error('清理历史记录失败:', cursorRequest.error);
-        reject(new Error('清理历史记录失败'));
-      };
+      // 旧备份中的未来时间戳不能挤掉此刻刚保存的记录
+      removeEntries(IDBKeyRange.lowerBound(Date.now() + 1), () => removeEntries(null));
     };
 
     countRequest.onerror = () => {
@@ -535,77 +575,67 @@ export async function exportHistoryData(): Promise<{
   });
 }
 
+function isValidHistoryEntry(value: unknown): value is TranslationHistoryEntry {
+  if (!value || typeof value !== 'object') return false;
+  const entry = value as Record<string, unknown>;
+  const translation = entry.translation;
+  return typeof entry.id === 'string' && entry.id.length > 0 && entry.id.length <= 200
+    && typeof entry.originalText === 'string' && entry.originalText.length > 0
+    && typeof entry.pageUrl === 'string'
+    && (entry.pageTitle === undefined || typeof entry.pageTitle === 'string')
+    && ['inline-only', 'bilingual', 'full-translate'].includes(String(entry.mode))
+    && typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)
+    && entry.timestamp > 0 && entry.timestamp <= 8.64e15
+    && typeof entry.charCount === 'number' && Number.isSafeInteger(entry.charCount)
+    && entry.charCount >= 0 && !!translation && typeof translation === 'object'
+    && Array.isArray((translation as TranslationResult).words)
+    && Array.isArray((translation as TranslationResult).sentences)
+    && ((translation as TranslationResult).fullText === undefined
+      || typeof (translation as TranslationResult).fullText === 'string');
+}
+
 /**
  * 导入翻译历史数据（用于数据导入功能 CMP-89）
  */
 export async function importHistoryData(
   entries: TranslationHistoryEntry[]
 ): Promise<{ imported: number; skipped: number }> {
+  if (!Array.isArray(entries)) throw new Error('导入数据格式无效');
+  const validEntries = entries.filter(isValidHistoryEntry);
+  const firstIndexById = new Map(
+    validEntries.map((entry, index) => [entry.id, index] as const).reverse()
+  );
   const db = await openDB();
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
+    const fail = () => reject(new Error('导入数据失败'));
+    transaction.onabort = fail;
+    transaction.onerror = fail;
 
-    let imported = 0;
-    let skipped = 0;
-    let processed = 0;
-
-    // 先获取所有现有 ID 用于去重
     const idRequest = store.getAllKeys();
-
     idRequest.onsuccess = () => {
       const existingIds = new Set(idRequest.result as string[]);
-
-      entries.forEach((entry) => {
-        // 跳过已存在的条目（去重）
-        if (existingIds.has(entry.id)) {
-          skipped++;
-          processed++;
-          if (processed === entries.length) {
-            resolve({ imported, skipped });
-          }
-          return;
-        }
-
-        // 验证条目格式
-        if (!entry.id || !entry.originalText || !entry.timestamp) {
-          skipped++;
-          processed++;
-          if (processed === entries.length) {
-            resolve({ imported, skipped });
-          }
-          return;
-        }
-
-        const request = store.put(entry);
-
-        request.onsuccess = () => {
-          imported++;
-          processed++;
-          if (processed === entries.length) {
-            resolve({ imported, skipped });
-          }
-        };
-
-        request.onerror = () => {
-          skipped++;
-          processed++;
-          if (processed === entries.length) {
-            resolve({ imported, skipped });
-          }
-        };
+      const additions = validEntries.filter((entry, index) =>
+        !existingIds.has(entry.id) && firstIndexById.get(entry.id) === index
+      );
+      transaction.oncomplete = () => resolve({
+        imported: additions.length,
+        skipped: entries.length - additions.length,
       });
 
-      if (entries.length === 0) {
-        resolve({ imported: 0, skipped: 0 });
+      try {
+        for (const entry of additions) {
+          const request = store.put(entry);
+          request.onerror = fail;
+        }
+      } catch {
+        fail();
+        try { transaction.abort(); } catch { /* 事务可能已经中止 */ }
       }
     };
-
-    idRequest.onerror = () => {
-      logger.error('获取现有记录失败:', idRequest.error);
-      reject(new Error('导入数据失败'));
-    };
+    idRequest.onerror = fail;
   });
 }
 

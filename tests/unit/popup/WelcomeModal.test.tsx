@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WelcomeModal from '@/popup/components/WelcomeModal';
 
@@ -198,13 +198,13 @@ describe('WelcomeModal', () => {
   // --- Quick setup flow ---
 
   it('tests API connection when submit clicked with valid key', async () => {
-    mockSendMessage.mockResolvedValue({ success: true });
+    mockSendMessage.mockResolvedValue({ success: false });
     const settings = createSettings();
     render(<WelcomeModal settings={settings} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
     fireEvent.click(screen.getByText('开始配置'));
     const input = screen.getByLabelText('API Key');
     fireEvent.change(input, { target: { value: 'sk-test-key' } });
-    fireEvent.click(screen.getByText('完成配置'));
+    await act(async () => { fireEvent.click(screen.getByText('完成配置')); });
     expect(mockSendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'TEST_API_CONNECTION' })
     );
@@ -235,9 +235,49 @@ describe('WelcomeModal', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('完成配置'));
     });
+    expect(await screen.findByText('配置成功！')).toBeInTheDocument();
+  });
+
+  it('switching provider clears the API key so the old key cannot test the new provider', async () => {
+    mockSendMessage.mockResolvedValue({ success: false });
+    const settings = createSettings();
+    render(<WelcomeModal settings={settings} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+    fireEvent.click(screen.getByText('开始配置'));
+    const input = screen.getByLabelText('API Key');
+    // 输入 OpenAI 密钥并触发一次失败的连接测试，留下旧测试结果
+    fireEvent.change(input, { target: { value: 'sk-openai-key' } });
+    await act(async () => { fireEvent.click(screen.getByText('完成配置')); });
     await vi.waitFor(() => {
-      expect(screen.getByText('配置成功！')).toBeInTheDocument();
+      expect(screen.getByText('连接测试失败，请检查 API Key 或网络')).toBeInTheDocument();
     });
+
+    // 切换到 DeepSeek：密钥必须被清空，旧测试结果必须失效
+    fireEvent.click(screen.getByRole('radio', { name: /DeepSeek/ }));
+    expect(screen.getByLabelText('API Key')).toHaveValue('');
+    expect(screen.queryByText('连接测试失败，请检查 API Key 或网络')).not.toBeInTheDocument();
+    // sk- 前缀对 DeepSeek 同样合法，只有清空密钥才能阻止旧 OpenAI 密钥被拿去测试 DeepSeek
+    expect(screen.getByText('完成配置').closest('button')).toBeDisabled();
+  });
+
+  it('discards in-flight connection test when provider switches mid-test', async () => {
+    let resolveTest!: (response: { success: boolean }) => void;
+    mockSendMessage.mockReturnValue(new Promise(resolve => { resolveTest = resolve; }));
+    const settings = createSettings();
+    render(<WelcomeModal settings={settings} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+    fireEvent.click(screen.getByText('开始配置'));
+    fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'sk-old-provider-key' } });
+    await act(async () => { fireEvent.click(screen.getByText('完成配置')); });
+
+    // 测试进行中切换到 DeepSeek：旧请求必须被废弃
+    fireEvent.click(screen.getByRole('radio', { name: /DeepSeek/ }));
+    await act(async () => { resolveTest({ success: true }); });
+
+    // 延迟成功的旧请求不得保存旧密钥、不得显示成功或完成引导
+    expect(mockSendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_SETTINGS' }));
+    expect(screen.queryByText('连接测试成功！')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '配置成功！' })).not.toBeInTheDocument();
+    // 废弃后测试状态复位，用户可以基于新服务商重新输入
+    expect(screen.getByText('完成配置')).toBeInTheDocument();
   });
 
   it('clears test result when API key changes', () => {
@@ -288,6 +328,74 @@ describe('WelcomeModal', () => {
     });
     fireEvent.click(screen.getByText('开始使用'));
     expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  describe('保存失败保护', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => {
+      cleanup();
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    });
+
+    it.each(['拒绝', '空响应', '异常'])('快速配置遇到保存%s时不能显示成功或完成引导', async failure => {
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+      if (failure === '异常') mockSendMessage.mockRejectedValueOnce(new Error('本地存储失败'));
+      else mockSendMessage.mockResolvedValueOnce(failure === '拒绝' ? { success: false } : undefined);
+      const onComplete = vi.fn();
+      render(<WelcomeModal settings={createSettings()} onComplete={onComplete} onOpenSettings={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: '开始配置' }));
+      fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'sk-local-test-only' } });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '完成配置' })); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+
+      expect(screen.queryByText('连接测试成功！')).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '配置成功！' })).not.toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('保存失败');
+      expect(screen.getByRole('button', { name: '完成配置' })).toBeEnabled();
+      expect(onComplete).not.toHaveBeenCalled();
+    });
+
+    it.each(['拒绝', '空响应', '异常'])('免费试用保存%s时留在欢迎页并允许重试', async failure => {
+      if (failure === '异常') mockSendMessage.mockRejectedValueOnce(new Error('本地存储失败'));
+      else mockSendMessage.mockResolvedValueOnce(failure === '拒绝' ? { success: false } : undefined);
+      const onComplete = vi.fn();
+      render(<WelcomeModal settings={createSettings()} onComplete={onComplete} onOpenSettings={vi.fn()} />);
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '无需 API Key，立即体验' })); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+
+      expect(screen.queryByRole('heading', { name: '已开启免费翻译' })).not.toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('保存失败');
+      expect(onComplete).not.toHaveBeenCalled();
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '无需 API Key，立即体验' })); });
+      expect(screen.getByRole('heading', { name: '已开启免费翻译' })).toBeInTheDocument();
+    });
+
+    it('配置快照未加载时不能用空数组和默认版本提交', async () => {
+      mockSendMessage.mockResolvedValue({ success: true });
+      render(<WelcomeModal settings={null} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: '开始配置' }));
+      fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'sk-local-test-only' } });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '完成配置' })); });
+
+      expect(mockSendMessage).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent('保存失败');
+    });
+
+    it('免费试用保存未返回前禁用按钮，避免重复提交', async () => {
+      let resolveSave!: (response: { success: boolean }) => void;
+      mockSendMessage.mockReturnValue(new Promise(resolve => { resolveSave = resolve; }));
+      render(<WelcomeModal settings={createSettings()} onComplete={vi.fn()} onOpenSettings={vi.fn()} />);
+      const button = screen.getByRole('button', { name: '无需 API Key，立即体验' });
+      fireEvent.click(button);
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(mockSendMessage).toHaveBeenCalledOnce();
+      expect(screen.queryByRole('heading', { name: '已开启免费翻译' })).not.toBeInTheDocument();
+      await act(async () => { resolveSave({ success: true }); });
+      expect(screen.getByRole('heading', { name: '已开启免费翻译' })).toBeInTheDocument();
+    });
   });
 
   // --- Accessibility ---

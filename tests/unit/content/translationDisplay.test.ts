@@ -135,16 +135,29 @@ describe('TranslationDisplay', () => {
       // 执行
       TranslationDisplay.applyTranslation(paragraph, result, 'bilingual');
 
-      // 验证：应该有高亮但没有译文行
+      // 缺全文时保留行内词义，并明确告知当前没有全文译文。
       expect(paragraph.classList.contains('not-translator-processed')).toBe(true);
-      // 没有译文行，nextElementSibling 应该是 null 或没有 translation-line 类
       const translationLine = paragraph.nextElementSibling;
-      const hasTranslationLine = translationLine?.classList.contains('not-translator-translation-line');
-      expect(hasTranslationLine).toBeFalsy();
+      expect(translationLine?.classList.contains('not-translator-translation-line')).toBe(true);
+      expect(translationLine?.textContent).toBe('当前仅有词义，暂无全文译文');
+      expect(paragraph.querySelector('.not-translator-inline-translation')?.textContent).toBe('你好');
     });
   });
 
   describe('clearTranslation', () => {
+    it('未标记已处理的段落也清理淡出状态，保留原文和页面自身样式', () => {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = 'The fox runs.';
+      paragraph.className = 'article-paragraph not-translator-fade-out';
+      container.appendChild(paragraph);
+
+      TranslationDisplay.clearTranslation(paragraph);
+
+      expect(paragraph.classList.contains('not-translator-fade-out')).toBe(false);
+      expect(paragraph.className).toBe('article-paragraph');
+      expect(paragraph.textContent).toBe('The fox runs.');
+    });
+
     it('应该移除译文行并恢复原始HTML', () => {
       // 准备
       const paragraph = document.createElement('p');
@@ -209,6 +222,48 @@ describe('TranslationDisplay', () => {
       const translationLine = paragraph.nextElementSibling;
       const hasTranslationLine = translationLine?.classList.contains('not-translator-translation-line');
       expect(hasTranslationLine).toBeFalsy();
+    });
+  });
+
+  describe('加载等待期间的快照边界', () => {
+    it('error notification 存在于段落内时快照不含通知，恢复后不复活', () => {
+      // 模拟并发批次时序：快照瞬间失败通知仍在被观察段落子树内
+      const paragraph = document.createElement('p');
+      paragraph.innerHTML = 'Hello <a href="#">world</a> and more words.';
+      container.appendChild(paragraph);
+      const alert = document.createElement('div');
+      alert.className = 'not-translator-error-notification';
+      alert.innerHTML = '<div class="not-translator-error-title">批量翻译失败</div><button type="button" data-action="dismiss">关闭</button>';
+      paragraph.appendChild(alert);
+
+      const result: TranslationResult = {
+        words: [],
+        sentences: [],
+        fullText: '你好。',
+        phrases: [],
+      };
+      TranslationDisplay.applyTranslation(paragraph, result, 'bilingual');
+      TranslationDisplay.clearTranslation(paragraph);
+
+      expect(paragraph.querySelector('.not-translator-error-notification')).toBeNull();
+      expect(paragraph.innerHTML).toContain('<a href="#">world</a>');
+      expect(paragraph.innerHTML).not.toContain('批量翻译失败');
+    });
+
+    it('saveOriginalText 快照排除段落内的 error notification', () => {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = 'The fox runs fast.';
+      container.appendChild(paragraph);
+      const alert = document.createElement('div');
+      alert.className = 'not-translator-error-notification';
+      alert.textContent = '批量翻译失败';
+      paragraph.appendChild(alert);
+
+      TranslationDisplay.saveOriginalText(paragraph);
+
+      expect(paragraph.dataset.originalHtml).not.toContain('not-translator-error-notification');
+      // 原文 DOM 不被原地修改
+      expect(paragraph.querySelector('.not-translator-error-notification')).not.toBeNull();
     });
   });
 

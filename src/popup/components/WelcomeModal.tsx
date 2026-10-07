@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { UserSettings, ApiProvider } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants';
 import { validateApiKeyFormat } from '@/shared/utils';
@@ -24,7 +24,9 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [testResult, setTestResult] = useState<'success' | 'error' | 'save-error' | null>(null);
+  // 操作代际：切换服务商时递增，使进行中的旧连接测试及其保存流程失效
+  const requestGeneration = useRef(0);
 
   // API Key 格式实时验证
   const apiKeyValidation = useMemo(
@@ -43,9 +45,17 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
       return;
     }
 
+    if (!settings) {
+      setTestResult('save-error');
+      return;
+    }
+
     setIsTesting(true);
     setTestResult(null);
 
+    // 代际快照：期间切换服务商会递增计数器，旧请求不得继续保存或更新结果
+    const generation = requestGeneration.current;
+    let tested = false;
     try {
       // 创建新的 API 配置
       const configId = `${selectedProvider}-${Date.now()}`;
@@ -67,19 +77,26 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
         },
       });
 
-      if (response.success) {
-        // 更新设置
-        const updatedConfigs = [...(settings?.apiConfigs || []), { ...newConfig, tested: true, lastTestedAt: Date.now() }];
+      if (generation !== requestGeneration.current) return;
+      if (response?.success) {
+        tested = true;
+        // 配置数组与预期版本必须来自同一加载快照，不回传无关设置。
+        const updatedConfigs = [...(settings.apiConfigs || []), { ...newConfig, tested: true, lastTestedAt: Date.now() }];
 
-        await chrome.runtime.sendMessage({
+        const saved = await chrome.runtime.sendMessage({
           type: 'UPDATE_SETTINGS',
+          expectedApiConfigsRevision: settings.apiConfigsRevision ?? 0,
           payload: {
-            ...settings,
             apiConfigs: updatedConfigs,
             activeApiConfigId: configId,
             apiProvider: selectedProvider,
           },
         });
+        if (generation !== requestGeneration.current) return;
+        if (!saved?.success) {
+          setTestResult('save-error');
+          return;
+        }
 
         setTestResult('success');
         setTimeout(() => setStep('success'), 500);
@@ -87,7 +104,9 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
         setTestResult('error');
       }
     } catch {
-      setTestResult('error');
+      if (generation === requestGeneration.current) {
+        setTestResult(tested ? 'save-error' : 'error');
+      }
     } finally {
       setIsTesting(false);
     }
@@ -101,15 +120,24 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
   }
 
   const handleFreeTrial = async () => {
-    // 设置默认使用免费翻译引擎
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_SETTINGS',
-      payload: {
-        ...settings,
-        apiProvider: 'free_google_translate' as import('@/shared/types').ApiProvider,
-      },
-    });
-    setStep('free-success');
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      // 免费试用只切换提供商，不回传未修改的配置数组或其他设置。
+      const saved = await chrome.runtime.sendMessage({
+        type: 'UPDATE_SETTINGS',
+        payload: { apiProvider: 'free_google_translate' },
+      });
+      if (!saved?.success) {
+        setTestResult('save-error');
+        return;
+      }
+      setStep('free-success');
+    } catch {
+      setTestResult('save-error');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const handleSkip = () => {
@@ -122,6 +150,9 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
     // WCAG 2.4.3: Focus trap 确保焦点限制在 Modal 内
     <div ref={modalRef} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+        {testResult === 'save-error' && (
+          <p role="alert" className="px-6 pt-4 text-sm text-red-500">保存失败，请重新加载设置后重试</p>
+        )}
         {/* 欢迎页 */}
         {step === 'welcome' && (
           <div className="p-6">
@@ -182,6 +213,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               </button>
               <button
                 onClick={handleFreeTrial}
+                disabled={isTesting}
                 className="w-full py-2 px-4 border-2 border-primary-200 dark:border-primary-800 text-primary-600 dark:text-primary-400 font-medium rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 flex items-center justify-center gap-2"
               >
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -214,7 +246,7 @@ export default function WelcomeModal({ settings, onComplete, onOpenSettings }: W
               {QUICK_PROVIDERS.map(provider => (
                 <button
                   key={provider.id}
-                  onClick={() => { setSelectedProvider(provider.id); setTestResult(null); }}
+                  onClick={() => { setSelectedProvider(provider.id); setApiKey(''); setTestResult(null); requestGeneration.current++; }}
                   role="radio"
                   aria-checked={selectedProvider === provider.id}
                   className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${

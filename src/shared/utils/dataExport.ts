@@ -6,10 +6,13 @@
  * Provides comprehensive data backup, restore, and validation capabilities
  */
 
-import type { UserProfile, UserSettings, UnknownWordEntry } from '@/shared/types';
+import type { UserProfile, UserSettings } from '@/shared/types';
 import type { MasteryProfile } from '@/shared/types/mastery';
 import { StorageManager } from '@/background/storage';
 import { logger } from '@/shared/utils';
+import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
+import { escapeCSVCell } from './csv';
+import { PARTIAL_PROFILE_IMPORT_ERROR } from './importErrors';
 
 /**
  * 导出数据格式版本
@@ -133,13 +136,90 @@ export async function exportAllData(): Promise<FullExportData> {
   return exportData;
 }
 
+export function validateImportedSettings(raw: unknown): string[] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return ['用户设置格式无效'];
+  const settings = raw as Record<string, unknown>;
+  const errors: string[] = [];
+  if (typeof settings.enabled !== 'boolean') errors.push('用户设置缺少启用状态');
+  if (settings.blacklist !== undefined && (!Array.isArray(settings.blacklist)
+    || settings.blacklist.some(domain => typeof domain !== 'string'))) {
+    errors.push('用户设置的网站黑名单格式无效');
+  }
+  if (settings.apiProvider !== undefined
+    && (typeof settings.apiProvider !== 'string'
+      || !Object.prototype.hasOwnProperty.call(PROVIDER_CONFIGS, settings.apiProvider))) {
+    errors.push('用户设置的 API 提供商无效');
+  }
+  if (settings.customApiUrl !== undefined && settings.customApiUrl !== '') {
+    errors.push('备份中的自定义 API 端点不可导入，请在设置页手动配置');
+  }
+  if (settings.apiConfigs !== undefined && (!Array.isArray(settings.apiConfigs)
+    || settings.apiConfigs.some(config => !config || typeof config !== 'object'
+      || typeof config.id !== 'string' || (config.name !== undefined && typeof config.name !== 'string')
+      || typeof config.provider !== 'string'
+      || !Object.prototype.hasOwnProperty.call(PROVIDER_CONFIGS, config.provider)
+      || typeof config.apiKey !== 'string'))) errors.push('用户设置的 API 配置格式无效');
+  if (Array.isArray(settings.apiConfigs) && settings.apiConfigs.some(config => config
+    && typeof config === 'object' && config.apiUrl !== undefined && config.apiUrl !== '')) {
+    errors.push('备份中的自定义 API 端点不可导入，请在设置页手动配置');
+  }
+  if (settings.hybridTranslation !== undefined) {
+    if (!settings.hybridTranslation || typeof settings.hybridTranslation !== 'object'
+      || Array.isArray(settings.hybridTranslation)) {
+      errors.push('用户设置的混合翻译配置无效');
+    } else {
+      const hybrid = settings.hybridTranslation as Record<string, unknown>;
+      if (typeof hybrid.traditionalProvider !== 'string'
+        || !['deepl', 'google_translate', 'youdao'].includes(hybrid.traditionalProvider)) {
+        errors.push('用户设置的传统翻译服务商无效');
+      }
+      if (hybrid.traditionalApiKey !== undefined && typeof hybrid.traditionalApiKey !== 'string') {
+        errors.push('用户设置的传统翻译密钥无效');
+      }
+      const validators: Record<string, (value: unknown) => boolean> = {
+        enabled: value => typeof value === 'boolean',
+        defaultEngine: value => ['llm', 'traditional', 'hybrid'].includes(value as string),
+        simpleTextThreshold: value => typeof value === 'number' && Number.isFinite(value) && value >= 0,
+        enableSmartRouting: value => typeof value === 'boolean',
+        priority: value => ['quality', 'speed', 'balanced'].includes(value as string),
+      };
+      if (Object.entries(hybrid).some(([key, value]) =>
+        Object.prototype.hasOwnProperty.call(validators, key) && !validators[key](value))) {
+        errors.push('用户设置的混合翻译配置无效');
+      }
+    }
+  }
+  return errors;
+}
+
+function isValidMasteryEntry(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const entry = raw as Record<string, unknown>;
+  const validDate = (value: unknown) => typeof value === 'number'
+    && Number.isFinite(value) && Math.abs(value) <= 8.64e15;
+  const validCount = (value: unknown) => typeof value === 'number'
+    && Number.isSafeInteger(value) && value >= 0;
+  return typeof entry.word === 'string' && !!entry.word.trim() && entry.word.length <= 200
+    && typeof entry.translation === 'string' && entry.translation.length <= 10000
+    && typeof entry.context === 'string' && entry.context.length <= 10000
+    && validDate(entry.markedAt) && validCount(entry.reviewCount)
+    && (entry.lastReviewAt === undefined || validDate(entry.lastReviewAt))
+    && typeof entry.masteryLevel === 'number' && Number.isFinite(entry.masteryLevel)
+    && entry.masteryLevel >= 0 && entry.masteryLevel <= 1
+    && typeof entry.confidence === 'number' && Number.isFinite(entry.confidence)
+    && entry.confidence >= 0 && entry.confidence <= 1
+    && validCount(entry.knownCount) && validCount(entry.unknownCount)
+    && validDate(entry.nextReviewAt)
+    && ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(String(entry.estimatedLevel));
+}
+
 /**
  * 验证导入数据
  *
  * @param data - 待验证的数据
  * @returns 验证结果
  */
-export function validateImportData(data: unknown): ValidationResult {
+export function validateImportData(data: unknown, options?: ImportOptions): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -171,7 +251,7 @@ export function validateImportData(data: unknown): ValidationResult {
   }
 
   // 检查 profile
-  if (obj.profile) {
+  if (options?.importProfile !== false && obj.profile) {
     const profile = obj.profile as Record<string, unknown>;
     if (!profile.examType) {
       warnings.push('用户配置缺少考试类型');
@@ -182,26 +262,61 @@ export function validateImportData(data: unknown): ValidationResult {
     if (!Array.isArray(profile.unknownWords)) {
       errors.push('用户配置缺少生词列表');
     }
-  } else {
+    const validDate = (value: unknown) => typeof value === 'number'
+      && Number.isFinite(value) && Math.abs(value) <= 8.64e15;
+    if (Array.isArray(profile.unknownWords) && profile.unknownWords.some(raw => {
+      if (!raw || typeof raw !== 'object') return true;
+      const entry = raw as Record<string, unknown>;
+      return typeof entry.word !== 'string' || !entry.word.trim() || entry.word.length > 200
+        || typeof entry.translation !== 'string' || entry.translation.length > 10000
+        || (entry.context !== undefined && (typeof entry.context !== 'string' || entry.context.length > 10000))
+        || (entry.markedAt !== undefined && !validDate(entry.markedAt))
+        || (entry.lastReviewAt !== undefined && !validDate(entry.lastReviewAt))
+        || (entry.reviewCount !== undefined && (typeof entry.reviewCount !== 'number'
+          || !Number.isSafeInteger(entry.reviewCount) || entry.reviewCount < 0));
+    })) errors.push('生词记录格式无效');
+    if (typeof profile.examType !== 'string'
+      || !['cet4', 'cet6', 'toefl', 'ielts', 'gre', 'custom'].includes(profile.examType)
+      || typeof profile.estimatedVocabulary !== 'number'
+      || !Number.isFinite(profile.estimatedVocabulary) || profile.estimatedVocabulary < 0
+      || profile.estimatedVocabulary > 1000000
+      || typeof profile.levelConfidence !== 'number'
+      || !Number.isFinite(profile.levelConfidence) || profile.levelConfidence < 0
+      || profile.levelConfidence > 1
+      || !validDate(profile.createdAt) || !validDate(profile.updatedAt)
+      || (profile.examScore !== undefined && (typeof profile.examScore !== 'number'
+        || !Number.isFinite(profile.examScore) || profile.examScore < 0 || profile.examScore > 1000))
+      || (Array.isArray(profile.knownWords) && profile.knownWords.some(
+        word => typeof word !== 'string' || !word.trim() || word.length > 200
+      ))) {
+      errors.push('用户配置字段无效');
+    }
+  } else if (options?.importProfile !== false) {
     warnings.push('缺少用户配置数据');
   }
 
   // 检查 settings
-  if (obj.settings) {
-    const settings = obj.settings as Record<string, unknown>;
-    if (typeof settings.enabled !== 'boolean') {
-      warnings.push('用户设置缺少启用状态');
+  if (options?.importSettings !== false) {
+    if (Object.prototype.hasOwnProperty.call(obj, 'settings')) {
+      errors.push(...validateImportedSettings(obj.settings));
+    } else {
+      warnings.push('缺少用户设置数据');
     }
-  } else {
-    warnings.push('缺少用户设置数据');
   }
 
   // 检查 mastery
-  if (obj.mastery) {
+  if (options?.importMastery !== false && obj.mastery) {
     const mastery = obj.mastery as Record<string, unknown>;
-    if (!mastery.wordMastery || typeof mastery.wordMastery !== 'object') {
-      warnings.push('掌握度数据格式不正确');
+    if (!mastery.wordMastery || typeof mastery.wordMastery !== 'object'
+      || Array.isArray(mastery.wordMastery)
+      || Object.values(mastery.wordMastery).some(entry => !isValidMasteryEntry(entry))) {
+      errors.push('掌握度数据格式不正确');
     }
+  }
+
+  if (options?.importCache && obj.translationCache !== undefined && obj.translationCache !== null
+    && (typeof obj.translationCache !== 'object' || Array.isArray(obj.translationCache))) {
+    errors.push('翻译缓存格式无效');
   }
 
   return {
@@ -237,40 +352,44 @@ export async function importAllData(
     errors: [],
     warnings: [],
   };
+  let confirmationMissing = false;
 
   try {
+    const validation = validateImportData(data, options);
+    if (!validation.valid) {
+      return { ...result, success: false, message: '数据验证失败', errors: validation.errors, warnings: validation.warnings };
+    }
     // 导入用户配置
     if (options.importProfile && data.profile) {
-      if (options.mergeVocabulary) {
-        // 合并词汇列表
-        const currentProfile = await StorageManager.getUserProfile();
-        const mergedKnownWords = new Set([
-          ...currentProfile.knownWords,
-          ...data.profile.knownWords,
-        ]);
-        const mergedUnknownWords = mergeUnknownWords(
-          currentProfile.unknownWords,
-          data.profile.unknownWords
-        );
-
-        await StorageManager.saveUserProfile({
-          ...data.profile,
-          knownWords: Array.from(mergedKnownWords),
-          unknownWords: mergedUnknownWords,
-        });
-
-        result.details.wordsMerged = mergedKnownWords.size - currentProfile.knownWords.length;
-      } else {
-        // 完全覆盖
-        await StorageManager.saveUserProfile(data.profile);
+      confirmationMissing = true;
+      const response = await chrome.runtime.sendMessage({
+        type: 'IMPORT_USER_PROFILE',
+        payload: { profile: data.profile, mergeVocabulary: options.mergeVocabulary },
+      });
+      if (response?.success === false) {
+        confirmationMissing = false;
+        throw new Error(response.error === PARTIAL_PROFILE_IMPORT_ERROR
+          ? PARTIAL_PROFILE_IMPORT_ERROR : '导入用户档案失败');
       }
+      if (response?.success !== true || !Number.isSafeInteger(response.data?.wordsMerged)) {
+        throw new Error('导入用户档案失败');
+      }
+      confirmationMissing = false;
+      result.details.wordsMerged = response.data.wordsMerged;
       result.details.profileImported = true;
       result.details.wordsImported = data.profile.knownWords.length + data.profile.unknownWords.length;
     }
 
     // 导入用户设置
     if (options.importSettings && data.settings) {
-      await StorageManager.saveSettings(data.settings);
+      confirmationMissing = true;
+      const response = await chrome.runtime.sendMessage({ type: 'REPLACE_SETTINGS', payload: data.settings });
+      if (response?.success === false) {
+        confirmationMissing = false;
+        throw new Error('导入用户设置失败');
+      }
+      if (response?.success !== true) throw new Error('导入用户设置失败');
+      confirmationMissing = false;
       result.details.settingsImported = true;
     }
 
@@ -294,36 +413,23 @@ export async function importAllData(
   } catch (error) {
     result.success = false;
     result.message = '数据导入失败';
-    result.errors.push(error instanceof Error ? error.message : String(error));
-    logger.error('DataImport: 导入失败', error);
+    const completed = [
+      result.details.profileImported && '用户配置',
+      result.details.settingsImported && '设置',
+      result.details.masteryImported && '掌握度',
+      result.details.cacheImported && '缓存',
+    ].filter((item): item is string => Boolean(item));
+    result.errors.push(error instanceof Error && error.message === PARTIAL_PROFILE_IMPORT_ERROR
+      ? PARTIAL_PROFILE_IMPORT_ERROR
+      : confirmationMissing
+        ? '导入状态未知：未收到后台确认，请核对已存储数据，避免重复导入'
+        : completed.length > 0
+          ? `部分数据已导入（${completed.join('、')}），其余未完成，请核对或从备份恢复`
+          : '数据导入失败，请检查备份或稍后重试');
+    logger.error('DataImport: 导入失败');
   }
 
   return result;
-}
-
-/**
- * 合并生词列表
- */
-function mergeUnknownWords(
-  current: UnknownWordEntry[],
-  imported: UnknownWordEntry[]
-): UnknownWordEntry[] {
-  const merged = new Map<string, UnknownWordEntry>();
-
-  // 添加当前列表
-  for (const entry of current) {
-    merged.set(entry.word.toLowerCase(), entry);
-  }
-
-  // 合并导入列表（导入的条目会覆盖同名的当前条目，除非当前条目更新）
-  for (const entry of imported) {
-    const existing = merged.get(entry.word.toLowerCase());
-    if (!existing || entry.markedAt > existing.markedAt) {
-      merged.set(entry.word.toLowerCase(), entry);
-    }
-  }
-
-  return Array.from(merged.values());
 }
 
 /**
@@ -362,7 +468,7 @@ export async function importFromJSON(
     };
   }
 
-  const validation = validateImportData(data);
+  const validation = validateImportData(data, options);
 
   if (!validation.valid) {
     return {
@@ -426,7 +532,7 @@ export async function exportVocabularyToCSV(): Promise<string> {
   // 生成 CSV
   const csvContent = [
     headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')),
+    ...rows.map(row => row.map(escapeCSVCell).join(',')),
   ].join('\n');
 
   return csvContent;
@@ -436,8 +542,8 @@ export async function exportVocabularyToCSV(): Promise<string> {
  * 清除所有数据
  */
 export async function clearAllData(): Promise<void> {
-  await chrome.storage.sync.clear();
-  await chrome.storage.local.clear();
+  const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DATA' });
+  if (!response?.success) throw new Error(response?.error || '清除数据失败，请稍后重试');
   logger.info('DataExport: 所有数据已清除');
 }
 

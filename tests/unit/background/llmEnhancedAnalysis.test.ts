@@ -11,6 +11,8 @@ import {
   type CulturalNote,
 } from '@/background/llmEnhancedAnalysis';
 import type { UserSettings } from '@/shared/types';
+import type { TranslationApiRequestOptions } from '@/background/translationApi';
+import { TransportError } from '@/shared/utils/translationErrors';
 
 // Mock TranslationApiService
 vi.mock('@/background/translationApi', () => ({
@@ -368,6 +370,124 @@ describe('LlmEnhancedAnalysisService', () => {
       );
 
       expect(mockTranslationApiService.callWithSystem).toHaveBeenCalled();
+    });
+  });
+
+  describe('请求取消与超时', () => {
+    beforeEach(async () => {
+      vi.mocked(await import('@/background/storage')).StorageManager.getApiKey.mockResolvedValue('test-api-key');
+    });
+
+    it('预先取消时不发起任何增强分析请求', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(LlmEnhancedAnalysisService.analyze(
+        'Test sentence.',
+        createMockSettings(),
+        { analyzeWords: true, analyzePhrases: true, analyzeGrammar: true, analyzeCultural: true },
+        { signal: controller.signal }
+      )).rejects.toMatchObject({ kind: 'cancelled' });
+
+      expect(mockTranslationApiService.callWithSystem).not.toHaveBeenCalled();
+    });
+
+    it('将请求选项传给四个并行分析分支', async () => {
+      const requestOptions: TranslationApiRequestOptions = {
+        signal: new AbortController().signal,
+        timeoutMs: 1234,
+      };
+      const service = LlmEnhancedAnalysisService as any;
+      const wordSpy = vi.spyOn(service, 'analyzeWords').mockResolvedValue([]);
+      const phraseSpy = vi.spyOn(service, 'analyzePhrases').mockResolvedValue([]);
+      const grammarSpy = vi.spyOn(service, 'analyzeGrammar').mockResolvedValue([]);
+      const culturalSpy = vi.spyOn(service, 'analyzeCultural').mockResolvedValue([]);
+
+      await LlmEnhancedAnalysisService.analyze(
+        'Test sentence.',
+        createMockSettings(),
+        { analyzeWords: true, analyzePhrases: true, analyzeGrammar: true, analyzeCultural: true },
+        requestOptions
+      );
+
+      expect(wordSpy.mock.calls[0][3]).toBe(requestOptions);
+      expect(phraseSpy.mock.calls[0][3]).toBe(requestOptions);
+      expect(grammarSpy.mock.calls[0][2]).toBe(requestOptions);
+      expect(culturalSpy.mock.calls[0][2]).toBe(requestOptions);
+    });
+
+    it.each([
+      ['analyzeWords', [true, false, false, false]],
+      ['analyzePhrases', [false, true, false, false]],
+      ['analyzeGrammar', [false, false, true, false]],
+      ['analyzeCultural', [false, false, false, true]],
+    ])('%s 将请求选项传给 TranslationApiService', async (method, enabled) => {
+      const requestOptions: TranslationApiRequestOptions = {
+        signal: new AbortController().signal,
+        timeoutMs: 1234,
+      };
+      const settings = createMockSettings();
+      settings.apiProvider = 'ollama';
+      mockTranslationApiService.callWithSystem.mockResolvedValue('{}');
+      const service = LlmEnhancedAnalysisService as any;
+      const analysisOptions = {
+        analyzeWords: enabled[0],
+        analyzePhrases: enabled[1],
+        analyzeGrammar: enabled[2],
+        analyzeCultural: enabled[3],
+        userVocabulary: 3000,
+      };
+      const args = method === 'analyzeWords' || method === 'analyzePhrases'
+        ? ['Test sentence.', settings, analysisOptions, requestOptions]
+        : ['Test sentence.', settings, requestOptions];
+
+      await service[method](...args);
+
+      expect(mockTranslationApiService.callWithSystem).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        settings,
+        undefined,
+        requestOptions
+      );
+    });
+
+    it('请求中途取消时中止已发出的增强分析请求', async () => {
+      const controller = new AbortController();
+      const requestOptions = { signal: controller.signal };
+      const settings = createMockSettings();
+      settings.apiProvider = 'ollama';
+      mockTranslationApiService.callWithSystem.mockImplementation(
+        (_system, _prompt, _apiKey, _settings, _retryOptions, callOptions) => new Promise<string>((_, reject) => {
+          callOptions?.signal?.addEventListener('abort', () => reject(TransportError.cancelled()), { once: true });
+        })
+      );
+      const service = LlmEnhancedAnalysisService as any;
+      const analysis = service.analyzeWords('Test sentence.', settings, {
+        analyzeWords: true,
+        analyzePhrases: false,
+        analyzeGrammar: false,
+        analyzeCultural: false,
+        userVocabulary: 3000,
+      }, requestOptions);
+      await vi.waitFor(() => {
+        expect(mockTranslationApiService.callWithSystem).toHaveBeenCalledTimes(1);
+      });
+      controller.abort();
+
+      await expect(analysis).rejects.toMatchObject({ kind: 'cancelled' });
+    });
+
+    it('不吞掉 timeout', async () => {
+      mockTranslationApiService.callWithSystem.mockRejectedValue(TransportError.timeout(20));
+
+      await expect(LlmEnhancedAnalysisService.analyze(
+        'Test sentence.',
+        createMockSettings(),
+        { analyzeWords: true, analyzePhrases: false, analyzeGrammar: false, analyzeCultural: false },
+        { timeoutMs: 20 }
+      )).rejects.toMatchObject({ kind: 'timeout' });
     });
   });
 

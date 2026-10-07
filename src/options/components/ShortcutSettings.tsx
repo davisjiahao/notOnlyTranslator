@@ -85,6 +85,8 @@ export default function ShortcutSettings({
   const [shortcuts, setShortcuts] = useState<ShortcutInfo[]>([]);
   const [editingAction, setEditingAction] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState(false);
+  const [savingShortcut, setSavingShortcut] = useState(false);
 
   useEffect(() => {
     // 加载用户自定义快捷键
@@ -101,16 +103,24 @@ export default function ShortcutSettings({
     }
   }, [settings.shortcuts]);
 
-  // 更新快捷键
-  const updateShortcut = useCallback(async (action: string, newKey: string) => {
-    setShortcuts(prev => {
-      const updated = prev.map(s =>
-        s.action === action ? { ...s, key: newKey } : s
-      );
-      onUpdate({ shortcuts: updated });
-      return updated;
-    });
-  }, [onUpdate]);
+  const saveShortcuts = useCallback(async (updated: ShortcutInfo[]) => {
+    const previous = shortcuts;
+    setSaveError(false);
+    setSavingShortcut(true);
+    setShortcuts(updated);
+    try {
+      await onUpdate({ shortcuts: updated });
+    } catch {
+      setShortcuts(current => current === updated ? previous : current);
+      setSaveError(true);
+    } finally {
+      setSavingShortcut(false);
+    }
+  }, [shortcuts, onUpdate]);
+
+  const updateShortcut = useCallback((action: string, newKey: string) =>
+    saveShortcuts(shortcuts.map(s => s.action === action ? { ...s, key: newKey } : s)),
+  [shortcuts, saveShortcuts]);
 
   // 处理按键捕获
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -150,16 +160,13 @@ export default function ShortcutSettings({
       return;
     }
 
-    // 如果有有效的快捷键组合，保存它
-    setPressedKeys(prevKeys => {
-      if (prevKeys.length > 0) {
-        const newKey = prevKeys.join('+');
-        updateShortcut(editingAction, newKey);
-        setEditingAction(null);
-      }
-      return [];
-    });
-  }, [editingAction, updateShortcut]);
+    // 仅在包含非修饰键时保存
+    if (pressedKeys.some(key => !['Ctrl', 'Alt', 'Shift', 'Meta'].includes(key))) {
+      void updateShortcut(editingAction, pressedKeys.join('+'));
+      setEditingAction(null);
+    }
+    setPressedKeys([]);
+  }, [editingAction, pressedKeys, updateShortcut]);
 
   useEffect(() => {
     if (editingAction) {
@@ -173,19 +180,11 @@ export default function ShortcutSettings({
   }, [editingAction, handleKeyDown, handleKeyUp]);
 
   // 切换快捷键启用状态
-  const toggleShortcut = async (action: string) => {
-    const updated = shortcuts.map(s =>
-      s.action === action ? { ...s, enabled: !s.enabled } : s
-    );
-    setShortcuts(updated);
-    await onUpdate({ shortcuts: updated });
-  };
+  const toggleShortcut = (action: string) =>
+    saveShortcuts(shortcuts.map(s => s.action === action ? { ...s, enabled: !s.enabled } : s));
 
   // 重置所有快捷键
-  const resetAllShortcuts = async () => {
-    setShortcuts(DEFAULT_SHORTCUTS);
-    await onUpdate({ shortcuts: DEFAULT_SHORTCUTS });
-  };
+  const resetAllShortcuts = () => saveShortcuts(DEFAULT_SHORTCUTS);
 
   // 打开 Chrome 扩展快捷键设置页面
   const openChromeShortcutSettings = () => {
@@ -203,6 +202,7 @@ export default function ShortcutSettings({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">快捷键设置</h2>
+        {saveError && <p role="alert" className="text-sm text-red-600">保存快捷键失败，请重试</p>}
         <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
           配置键盘快捷键，提升使用效率
         </p>
@@ -240,7 +240,7 @@ export default function ShortcutSettings({
               ) : (
                 <button
                   onClick={() => !isChromeCommand(shortcut.action) && setEditingAction(shortcut.action)}
-                  disabled={isSaving || isChromeCommand(shortcut.action)}
+                  disabled={isSaving || savingShortcut || isChromeCommand(shortcut.action)}
                   className={`px-4 py-2 border rounded-lg min-w-[120px] text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     isChromeCommand(shortcut.action)
                       ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -254,7 +254,7 @@ export default function ShortcutSettings({
               {/* 启用/禁用开关 */}
               <button
                 onClick={() => toggleShortcut(shortcut.action)}
-                disabled={isSaving}
+                disabled={isSaving || savingShortcut}
                 role="switch"
                 aria-checked={shortcut.enabled}
                 aria-label={`${shortcut.description} — ${shortcut.enabled ? '已启用' : '已禁用'}`}
@@ -277,7 +277,7 @@ export default function ShortcutSettings({
       <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-3">
         <button
           onClick={resetAllShortcuts}
-          disabled={isSaving}
+          disabled={isSaving || savingShortcut}
           className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           重置为默认
