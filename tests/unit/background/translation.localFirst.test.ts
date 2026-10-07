@@ -36,6 +36,7 @@ vi.mock('@/shared/performance', () => ({
 
 vi.mock('@/background/enhancedCache', () => ({
   enhancedCache: {
+    getGeneration: vi.fn(() => 0),
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
     fuzzyGet: vi.fn().mockResolvedValue(null),
@@ -72,6 +73,7 @@ import { HybridTranslationService } from '@/background/hybridTranslation';
 import { DeepLTranslationService } from '@/background/deeplTranslation';
 import { enhancedCache } from '@/background/enhancedCache';
 import { logger } from '@/shared/utils';
+import { TransportError } from '@/shared/utils/translationErrors';
 import {
   setOfflineWordSource,
   clearWordSenseCache,
@@ -230,6 +232,132 @@ describe('单词级本地优先查询', () => {
   });
 });
 
+describe('输出耗尽后的纯全文恢复', () => {
+  const text = 'Read  this book carefully.';
+  const recoveryRequest = (mode: TranslationRequest['mode'] = 'bilingual') => makeRequest({
+    text, context: '', mode,
+    userLevel: makeProfile({ unknownWords: [makeEntry('book', text, '书；预订')] }),
+  });
+
+  it.each([
+    { mode: 'bilingual', provider: 'custom', timeoutMs: 5000 },
+    { mode: 'full-translate', provider: 'ollama', timeoutMs: undefined },
+  ] as const)('$mode 保留原 signal、每次尝试超时及本地词汇，不缓存降级结果', async ({ mode, provider, timeoutMs }) => {
+    const settings = createMockSettings({ apiProvider: provider, translationMode: mode, grammarTranslationEnabled: true });
+    mockedGetSettings.mockResolvedValue(settings);
+    const controller = new AbortController();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    const performanceClock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    mockedCallWithSystem.mockImplementationOnce(async () => {
+      clock.mockReturnValue(2200);
+      performanceClock.mockReturnValue(2200);
+      throw TransportError.outputLimit();
+    }).mockResolvedValueOnce(JSON.stringify({ fullText: '仔细阅读这本书。' }));
+
+    try {
+      const result = await TranslationService.translate(recoveryRequest(mode), {
+        signal: controller.signal, timeoutMs, maxTokens: 2000,
+      });
+      expect(result).toMatchObject({ fullText: '仔细阅读这本书。', sentences: [] });
+      expect(result.grammarPoints).toBeUndefined();
+      expect(result.words).toEqual([expect.objectContaining({ original: 'book', translation: '书；预订', position: [11, 15] })]);
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+      const [system, prompt, key, snapshot, retry, options] = mockedCallWithSystem.mock.calls[1];
+      expect(system).not.toMatch(/CET|grammar|语法|分析/i);
+      expect(`${system}\n${prompt}`).toContain('fullText');
+      expect(prompt).toContain(text);
+      expect(key).toBe('sk-test');
+      expect(snapshot).toBe(settings);
+      expect(retry).toMatchObject({ maxRetries: 0 });
+      expect(options).toMatchObject({ signal: controller.signal, maxTokens: 2000 });
+      expect(options?.timeoutMs).toBe(timeoutMs);
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    } finally {
+      clock.mockRestore();
+      performanceClock.mockRestore();
+    }
+  });
+
+  it('恢复沿用轻量词汇作用域中的语境释义，词位置基于未归一化原文', async () => {
+    const originalText = 'The  internationalization accelerated.';
+    const profile = makeProfile({ unknownWords: [makeEntry('internationalization', originalText, '')] });
+    const settings = createMockSettings({ apiProvider: 'custom', translationMode: 'bilingual' });
+    mockedGetSettings.mockResolvedValue(settings);
+    const scope = enhancedCache.generateHash('', 'inline-only', { settings, userLevel: profile, engine: 'llm' });
+    storeWordSense('internationalization', originalText, '国际化', scope);
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit())
+      .mockResolvedValueOnce(JSON.stringify({ fullText: '国际化加速了。' }));
+
+    const result = await TranslationService.translate(makeRequest({ text: originalText, context: '', mode: 'bilingual', userLevel: profile }));
+
+    expect(result.words).toEqual([expect.objectContaining({ original: 'internationalization', translation: '国际化', position: [5, 25] })]);
+    expect(result.fullText).toBe('国际化加速了。');
+    expect(result.grammarPoints).toBeUndefined();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('纯全文恢复忽略夹带的无效分析数组，只保留本地词汇', async () => {
+    mockedGetSettings.mockResolvedValue(createMockSettings({ grammarTranslationEnabled: true }));
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockResolvedValueOnce(JSON.stringify({
+      fullText: '仔细阅读这本书。',
+      words: [null, { original: 'book', translation: '伪造词义', position: [11, 15] }],
+      sentences: [null],
+      grammarPoints: [null],
+    }));
+
+    const result = await TranslationService.translate(recoveryRequest());
+
+    expect(result.fullText).toBe('仔细阅读这本书。');
+    expect(result.words).toEqual([expect.objectContaining({ original: 'book', translation: '书；预订', position: [11, 15] })]);
+    expect(result.sentences).toEqual([]);
+    expect(result.grammarPoints).toBeUndefined();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('inline-only 输出耗尽且候选均有本地释义时直接恢复，不再请求也不缓存', async () => {
+    mockedCallWithSystem.mockRejectedValue(TransportError.outputLimit());
+
+    const result = await TranslationService.translate(recoveryRequest('inline-only'));
+    expect(result.words).toEqual([expect.objectContaining({ original: 'book', translation: '书；预订' })]);
+    expect(result.fullText).toBeUndefined();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('非输出耗尽错误不切换任务也不缓存', async () => {
+    const error = TransportError.unavailable('服务不可用');
+    mockedCallWithSystem.mockRejectedValue(error);
+
+    await expect(TranslationService.translate(recoveryRequest())).rejects.toBe(error);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('恢复任务再次输出耗尽后终止，最多调用两次且不缓存', async () => {
+    const recoveryError = TransportError.outputLimit();
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockRejectedValueOnce(recoveryError);
+
+    await expect.soft(TranslationService.translate(recoveryRequest())).rejects.toBe(recoveryError);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('首次任务耗尽时原 signal 已取消，不发起恢复也不缓存', async () => {
+    const controller = new AbortController();
+    mockedCallWithSystem.mockImplementationOnce(async () => {
+      controller.abort();
+      throw TransportError.outputLimit();
+    });
+
+    await expect.soft(TranslationService.translate(recoveryRequest(), { signal: controller.signal }))
+      .rejects.toThrow(/abort|取消/i);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+});
+
 describe('增强缓存短路', () => {
   const request = makeRequest({
     text: 'The unexpected serendipity changed everything overnight.',
@@ -248,15 +376,16 @@ describe('增强缓存短路', () => {
     expect(enhancedCache.set).not.toHaveBeenCalled();
   });
 
-  it('有 Key 时模糊命中不触发模型请求或缓存写入', async () => {
+  it('即使近似缓存声称命中，仍重新请求并写入新精确项', async () => {
     vi.mocked(enhancedCache.fuzzyGet).mockResolvedValueOnce({ result: cachedResult, similarity: 0.96 });
+    mockedCallWithSystem.mockResolvedValueOnce(JSON.stringify({ fullText: '新译文', words: [], sentences: [] }));
 
     const result = await TranslationService.translate(request);
 
-    expect(result).toBe(cachedResult);
-    expect(enhancedCache.fuzzyGet).toHaveBeenCalledWith(request.text, request.mode);
-    expect(mockedCallWithSystem).not.toHaveBeenCalled();
-    expect(enhancedCache.set).not.toHaveBeenCalled();
+    expect(result.fullText).toBe('新译文');
+    expect(enhancedCache.fuzzyGet).not.toHaveBeenCalled();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).toHaveBeenCalledTimes(1);
   });
 
   it('无 Key 时精确命中不请求免费翻译网络', async () => {
@@ -274,6 +403,109 @@ describe('增强缓存短路', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('行内输出耗尽后的候选词义恢复', () => {
+  const text = '  house  book\n internationalization accelerated.';
+  const request = () => makeRequest({ text, context: '', userLevel: makeProfile({
+    estimatedVocabulary: 3000, knownWords: ['house', 'accelerated'],
+    unknownWords: [makeEntry('book', text, '本地书义')],
+  }) });
+  const content = JSON.stringify({ words: [
+    { original: 'internationalization', translation: '国际化', position: [0, 1] },
+    { original: 'house', translation: '不应重新翻译' },
+    { original: 'book', translation: '不应覆盖本地' },
+    { original: 'extraneous', translation: '候选外词' },
+  ], fullText: '不应采纳全文', grammarPoints: [{ original: 'house' }] });
+
+  it('只恢复未解候选，保留原设置和选项、本地释义及原文位置，不缓存分析', async () => {
+    const settings = createMockSettings({ apiProvider: 'custom', customModelName: 'space-bunny',
+      grammarTranslationEnabled: true, phraseTranslationEnabled: true });
+    mockedGetSettings.mockResolvedValue(settings);
+    const controller = new AbortController();
+    const options = { signal: controller.signal, timeoutMs: 5000, maxTokens: 2000 };
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockResolvedValueOnce(content);
+
+    const result = await TranslationService.translate(request(), options);
+
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    const [system, prompt, key, sentSettings, retry, sentOptions] = mockedCallWithSystem.mock.calls[1];
+    expect(system).toContain('禁止整句翻译');
+    expect(prompt).not.toContain('fullText');
+    expect(prompt).not.toContain('grammarPoints');
+    expect(prompt.split('候选词：')[1]).not.toMatch(/house|book|extraneous/);
+    expect(key).toBe('sk-test');
+    expect(sentSettings).toBe(settings);
+    expect(retry?.maxRetries).toBe(0);
+    expect(sentOptions).toMatchObject(options);
+    expect(result.words.map(word => [word.original, word.translation])).toEqual([
+      ['book', '本地书义'], ['internationalization', '国际化'],
+    ]);
+    for (const word of result.words) expect(text.slice(...word.position)).toBe(word.original);
+    expect(result).toMatchObject({ sentences: [], grammarPoints: [], _source: 'llm' });
+    expect(result.fullText).toBeUndefined();
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['output_limit', 'timeout'] as const)('恢复再次失败 %s 时终止，不递归也不缓存', async kind => {
+    const error = kind === 'output_limit' ? TransportError.outputLimit() : TransportError.timeout(5000);
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockRejectedValueOnce(error);
+    await expect(TranslationService.translate(request())).rejects.toBe(error);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['首次失败', '恢复响应', '恢复失败'] as const)('%s时取消优先，不接纳迟到结果', async stage => {
+    const controller = new AbortController();
+    mockedCallWithSystem.mockImplementationOnce(async () => {
+      if (stage === '首次失败') controller.abort();
+      throw TransportError.outputLimit();
+    }).mockImplementationOnce(async () => {
+      controller.abort();
+      if (stage === '恢复失败') throw TransportError.outputLimit();
+      return content;
+    });
+    await expect(TranslationService.translate(request(), { signal: controller.signal })).rejects.toThrow(/abort|取消/i);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(stage === '首次失败' ? 1 : 2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('本地恢复完成与返回调用方之间取消时，仍优先取消', async () => {
+    const controller = new AbortController();
+    vi.mocked(enhancedCache.generateHash).mockReturnValueOnce('request-cache').mockImplementationOnce(() => {
+      queueMicrotask(() => controller.abort());
+      return 'sense-scope';
+    });
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit());
+    await expect(TranslationService.translate(makeRequest({
+      text: 'The house is already familiar.', context: '', userLevel: makeProfile(),
+    }), { signal: controller.signal })).rejects.toThrow(/abort|取消/i);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['not json', 'null', '{}', '{"words":null}', '{"words":[]}',
+    '{"words":[null,{"original":"internationalization","translation":123}]}',
+    '{"words":[{"original":"house","translation":"已知词"},{"original":"extraneous","translation":"无关词"}]}',
+  ])('恢复返回无有效目标词义 %s 且没有本地结果时明确失败', async value => {
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockResolvedValueOnce(value);
+    await expect(TranslationService.translate(makeRequest({
+      text: 'The internationalization of markets accelerated.', context: '',
+      userLevel: makeProfile({ estimatedVocabulary: 3000, knownWords: ['house', 'markets', 'accelerated'] }),
+    }))).rejects.toThrow();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('没有本地候选时原地恢复空词表，不凭空请求', async () => {
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit());
+    const result = await TranslationService.translate(makeRequest({
+      text: 'The house is already familiar.', context: '', userLevel: makeProfile(),
+    }));
+    expect(result.words).toEqual([]);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
   });
 });
 
@@ -340,6 +572,106 @@ describe('Ollama 轻量词汇模式（仅译候选词）', () => {
     expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
   });
 
+  it('段落写入的模型义可供同用户同设置的原句查词复用', async () => {
+    mockedGetSettings.mockResolvedValue(makeOllamaSettings());
+    mockedGetApiKey.mockResolvedValue('');
+    mockedCallWithSystem.mockResolvedValue(JSON.stringify({
+      words: [{ original: 'internationalization', translation: '国际化' }],
+    }));
+
+    await TranslationService.translate(makeRequest({ text: HARD_TEXT, context: '', userLevel: HARD_PROFILE }));
+    const result = await TranslationService.translate(makeRequest({
+      text: 'internationalization', context: HARD_TEXT, userLevel: HARD_PROFILE,
+    }));
+
+    expect(result.words[0].translation).toBe('国际化');
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+  });
+
+  it('配置或用户等级切换后，同句同词必须重新获取模型语境释义', async () => {
+    const generateHash = vi.mocked(enhancedCache.generateHash);
+    generateHash.mockImplementation((text, mode, scope) =>
+      JSON.stringify([text, mode, scope?.settings.customModelName, scope?.userLevel?.estimatedVocabulary]));
+    mockedGetApiKey.mockResolvedValue('');
+    mockedCallWithSystem
+      .mockResolvedValueOnce(JSON.stringify({ words: [{ original: 'internationalization', translation: '用户甲义' }] }))
+      .mockResolvedValueOnce(JSON.stringify({ words: [{ original: 'internationalization', translation: '用户乙义' }] }))
+      .mockResolvedValueOnce(JSON.stringify({ words: [{ original: 'internationalization', translation: '新模型义' }] }));
+    try {
+      mockedGetSettings.mockResolvedValue(makeOllamaSettings({ customModelName: 'model-a' }));
+      const request = makeRequest({ text: HARD_TEXT, context: '', userLevel: HARD_PROFILE });
+      await TranslationService.translate(request);
+      const otherProfile = await TranslationService.translate({
+        ...request, userLevel: makeProfile({ estimatedVocabulary: 2000, knownWords: [] }),
+      });
+      mockedGetSettings.mockResolvedValue(makeOllamaSettings({ customModelName: 'model-b' }));
+      const otherModel = await TranslationService.translate(request);
+
+      expect(otherProfile.words[0].translation).toBe('用户乙义');
+      expect(otherModel.words[0].translation).toBe('新模型义');
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(3);
+    } finally {
+      generateHash.mockImplementation((text, mode) => `h:${mode}:${text}`);
+    }
+  });
+
+  it('清空缓存之前启动的轻量请求，迟到结果不得回填词义缓存', async () => {
+    mockedGetSettings.mockResolvedValue(makeOllamaSettings());
+    mockedGetApiKey.mockResolvedValue('');
+    let generation = 0;
+    const getGeneration = vi.mocked(enhancedCache.getGeneration);
+    getGeneration.mockImplementation(() => generation);
+    let complete!: (value: string) => void;
+    mockedCallWithSystem
+      .mockImplementationOnce(() => new Promise<string>((resolve) => { complete = resolve; }))
+      .mockResolvedValueOnce(JSON.stringify({ words: [{ original: 'internationalization', translation: '新义' }] }));
+    try {
+      const request = makeRequest({ text: HARD_TEXT, context: '', userLevel: HARD_PROFILE });
+      const pending = TranslationService.translate(request);
+      await vi.waitFor(() => expect(mockedCallWithSystem).toHaveBeenCalledTimes(1));
+      generation = 1;
+      clearWordSenseCache();
+      complete(JSON.stringify({ words: [{ original: 'internationalization', translation: '旧义' }] }));
+      await pending;
+      const next = await TranslationService.translate(request);
+
+      expect(next.words[0].translation).toBe('新义');
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    } finally {
+      getGeneration.mockImplementation(() => 0);
+    }
+  });
+
+  it('等待段落缓存读取期间清空后，旧请求不得写回词义', async () => {
+    mockedGetSettings.mockResolvedValue(makeOllamaSettings());
+    mockedGetApiKey.mockResolvedValue('');
+    let generation = 0;
+    const getGeneration = vi.mocked(enhancedCache.getGeneration);
+    const get = vi.mocked(enhancedCache.get);
+    getGeneration.mockImplementation(() => generation);
+    let release!: (value: null) => void;
+    get.mockImplementationOnce(() => new Promise<null>(resolve => { release = resolve; }));
+    mockedCallWithSystem.mockResolvedValue(JSON.stringify({
+      words: [{ original: 'internationalization', translation: '国际化' }],
+    }));
+    try {
+      const request = makeRequest({ text: HARD_TEXT, context: '', userLevel: HARD_PROFILE });
+      const pending = TranslationService.translate(request);
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+      generation = 1;
+      clearWordSenseCache();
+      release(null);
+      await pending;
+      await TranslationService.translate(makeRequest({
+        text: 'internationalization', context: HARD_TEXT, userLevel: HARD_PROFILE,
+      }));
+
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    } finally {
+      getGeneration.mockImplementation(() => 0);
+    }
+  });
+
   it.each(['', 'This article describes internationalization.'])('外部语境为 %s 时，不同原句不共用词义缓存', async context => {
     mockedGetSettings.mockResolvedValue(makeOllamaSettings());
     mockedGetApiKey.mockResolvedValue('');
@@ -394,7 +726,7 @@ describe('Ollama 轻量词汇模式（仅译候选词）', () => {
 
     const profile = makeProfile({
       estimatedVocabulary: 99999,
-      unknownWords: [makeEntry('ubiquitous', 'the ubiquitous smartphone', '无处不在的')],
+      unknownWords: [makeEntry('ubiquitous', 'The ubiquitous smartphone is very good.', '无处不在的')],
     });
     const request = makeRequest({
       text: 'The ubiquitous smartphone is very good.',
@@ -546,8 +878,9 @@ describe('options 贯穿与小接口', () => {
   it('quickTranslate 的 fallback 透传 options', async () => {
     vi.mocked(DeepLTranslationService.quickTranslate).mockResolvedValue('机缘巧合');
     const options = { signal: new AbortController().signal, timeoutMs: 123 };
-    await TranslationService.quickTranslate('serendipity', 'sk-test', createMockSettings(), options);
-    expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('serendipity', options);
+    const settings = createMockSettings();
+    await TranslationService.quickTranslate('serendipity', 'sk-test', settings, options);
+    expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('serendipity', options, settings);
   });
 
   it('取消后不落缓存且不吞掉取消错误', async () => {
@@ -590,13 +923,26 @@ describe('options 贯穿与小接口', () => {
     expect(DeepLTranslationService.quickTranslate).not.toHaveBeenCalled();
   });
 
+  it('快速查词沿用请求配置快照，不在回退时重读切换后的服务商', async () => {
+    const settings = createMockSettings({ apiProvider: 'deepl', apiConfigs: [
+      { id: 'deepl', name: 'DeepL', provider: 'deepl', apiKey: 'KEY_A', tested: true },
+    ] });
+    setOfflineWordSource(null);
+    vi.mocked(DeepLTranslationService.quickTranslate).mockResolvedValue('译文');
+
+    await TranslationService.quickTranslate('serendipity', 'KEY_A', settings);
+
+    expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('serendipity', undefined, settings);
+  });
+
   it('quickTranslate 本地未命中时回退 DeepL', async () => {
     vi.mocked(DeepLTranslationService.quickTranslate).mockResolvedValue('机缘巧合');
 
-    const result = await TranslationService.quickTranslate('serendipity', 'k', createMockSettings());
+    const settings = createMockSettings();
+    const result = await TranslationService.quickTranslate('serendipity', 'k', settings);
 
     expect(result).toBe('机缘巧合');
-    expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('serendipity', undefined);
+    expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('serendipity', undefined, settings);
   });
 
   it('translatePlainText 解析 Google 标准响应，完整保留各句译文', async () => {
@@ -652,12 +998,16 @@ describe('options 贯穿与小接口', () => {
     vi.unstubAllGlobals();
   });
 
-  it('storeWordSense 预置的语境缓存可直接服务单词查词', async () => {
-    storeWordSense('bank', 'sat by the river bank', '河岸');
+  it('storeWordSense 预置的同设置同用户语境缓存可直接服务单词查词', async () => {
+    const request = makeRequest({ text: 'bank', context: 'sat by the river bank' });
+    const settings = createMockSettings();
+    mockedGetSettings.mockResolvedValue(settings);
+    const cacheScope = enhancedCache.generateHash('', 'inline-only', {
+      settings, userLevel: request.userLevel, engine: 'llm',
+    });
+    storeWordSense('bank', request.context, '河岸', cacheScope);
 
-    const result = await TranslationService.translate(
-      makeRequest({ text: 'bank', context: 'sat by the river bank' })
-    );
+    const result = await TranslationService.translate(request);
 
     expect(result.words[0].translation).toBe('河岸');
     expect(mockedCallWithSystem).not.toHaveBeenCalled();

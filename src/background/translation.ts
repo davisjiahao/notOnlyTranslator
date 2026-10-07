@@ -3,11 +3,13 @@ import type {
   TranslationResult,
   UserSettings,
 } from '@/shared/types';
-import { logger, generateCacheKey, extractJsonFromResponse } from '@/shared/utils';
+import { logger, extractJsonFromResponse } from '@/shared/utils';
+import { TransportError } from '@/shared/utils/translationErrors';
 import { StorageManager } from './storage';
 import { TranslationApiService, type TranslationApiRequestOptions } from './translationApi';
 import { TranslationPromptBuilder, promptVersionManager, buildVocabOnlyPrompt } from '@/shared/prompts';
 import { enhancedCache } from './enhancedCache';
+import { recoverInlineVocabulary } from './inlineVocabRecovery';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { HybridTranslationService } from './hybridTranslation';
 import { DeepLTranslationService } from './deeplTranslation';
@@ -42,6 +44,7 @@ export class TranslationService {
     options?: TranslationRequestOptions
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
+    const cacheGeneration = enhancedCache.getGeneration();
     const { text, mode } = request;
     const startTime = performance.now();
 
@@ -53,7 +56,7 @@ export class TranslationService {
 
     // 策略0: 单词/短语级查词先走本地链（生词本 → 语境缓存 → 离线词典）
     // 查词不因单词等级低被拒绝；本地命中在断网/无 Key 时同样可用
-    const localHit = await this.tryLocalWordLookup(request);
+    const localHit = await this.tryLocalWordLookup(request, settings);
     options?.signal?.throwIfAborted();
     if (localHit) {
       const duration = performance.now() - startTime;
@@ -66,15 +69,15 @@ export class TranslationService {
 
     // 免费 Google 只在用户明确选择时使用，绝不作为无密钥的自动回退。
     if (settings.apiProvider === 'free_google_translate') {
-      return this.translateWithFreeGoogle(request, startTime, options);
+      return this.translateWithFreeGoogle(request, settings, startTime, cacheGeneration, options);
     }
 
     const hasDeepLKey = settings.apiProvider === 'deepl' && await this.hasDeepLApiKey(settings);
-    const apiKey = await StorageManager.getApiKey();
+    const apiKey = await StorageManager.getApiKey(settings);
     options?.signal?.throwIfAborted();
     if (!apiKey && !hasDeepLKey && settings.apiProvider !== 'ollama') {
       // 未配置服务也可使用已有缓存；后续在缓存未命中时只走本地词典，不调用网络。
-      return this.translateWithLLM(request, settings, startTime, options);
+      return this.translateWithLLM(request, settings, apiKey, startTime, cacheGeneration, options);
     }
 
     const hybridSettings = settings as UserSettings & { hybridTranslation?: { enabled?: boolean } };
@@ -89,7 +92,7 @@ export class TranslationService {
     }
 
     logger.info('TranslationService: Using standard LLM translation');
-    return this.translateWithLLM(request, settings, startTime, options);
+    return this.translateWithLLM(request, settings, apiKey, startTime, cacheGeneration, options);
   }
 
   /**
@@ -115,12 +118,16 @@ export class TranslationService {
    */
   private static async translateWithFreeGoogle(
     request: TranslationRequest,
+    settings: UserSettings,
     startTime: number,
+    cacheGeneration: number,
     options?: TranslationRequestOptions
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
     const { text, mode } = request;
-    const cacheKey = generateCacheKey(text, mode);
+    const cacheKey = enhancedCache.generateHash(text, mode, {
+      settings, userLevel: request.userLevel, context: request.context, engine: 'free_google',
+    });
 
     // 检查缓存
     const cached = await enhancedCache.get(cacheKey);
@@ -179,7 +186,7 @@ export class TranslationService {
     // 取消检查：已取消则不落缓存
     options?.signal?.throwIfAborted();
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
-    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'free_google');
+    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'free_google', cacheGeneration);
 
     recordMetric(MetricType.API_RESPONSE_TIME, 'translate_free', apiDuration, true, {
       provider: 'free_google_translate',
@@ -204,40 +211,32 @@ export class TranslationService {
   private static async translateWithLLM(
     request: TranslationRequest,
     settings: UserSettings,
+    apiKey: string,
     startTime: number,
+    cacheGeneration: number,
     options?: TranslationRequestOptions
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
     const { text, mode } = request;
 
     // 生成缓存键
-    const cacheKey = generateCacheKey(text, mode);
+    const cacheKey = enhancedCache.generateHash(text, mode, {
+      settings, userLevel: request.userLevel, context: JSON.stringify([request.context ?? '', apiKey]), engine: 'llm',
+    });
 
     // 检查增强缓存
     const cached = await enhancedCache.get(cacheKey);
     options?.signal?.throwIfAborted();
-    if (cached) {
+    // 旧版本可能缓存了缺失全文的成功响应，双语和全文模式不能继续复用。
+    if (cached && (mode === 'inline-only' || (typeof cached.fullText === 'string' && cached.fullText.trim().length > 0))) {
       const duration = performance.now() - startTime;
       recordMetric(MetricType.CACHE_OPERATION, 'cache_get', duration, true, { cacheHit: true, cacheKey });
       logger.info('TranslationService: Cache hit', { duration: `${duration.toFixed(2)}ms` });
       return cached;
     }
 
-    // 记录缓存未命中，尝试模糊匹配
-    const fuzzyMatch = await enhancedCache.fuzzyGet(text, mode);
-    options?.signal?.throwIfAborted();
-    if (fuzzyMatch) {
-      const duration = performance.now() - startTime;
-      recordMetric(MetricType.CACHE_OPERATION, 'cache_get_fuzzy', duration, true, { cacheHit: true, cacheKey: cacheKey + ':fuzzy', similarity: fuzzyMatch.similarity });
-      logger.info('TranslationService: Fuzzy cache hit', { similarity: `${(fuzzyMatch.similarity * 100).toFixed(1)}%`, duration: `${duration.toFixed(2)}ms` });
-      return fuzzyMatch.result;
-    }
-
     recordMetric(MetricType.CACHE_OPERATION, 'cache_get', 0, true, { cacheHit: false, cacheKey });
 
-    // Get settings for API config
-    const apiKey = await StorageManager.getApiKey();
-    options?.signal?.throwIfAborted();
     logger.info('TranslationService: Settings loaded:', {
       apiProvider: settings.apiProvider,
       hasApiKey: !!apiKey,
@@ -268,7 +267,7 @@ export class TranslationService {
       !settings.phraseTranslationEnabled
     ) {
       logger.info('TranslationService: Using lightweight vocab mode (local-first)');
-      return this.translateWithLightweightVocab(request, settings, startTime, options);
+      return this.translateWithLightweightVocab(request, settings, apiKey, startTime, cacheGeneration, options);
     }
 
     // Build prompt with settings
@@ -278,9 +277,40 @@ export class TranslationService {
     // 使用统一 API 服务调用 LLM（末位可选参数携带取消信号等请求选项）
     logger.info('TranslationService: Calling API provider:', settings.apiProvider);
     const apiStartTime = performance.now();
-    const content = await TranslationApiService.callWithSystem(systemPrompt, userPrompt, apiKey, settings, undefined, options);
+    let content: string;
+    let fullTextFallback = false;
+    try {
+      content = await TranslationApiService.callWithSystem(systemPrompt, userPrompt, apiKey, settings, undefined, options);
+    } catch (error) {
+      options?.signal?.throwIfAborted();
+      if (!(error instanceof TransportError) || error.kind !== 'output_limit') throw error;
+      if (mode === 'inline-only') {
+        const recovered = await recoverInlineVocabulary(
+          [{ text, context: request.context }], request.userLevel, settings, apiKey, options
+        );
+        options?.signal?.throwIfAborted();
+        return recovered.results[0];
+      }
+      if (mode !== 'bilingual' && mode !== 'full-translate') throw error;
+      // 仅改变任务复杂度，保留原配置、取消信号与整体请求截止时间。
+      content = await TranslationApiService.callWithSystem(
+        'Translate English into Chinese. Return only valid JSON with a complete Chinese fullText string. Preserve proper names.',
+        `Translate the text below completely. Return only JSON matching {"fullText":"完整中文译文"}.\n\nText:\n${text}`,
+        apiKey, settings, { maxRetries: 0 }, { ...options, responseFormat: { type: 'json_object' } }
+      );
+      fullTextFallback = true;
+    }
+    options?.signal?.throwIfAborted();
     const apiDuration = performance.now() - apiStartTime;
-    const result = this.parseResponse(content, settings);
+    const parsed = this.parseResponse(content, settings, mode, fullTextFallback);
+    const senseContext = request.context ? `${text}\n${request.context}` : text;
+    const senseScope = fullTextFallback ? enhancedCache.generateHash('', 'inline-only', {
+      settings, userLevel: request.userLevel, engine: 'llm',
+    }) : undefined;
+    const result: TranslationResult = fullTextFallback ? {
+      words: resolveLocalCandidates(text, request.userLevel, { context: senseContext, cacheScope: senseScope }).result.words,
+      sentences: [], fullText: parsed.fullText, _source: 'llm',
+    } : parsed;
 
     logger.info('TranslationService: API call completed', {
       wordsCount: result.words?.length,
@@ -291,7 +321,8 @@ export class TranslationService {
     // 取消检查：已取消则不落缓存，取消错误向上传播（不吞掉后继续 fallback）
     options?.signal?.throwIfAborted();
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
-    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm');
+    // 纯全文任务没有完成原学习分析，不能污染其缓存身份。
+    if (!fullTextFallback) await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm', cacheGeneration);
 
     // 记录 API 调用性能
     const totalDuration = performance.now() - startTime;
@@ -315,15 +346,18 @@ export class TranslationService {
   private static async translateWithLightweightVocab(
     request: TranslationRequest,
     settings: UserSettings,
+    apiKey: string,
     startTime: number,
+    cacheGeneration: number,
     options?: TranslationRequestOptions
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
     const { text, context, userLevel } = request;
     const senseContext = context ? `${text}\n${context}` : text;
 
-    // 语境缓存必须包含原句，避免相同外部语境下的不同句子共享词义。
-    const resolution = resolveLocalCandidates(text, userLevel, { context: senseContext });
+    // 词义作用域只绑定设置和用户，原句由词义缓存自身的完整语境键隔离。
+    const senseScope = enhancedCache.generateHash('', 'inline-only', { settings, userLevel, engine: 'llm' });
+    const resolution = resolveLocalCandidates(text, userLevel, { context: senseContext, cacheScope: senseScope });
 
     // 无候选词或全部本地可解：无需模型
     if (resolution.candidates.length === 0 || resolution.needsContext.length === 0) {
@@ -343,7 +377,6 @@ export class TranslationService {
       candidates: resolution.needsContext.map((c) => c.original),
     });
 
-    const apiKey = await StorageManager.getApiKey();
     options?.signal?.throwIfAborted();
     const apiStartTime = performance.now();
     const content = await TranslationApiService.callWithSystem(
@@ -373,8 +406,10 @@ export class TranslationService {
       const sense = senseByLemma.get(c.lemma);
       if (!sense) return c;
       llmAdoptedCount += 1;
-      // 语境释义写入缓存：同词同语境再次查询不再调用模型
-      storeWordSense(c.lemma, senseContext, sense.translation);
+      // 清空前的在途请求只能返回结果，不能回填已清除的旧词义。
+      if (cacheGeneration === enhancedCache.getGeneration()) {
+        storeWordSense(c.lemma, senseContext, sense.translation, senseScope);
+      }
       return { ...c, translation: sense.translation, source: 'sense_cache' as const };
     });
 
@@ -426,7 +461,7 @@ export class TranslationService {
    * 单词/短语级查词的本地优先解析（≤3 个词）
    * 命中返回完整结果；未命中返回 null 走原有策略（LLM / 免费引擎），不因等级低拒绝查词
    */
-  private static async tryLocalWordLookup(request: TranslationRequest): Promise<TranslationResult | null> {
+  private static async tryLocalWordLookup(request: TranslationRequest, settings: UserSettings): Promise<TranslationResult | null> {
     const { text, context, userLevel } = request;
     if (!text || typeof text !== 'string') return null;
 
@@ -434,7 +469,8 @@ export class TranslationService {
     const tokens = text.match(tokenRegex);
     if (!tokens || tokens.length === 0 || tokens.length > 3) return null;
 
-    const hit = await lookupWord(text, { userProfile: userLevel, context });
+    const cacheScope = enhancedCache.generateHash('', 'inline-only', { settings, userLevel, engine: 'llm' });
+    const hit = await lookupWord(text, { userProfile: userLevel, context, cacheScope });
     if (!hit) return null;
 
     // 本地计算并验证原文位置（切片回读比对）
@@ -481,9 +517,11 @@ export class TranslationService {
         .replace(/{vocabulary_size}/g, String(vocabularySize))
         .replace(/{exam_level}/g, examLevel);
 
+      // 版本模板的 schema 必须实际发送给模型，不能只保留在模板元数据中。
       const userPrompt = template.userPromptTemplate
         .replace(/{text}/g, text)
-        .replace(/{context}/g, context || text);
+        .replace(/{context}/g, context || text)
+        + `\n\n请严格按照以下 JSON Schema 返回结果：\n${JSON.stringify(template.outputSchema)}`;
 
       logger.info('TranslationService: Using prompt version:', promptVersion);
       return { systemPrompt, userPrompt };
@@ -503,7 +541,12 @@ export class TranslationService {
   /**
    * Parse LLM response into TranslationResult
    */
-  private static parseResponse(content: string, settings: UserSettings): TranslationResult {
+  private static parseResponse(
+    content: string,
+    settings: UserSettings,
+    mode: TranslationRequest['mode'] = settings.translationMode,
+    fullTextOnly = false
+  ): TranslationResult {
     const { phraseTranslationEnabled, grammarTranslationEnabled } = settings;
 
     try {
@@ -515,6 +558,11 @@ export class TranslationService {
       }
 
       const parsed = JSON.parse(jsonStr.trim());
+      if (mode !== 'inline-only' && (typeof parsed?.fullText !== 'string' || !parsed.fullText.trim())) {
+        throw new Error('模型未返回完整译文');
+      }
+      // 恢复任务只读取全文，不让未请求的分析数组阻断有效译文。
+      if (fullTextOnly) return { words: [], sentences: [], fullText: parsed.fullText };
 
       // Validate and normalize result
       const result: TranslationResult = {
@@ -593,7 +641,7 @@ export class TranslationService {
     }
     options?.signal?.throwIfAborted();
     // 使用 DeepLTranslationService 的快速翻译（优先 DeepL）
-    return DeepLTranslationService.quickTranslate(text, options);
+    return DeepLTranslationService.quickTranslate(text, options, _settings);
   }
 
   /**
@@ -607,6 +655,7 @@ export class TranslationService {
     if (!text || !text.trim()) {
       throw new Error('translatePlainText: 文本不能为空');
     }
+    const cacheGeneration = enhancedCache.getGeneration();
     const settings = await StorageManager.getSettings();
     options?.signal?.throwIfAborted();
     if (settings.apiProvider !== 'free_google_translate') {
@@ -628,7 +677,7 @@ export class TranslationService {
       mode: 'full-translate',
     };
 
-    const { fullText } = await this.translateWithFreeGoogle(request, performance.now(), options);
+    const { fullText } = await this.translateWithFreeGoogle(request, settings, performance.now(), cacheGeneration, options);
     if (!fullText) {
       throw new Error('translatePlainText: 翻译引擎返回空结果');
     }

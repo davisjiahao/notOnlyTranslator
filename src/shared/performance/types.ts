@@ -65,7 +65,7 @@ export interface PerformanceMetric {
   type: MetricType;
   /** 操作类型 */
   operation: OperationType;
-  /** 耗时（毫秒） */
+  /** 指标值：内存使用量为字节，其他指标为耗时（毫秒） */
   duration: number;
   /** 时间戳 */
   timestamp: number;
@@ -161,6 +161,7 @@ export interface PerformanceAlert {
 
 /**
  * 性能统计摘要
+ * 耗时及分位数字段沿用指标单位：内存使用量为字节，其他指标为毫秒。
  */
 export interface PerformanceStats {
   /** 指标类型 */

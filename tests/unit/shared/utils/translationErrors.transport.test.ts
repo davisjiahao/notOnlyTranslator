@@ -46,6 +46,19 @@ describe('classifyTranslationError — TransportError 分支', () => {
     expect(info.type).toBe(TranslationErrorType.TIMEOUT);
   });
 
+  it('输出耗尽 → INVALID_RESPONSE，提示调整文本或模型且不可原样重试', () => {
+    const info = classifyTranslationError(TransportError.outputLimit());
+
+    expect(info).toMatchObject({
+      type: TranslationErrorType.INVALID_RESPONSE,
+      title: '模型输出被截断',
+      message: '模型输出预算耗尽，未返回完整译文，请缩短文本或使用非思考模型',
+      retryable: false,
+      action: 'open_settings',
+    });
+    expect(info.retryDelay).toBeUndefined();
+  });
+
   it('unavailable 503 → SERVICE_UNAVAILABLE 且可重试', () => {
     const info = classifyTranslationError(TransportError.unavailable('服务不可用 (HTTP 503)', 503));
     expect(info.type).toBe(TranslationErrorType.SERVICE_UNAVAILABLE);

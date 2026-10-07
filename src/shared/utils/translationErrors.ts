@@ -41,7 +41,7 @@ export enum TranslationErrorType {
 /**
  * 传输层错误类别
  */
-export type TransportErrorKind = 'timeout' | 'cancelled' | 'unavailable';
+export type TransportErrorKind = 'timeout' | 'cancelled' | 'unavailable' | 'output_limit';
 
 /**
  * TransportError 构造选项
@@ -86,6 +86,11 @@ export class TransportError extends Error {
   /** 请求被调用方取消 */
   static cancelled(): TransportError {
     return new TransportError('cancelled', '请求已取消：request cancelled', { retryable: false });
+  }
+
+  /** 输出预算耗尽时原样重试无效，不得误判为网络故障。 */
+  static outputLimit(): TransportError {
+    return new TransportError('output_limit', '模型输出预算耗尽，未返回完整译文，请缩短文本或使用非思考模型', { retryable: false });
   }
 
   /**
@@ -285,6 +290,16 @@ export function classifyTranslationError(error: Error | string | unknown): Trans
         retryable: true,
         retryDelay: 5000,
         action: 'retry',
+      };
+    }
+    if (error.kind === 'output_limit') {
+      return {
+        type: TranslationErrorType.INVALID_RESPONSE,
+        title: '模型输出被截断',
+        message: '模型输出预算耗尽，未返回完整译文，请缩短文本或使用非思考模型',
+        technicalDetails: techDetails,
+        retryable: false,
+        action: 'open_settings',
       };
     }
     // kind === 'unavailable'：按状态码细分

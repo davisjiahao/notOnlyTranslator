@@ -15,13 +15,13 @@ vi.mock('@/shared/utils', () => ({
 }));
 
 // Mock IntersectionObserver
-let intersectionCallback: IntersectionObserverCallback | null = null;
+let _intersectionCallback: IntersectionObserverCallback | null = null;
 const mockObserve = vi.fn();
 const mockUnobserve = vi.fn();
 const mockDisconnect = vi.fn();
 class MockIntersectionObserver {
   constructor(callback: IntersectionObserverCallback) {
-    intersectionCallback = callback;
+    _intersectionCallback = callback;
   }
   observe = mockObserve;
   unobserve = mockUnobserve;
@@ -29,7 +29,7 @@ class MockIntersectionObserver {
 }
 
 // Mock requestAnimationFrame / cancelAnimationFrame
-let rafCallbacks: Map<number, FrameRequestCallback> = new Map();
+const rafCallbacks: Map<number, FrameRequestCallback> = new Map();
 let rafId = 0;
 const mockRaf = vi.fn((cb: FrameRequestCallback) => {
   const id = ++rafId;
@@ -71,7 +71,7 @@ describe('OptimizedHighlighter', () => {
     vi.clearAllMocks();
     rafCallbacks.clear();
     rafId = 0;
-    intersectionCallback = null;
+    _intersectionCallback = null;
 
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
     vi.stubGlobal('requestAnimationFrame', mockRaf);
@@ -86,6 +86,20 @@ describe('OptimizedHighlighter', () => {
   });
 
   describe('highlightWords', () => {
+    it('前置同文脚本和隐藏祖先不抢占可见链接中的词', async () => {
+      const container = document.createElement('div');
+      container.innerHTML = '<script type="application/json">{"text":"This is a test sentence."}</script><span hidden><em>test</em></span><code>test</code><p>This is a <a href="/test">test</a> sentence.</p>';
+      document.body.appendChild(container);
+      const script = container.querySelector('script')!;
+      const before = script.outerHTML;
+      await highlighter.highlightWords(container, [makeWord()]);
+      flushRaf();
+      flushRaf();
+      expect(script.outerHTML).toBe(before);
+      expect(container.querySelectorAll('mark')).toHaveLength(1);
+      expect(container.querySelector('a mark')?.textContent).toBe('test');
+    });
+
     it('高亮匹配的单词', async () => {
       const container = document.createElement('div');
       container.textContent = 'This is a test sentence.';

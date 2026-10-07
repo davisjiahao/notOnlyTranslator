@@ -8,6 +8,7 @@
 
 import type { TranslatedWord } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
+import { createTranslatableTextWalker } from './pageScanner';
 import { logger } from '@/shared/utils';
 
 /**
@@ -265,23 +266,13 @@ export class OptimizedHighlighter {
     });
 
     // 收集文本节点
-    const walker = document.createTreeWalker(
+    const walker = createTranslatableTextWalker(
       container,
-      NodeFilter.SHOW_TEXT,
       {
         acceptNode: (node) => {
+          // 正文资格由共享遍历器检查，这里仅保留本入口的去重规则。
           const parent = node.parentElement;
-          if (!parent) return NodeFilter.FILTER_REJECT;
-
-          const tagName = parent.tagName.toLowerCase();
-          if (
-            tagName === 'script' ||
-            tagName === 'style' ||
-            tagName === 'noscript' ||
-            tagName === 'textarea' ||
-            tagName === 'input' ||
-            parent.classList.contains(CSS_CLASSES.HIGHLIGHT)
-          ) {
+          if (parent?.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
             return NodeFilter.FILTER_REJECT;
           }
 

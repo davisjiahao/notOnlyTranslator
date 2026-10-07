@@ -29,9 +29,11 @@ export default function ContextualLearningCard({
   onRate,
   isSubmitting = false,
 }: ContextualLearningCardProps) {
-  const [currentContextIndex, setCurrentContextIndex] = useState(0);
+  const [selectedContextIndex, setCurrentContextIndex] = useState(0);
+  // 语境减少时先约束渲染索引，避免等待副作用重置期间越界。
+  const currentContextIndex = selectedContextIndex < contexts.length ? selectedContextIndex : 0;
 
-  // 切换上下文时重置索引
+  // 切换单词时重置索引
   useEffect(() => {
     setCurrentContextIndex(0);
   }, [word]);
@@ -78,11 +80,11 @@ export default function ContextualLearningCard({
   };
 
   const handlePrevContext = () => {
-    setCurrentContextIndex(prev => (prev > 0 ? prev - 1 : contexts.length - 1));
+    setCurrentContextIndex(currentContextIndex > 0 ? currentContextIndex - 1 : contexts.length - 1);
   };
 
   const handleNextContext = () => {
-    setCurrentContextIndex(prev => (prev < contexts.length - 1 ? prev + 1 : 0));
+    setCurrentContextIndex(currentContextIndex < contexts.length - 1 ? currentContextIndex + 1 : 0);
   };
 
   const ratingOptions = [

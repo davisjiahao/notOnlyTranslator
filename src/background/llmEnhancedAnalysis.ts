@@ -424,10 +424,10 @@ export class LlmEnhancedAnalysisService {
   /**
    * 获取 API Key
    */
-  private static async getApiKey(_settings: UserSettings): Promise<string | null> {
-    // 从 storage 获取 API Key
+  private static async getApiKey(settings: UserSettings): Promise<string | null> {
+    // 从同一配置快照读取密钥，避免等待期间切换配置后误发
     const { StorageManager } = await import('./storage');
-    return StorageManager.getApiKey();
+    return StorageManager.getApiKey(settings);
   }
 
   /**

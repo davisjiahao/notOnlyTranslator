@@ -53,6 +53,10 @@ export interface TranslationApiRequestOptions {
   responseFormat?: ResponseFormatOption;
   /** 覆盖默认 max_tokens，自动收敛到 [TRANSPORT_DEFAULTS.minTokens, maxTokens] */
   maxTokens?: number;
+  /** 每次尝试开始前重置增量解析状态。 */
+  onStreamStart?: () => void;
+  /** 提供此回调时，批量 LLM 请求启用流式响应。 */
+  onTextDelta?: (delta: string) => void;
 }
 
 /**
@@ -140,6 +144,10 @@ export interface TransportRequestConfig {
   retry?: TransportRetryConfig;
   /** 从 HTTP 错误响应体中提取错误信息 */
   extractErrorMessage?: (data: unknown) => string | undefined;
+  /** 每次尝试开始前运行，重试时同样调用。 */
+  onAttemptStart?: () => void;
+  /** 自定义成功响应读取，仍受单次尝试的取消和超时约束。 */
+  readResponse?: (response: Response, attemptSignal: AbortSignal) => Promise<string>;
   /** 处理 2xx 响应数据并提取内容；可抛 TransportError 表示响应无效（参与重试） */
   onSuccess: (data: unknown) => string;
 }
@@ -214,6 +222,9 @@ function fixedPublicTransportMessage(error: TransportError, timeoutMs: number): 
   if (error.kind === 'cancelled') {
     return '请求已取消：request cancelled';
   }
+  if (error.kind === 'output_limit') {
+    return TransportError.outputLimit().message;
+  }
   return error.statusCode !== undefined
     ? publicUnavailableMessage(error.statusCode)
     : '翻译服务暂时不可用，请稍后重试';
@@ -265,6 +276,7 @@ async function attemptOnce(
   signal?.addEventListener('abort', onCallerAbort);
 
   try {
+    config.onAttemptStart?.();
     const response = await Promise.race([fetch(url, { ...init, signal: controller.signal }), whenAborted]);
 
     if (!response.ok) {
@@ -278,6 +290,9 @@ async function attemptOnce(
       );
     }
 
+    if (config.readResponse) {
+      return await Promise.race([config.readResponse(response, controller.signal), whenAborted]);
+    }
     const data = await Promise.race([response.json(), whenAborted]);
     return config.onSuccess(data);
   } catch (error) {

@@ -231,8 +231,11 @@ export class PerformanceMonitor {
     this.activeAlerts.push(alert);
     this.notifyAlertListeners(alert);
 
+    const value = metric.type === MetricType.MEMORY_USAGE
+      ? `${(metric.duration / (1024 * 1024)).toFixed(2)} MiB (${metric.duration} B)`
+      : `${metric.duration}ms`;
     logger.warn(
-      `PerformanceMonitor: ${level} 告警 - ${metric.type} (${metric.operation}): ${metric.duration}ms`
+      `PerformanceMonitor: ${level} 告警 - ${metric.type} (${metric.operation}): ${value}`
     );
   }
 

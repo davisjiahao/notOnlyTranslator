@@ -10,6 +10,12 @@ import type { MasteryProfile, WordMasteryEntry } from '@/shared/types/mastery';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE, STORAGE_KEYS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
 import { PARTIAL_PROFILE_IMPORT_ERROR } from '@/shared/utils/importErrors';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+
+type SettingsUpdate = Partial<UserSettings> & {
+  hybridTranslationPatch?: Partial<NonNullable<UserSettings['hybridTranslation']>>;
+};
 
 /**
  * Storage Manager - handles all chrome.storage operations
@@ -17,6 +23,8 @@ import { PARTIAL_PROFILE_IMPORT_ERROR } from '@/shared/utils/importErrors';
 export class StorageManager {
   private static profileUpdates: Promise<unknown> = Promise.resolve();
   private static settingsUpdates: Promise<unknown> = Promise.resolve();
+  private static readonly LEGACY_API_KEY_INVALIDATED = 'legacyApiKeyInvalidated';
+  private static readonly TRADITIONAL_API_KEY_OWNERS = 'traditionalApiKeyOwners';
   private static readonly MAX_IMPORT_ENTRIES = 5000;
   private static readonly MAX_PROFILE_BYTES = 8 * 1024 * 1024;
 
@@ -102,6 +110,8 @@ export class StorageManager {
     const settings = {
       ...DEFAULT_SETTINGS,
       ...data[STORAGE_KEYS.SYNC.SETTINGS],
+      apiConfigsRevision: data[STORAGE_KEYS.SYNC.SETTINGS]?.apiConfigsRevision ?? 0,
+      hybridCredentialsRevision: data[STORAGE_KEYS.SYNC.SETTINGS]?.hybridCredentialsRevision ?? 0,
     };
 
     // 如果有激活的 API 配置（或者只有一个配置时自动激活），应用配置中的值
@@ -122,28 +132,184 @@ export class StorageManager {
 
   /**
    * Save user settings to storage
+   * @param verified 队列内调用传入版本校验所基于的快照；写入前复核版本未被外部推进，
+   * 否则基于旧快照的写入会使旧 apiConfigs 复活、版本停滞或倒退。
    */
-  static async saveSettings(settings: UserSettings): Promise<void> {
+  static async saveSettings(
+    settings: UserSettings, invalidateHybridCredentials = false, verified?: UserSettings
+  ): Promise<void> {
+    const current = await this.getSettings();
+    if (!verified && (settings.apiConfigsRevision ?? 0) < (current.apiConfigsRevision ?? 0)) {
+      throw new Error('API 配置已变更或缺少版本，请刷新设置后重试');
+    }
+    // 版本校验与写入之间不能存在无防护窗口：Chrome Sync 外部写入会先落到上面的读取里，
+    // 此处必须拒绝而不是让校验前的旧快照覆盖新写入。
+    if (verified) {
+      if ((verified.apiConfigsRevision ?? 0) !== (current.apiConfigsRevision ?? 0)) {
+        throw new Error('API 配置已变更或缺少版本，请刷新设置后重试');
+      }
+      if ((verified.hybridCredentialsRevision ?? 0) !== (current.hybridCredentialsRevision ?? 0)) {
+        throw new Error('混合翻译凭据已变更或缺少版本，请刷新设置后重试');
+      }
+    }
+    const previousHybrid = current.hybridTranslation;
+    const nextHybrid = Object.prototype.hasOwnProperty.call(settings, 'hybridTranslation')
+      ? settings.hybridTranslation
+      : DEFAULT_SETTINGS.hybridTranslation;
+    // 归属记录前复用 provider/key 输入校验：非法提供商一旦写入指纹归属表，
+    // 同密钥换任何合法提供商都会被判错主清空，污染无法自行恢复。
+    // provider 为 undefined 时放行：兼容缺字段的旧版完整设置数据（缺省即默认 deepl）。
+    if (nextHybrid && ((nextHybrid.traditionalProvider !== undefined && !this.isValidTraditionalProvider(nextHybrid.traditionalProvider)) ||
+        (nextHybrid.traditionalApiKey !== undefined && typeof nextHybrid.traditionalApiKey !== 'string'))) {
+      throw new Error('混合翻译设置格式无效');
+    }
+    const data = previousHybrid?.traditionalApiKey || nextHybrid?.traditionalApiKey
+      ? await chrome.storage.sync.get(this.TRADITIONAL_API_KEY_OWNERS)
+      : {};
+    const owners: Record<string, string> = data[this.TRADITIONAL_API_KEY_OWNERS] ?? {};
+    const fingerprint = (key: string) => bytesToHex(sha256(utf8ToBytes(key)));
+    const previousHash = previousHybrid?.traditionalApiKey ? fingerprint(previousHybrid.traditionalApiKey) : '';
+    const nextHash = nextHybrid?.traditionalApiKey ? fingerprint(nextHybrid.traditionalApiKey) : '';
+    // 归属独立于可重放的设置载荷持久化；只保存指纹，清键及后台重启后也不能改绑。
+    const knownOwners = previousHash && !owners[previousHash]
+      ? { ...owners, [previousHash]: previousHybrid!.traditionalProvider }
+      : owners;
+    const wrongOwner = nextHash && knownOwners[nextHash] && knownOwners[nextHash] !== nextHybrid!.traditionalProvider;
+    const safeHybrid = wrongOwner ? { ...nextHybrid!, traditionalApiKey: '' } : nextHybrid;
+    const credentialsChanged = invalidateHybridCredentials || wrongOwner ||
+      previousHybrid?.traditionalProvider !== safeHybrid?.traditionalProvider ||
+      (previousHybrid?.traditionalApiKey ?? '') !== (safeHybrid?.traditionalApiKey ?? '');
+    const hybridRevision = (current.hybridCredentialsRevision ?? 0) + (credentialsChanged ? 1 : 0);
+    const { hybridCredentialsRevision: _importedRevision, ...fields } = settings;
+    const safeSettings = {
+      ...fields,
+      ...(wrongOwner ? { hybridTranslation: safeHybrid } : {}),
+      ...(hybridRevision > 0 ? { hybridCredentialsRevision: hybridRevision } : {}),
+    };
+    const nextOwners = nextHash && !wrongOwner
+      ? { ...knownOwners, [nextHash]: nextHybrid!.traditionalProvider }
+      : knownOwners;
+    const invalidateLegacyKey = !this.isLegacyOpenAISettings(current) ||
+      !this.isLegacyOpenAISettings({ ...DEFAULT_SETTINGS, ...settings });
+    // 同一次写入提交设置、清键及持久失效标记；恢复旧设置不能恢复旧字段的归属。
+    // Chrome Storage 不提供跨调用事务，其他写入者也不得删除该标记。
     await chrome.storage.sync.set({
-      [STORAGE_KEYS.SYNC.SETTINGS]: settings,
+      [STORAGE_KEYS.SYNC.SETTINGS]: safeSettings,
+      ...(Object.keys(nextOwners).length ? { [this.TRADITIONAL_API_KEY_OWNERS]: nextOwners } : {}),
+      ...(invalidateLegacyKey ? {
+        [STORAGE_KEYS.SYNC.API_KEY]: '',
+        [this.LEGACY_API_KEY_INVALIDATED]: true,
+      } : {}),
     });
   }
 
-  static updateSettings(updates: Partial<UserSettings>): Promise<void> {
+  private static queueSettingsUpdate(
+    update: (current: UserSettings) => UserSettings, invalidateHybridCredentials = false
+  ): Promise<void> {
     const operation = this.settingsUpdates.then(async () => {
       const current = await this.getSettings();
-      await this.saveSettings({ ...current, ...updates });
+      // 校验、合并与写入必须基于同一快照：把校验快照传入，写入前复核版本未被外部推进。
+      await this.saveSettings(update(current), invalidateHybridCredentials, current);
     });
     this.settingsUpdates = operation.catch(() => undefined);
     return operation;
   }
 
+  /** 传统提供商白名单：增量校验与完整写入的归属记录共用同一判定。 */
+  private static isValidTraditionalProvider(value: unknown): boolean {
+    return ['deepl', 'google_translate', 'youdao'].includes(value as string);
+  }
+
+  private static validateHybridPatch(patch: unknown): void {
+    const validators: Record<string, (value: unknown) => boolean> = {
+      enabled: value => typeof value === 'boolean',
+      defaultEngine: value => ['llm', 'traditional', 'hybrid'].includes(value as string),
+      traditionalProvider: value => this.isValidTraditionalProvider(value),
+      traditionalApiKey: value => value === undefined || typeof value === 'string',
+      simpleTextThreshold: value => typeof value === 'number' && Number.isFinite(value) && value >= 0,
+      enableSmartRouting: value => typeof value === 'boolean',
+      priority: value => ['quality', 'speed', 'balanced'].includes(value as string),
+    };
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
+      Object.entries(patch).some(([key, value]) => !Object.prototype.hasOwnProperty.call(validators, key) || !validators[key](value))) {
+      throw new Error('混合翻译设置格式无效');
+    }
+  }
+
+  static updateSettings(
+    updates: SettingsUpdate, expectedApiConfigsRevision?: number, expectedHybridCredentialsRevision?: number
+  ): Promise<void> {
+    const has = (object: unknown, key: string) => Object.prototype.hasOwnProperty.call(object ?? {}, key);
+    const changesCredentials = has(updates, 'hybridTranslation') ||
+      has(updates?.hybridTranslationPatch, 'traditionalProvider') || has(updates?.hybridTranslationPatch, 'traditionalApiKey');
+    return this.queueSettingsUpdate(current => {
+      if (!updates || typeof updates !== 'object' || Array.isArray(updates)) throw new Error('设置格式无效');
+      const { hybridTranslationPatch, ...fields } = updates;
+      const hasPatch = has(updates, 'hybridTranslationPatch');
+      if (hasPatch) {
+        if (has(updates, 'hybridTranslation')) throw new Error('不能同时提交混合翻译设置与增量');
+        this.validateHybridPatch(hybridTranslationPatch);
+      }
+      const revision = current.apiConfigsRevision ?? 0;
+      const changesConfigs = has(updates, 'apiConfigs');
+      // 所有版本校验和嵌套合并均在队列内完成，不能拼接旧窗口的完整凭据快照。
+      if (changesConfigs && (!Number.isSafeInteger(expectedApiConfigsRevision) || expectedApiConfigsRevision !== revision)) {
+        throw new Error('API 配置已变更或缺少版本，请刷新设置后重试');
+      }
+      if (changesCredentials && (!Number.isSafeInteger(expectedHybridCredentialsRevision) ||
+        expectedHybridCredentialsRevision !== (current.hybridCredentialsRevision ?? 0))) {
+        throw new Error('混合翻译凭据已变更或缺少版本，请刷新设置后重试');
+      }
+      return {
+        ...current, ...fields,
+        ...(hasPatch ? { hybridTranslation: { ...DEFAULT_SETTINGS.hybridTranslation!, ...current.hybridTranslation, ...hybridTranslationPatch } } : {}),
+        apiConfigsRevision: revision + (changesConfigs ? 1 : 0),
+        hybridCredentialsRevision: current.hybridCredentialsRevision ?? 0,
+      };
+    }, changesCredentials);
+  }
+
+  /** 仅用于显式恢复备份；备份中的版本不能回退或伪造后台版本。 */
+  static replaceSettings(settings: Partial<UserSettings>): Promise<void> {
+    return this.queueSettingsUpdate(current => ({
+      ...DEFAULT_SETTINGS,
+      ...settings,
+      apiConfigsRevision: (current.apiConfigsRevision ?? 0) + 1,
+    }), true);
+  }
+
+  /** 清空与设置、档案队列共用屏障，不能让清空前的写入在返回后回填。 */
+  static clearAllData(): Promise<void> {
+    const operation = Promise.all([this.settingsUpdates, this.profileUpdates]).then(async () => {
+      const data = await chrome.storage.sync.get(null);
+      const revision = data[STORAGE_KEYS.SYNC.SETTINGS]?.apiConfigsRevision ?? 0;
+      const hybridRevision = data[STORAGE_KEYS.SYNC.SETTINGS]?.hybridCredentialsRevision ?? 0;
+      if ([revision, hybridRevision].some(value => !Number.isSafeInteger(value) || value < 0 || value >= Number.MAX_SAFE_INTEGER)) {
+        throw new Error('配置版本无效，无法安全清除数据');
+      }
+      // 不调用 sync.clear()：先原子替换为无用户数据的版本墓碑，避免出现版本 0 的窗口。
+      await chrome.storage.sync.set({ [STORAGE_KEYS.SYNC.SETTINGS]: {
+        apiConfigsRevision: revision + 1, hybridCredentialsRevision: hybridRevision + 1,
+      } });
+      await chrome.storage.sync.remove(Object.keys(data).filter(key => key !== STORAGE_KEYS.SYNC.SETTINGS));
+      await chrome.storage.local.clear();
+    });
+    this.settingsUpdates = operation.catch(() => undefined);
+    this.profileUpdates = operation.catch(() => undefined);
+    return operation;
+  }
+
+  private static isLegacyOpenAISettings(settings: UserSettings): boolean {
+    return settings.apiProvider === 'openai' && !settings.customApiUrl &&
+      !settings.apiConfigs?.length && !settings.activeApiConfigId;
+  }
+
   /**
-   * Get API key from storage
-   * 优先从当前激活的 API 配置中读取，如果没有则使用旧版的 apiKey 字段
+   * 获取与请求快照归属一致的密钥。
+   * 显式配置使用快照内的密钥；旧字段仅兼容未迁移的默认 OpenAI 配置。
    */
-  static async getApiKey(): Promise<string> {
-    const settings = await this.getSettings();
+  static async getApiKey(settings?: UserSettings): Promise<string> {
+    settings ??= await this.getSettings();
 
     logger.info('StorageManager.getApiKey: 检查配置', {
       activeApiConfigId: settings.activeApiConfigId,
@@ -167,23 +333,27 @@ export class StorageManager {
       }
     }
 
-    // 旧密钥只供未指定新端点或新配置的旧版设置使用，避免导入端点借用原有凭据。
-    if (settings.customApiUrl || settings.apiConfigs?.length) return '';
+    if (!this.isLegacyOpenAISettings(settings)) return '';
 
-    // 回退到旧版的 apiKey 字段
-    const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.API_KEY);
-    logger.info('StorageManager.getApiKey: 回退到旧版 apiKey', {
-      hasKey: !!data[STORAGE_KEYS.SYNC.API_KEY],
-    });
-    return data[STORAGE_KEYS.SYNC.API_KEY] || '';
+    // 设置页会在切换配置后改写旧字段，必须同次读取设置与密钥核验归属，避免拼接新密钥和旧端点。
+    const data = await chrome.storage.sync.get([
+      STORAGE_KEYS.SYNC.SETTINGS, STORAGE_KEYS.SYNC.API_KEY, this.LEGACY_API_KEY_INVALIDATED,
+    ]);
+    if (data[this.LEGACY_API_KEY_INVALIDATED] !== undefined) return '';
+    const currentSettings = { ...DEFAULT_SETTINGS, ...data[STORAGE_KEYS.SYNC.SETTINGS] };
+    if (!this.isLegacyOpenAISettings(currentSettings)) return '';
+
+    const apiKey = data[STORAGE_KEYS.SYNC.API_KEY];
+    return typeof apiKey === 'string' ? apiKey : '';
   }
 
   /**
-   * Save API key to storage
+   * 兼容旧写入入口，但裸密钥不能证明提供商归属；可用凭据必须保存在显式 apiConfigs 中。
    */
   static async saveApiKey(apiKey: string): Promise<void> {
     await chrome.storage.sync.set({
       [STORAGE_KEYS.SYNC.API_KEY]: apiKey,
+      [this.LEGACY_API_KEY_INVALIDATED]: true,
     });
   }
 
@@ -481,7 +651,12 @@ export class StorageManager {
     }
 
     if (data.settings) {
-      await this.updateSettings(data.settings);
+      const settings = data.settings;
+      // 旧格式导入属于显式恢复，保留增量语义但忽略备份内的版本。
+      await this.queueSettingsUpdate(current => ({
+        ...current, ...settings,
+        apiConfigsRevision: (current.apiConfigsRevision ?? 0) + (Object.prototype.hasOwnProperty.call(settings, 'apiConfigs') ? 1 : 0),
+      }), Object.prototype.hasOwnProperty.call(settings, 'hybridTranslation'));
     }
   }
 

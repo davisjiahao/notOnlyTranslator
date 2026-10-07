@@ -105,6 +105,21 @@ describe('GeneralSettings', () => {
       expect(onUpdate).toHaveBeenCalledWith({ theme: 'dark' });
     });
 
+    it('主题键盘左右方向键循环切换并把焦点移向目标', () => {
+      const onUpdate = vi.fn();
+      render(<GeneralSettings settings={makeSettings({ theme: 'light' })} onUpdate={onUpdate} isSaving={false} />);
+      const light = screen.getByRole('radio', { name: /浅色/ });
+      const dark = screen.getByRole('radio', { name: /深色/ });
+      const system = screen.getByRole('radio', { name: /跟随系统/ });
+
+      fireEvent.keyDown(light, { key: 'ArrowRight' });
+      expect(onUpdate).toHaveBeenCalledWith({ theme: 'dark' });
+      expect(dark).toHaveFocus();
+      fireEvent.keyDown(light, { key: 'ArrowLeft' });
+      expect(onUpdate).toHaveBeenCalledWith({ theme: 'system' });
+      expect(system).toHaveFocus();
+    });
+
     it('当前主题 aria-checked 为 true', () => {
       render(<GeneralSettings settings={makeSettings({ theme: 'dark' })} onUpdate={vi.fn()} isSaving={false} />);
       const radios = screen.getAllByRole('radio');
@@ -168,6 +183,28 @@ describe('GeneralSettings', () => {
   });
 
   describe('黑名单管理', () => {
+    it.each([
+      { blacklist: [], action: '加入黑名单', expected: ['learn.example.com'] },
+      { blacklist: ['learn.example.com'], action: '从黑名单移除', expected: [] },
+    ])('当前标签网页可直接$action', async ({ blacklist, action, expected }) => {
+      vi.mocked(chrome.tabs.query).mockImplementationOnce(((_query: unknown, callback: (tabs: unknown[]) => void) => {
+        callback([{ url: 'https://learn.example.com/article' }]);
+      }) as typeof chrome.tabs.query);
+      const onUpdate = vi.fn();
+      render(<GeneralSettings settings={makeSettings({ blacklist })} onUpdate={onUpdate} isSaving={false} />);
+
+      fireEvent.click(await screen.findByRole('button', { name: action }));
+      expect(onUpdate).toHaveBeenCalledWith({ blacklist: expected });
+    });
+
+    it('无法解析当前标签 URL 时不显示快捷黑名单按钮', () => {
+      vi.mocked(chrome.tabs.query).mockImplementationOnce(((_query: unknown, callback: (tabs: unknown[]) => void) => {
+        callback([{ url: '不是 URL' }]);
+      }) as typeof chrome.tabs.query);
+      render(<GeneralSettings settings={makeSettings()} onUpdate={vi.fn()} isSaving={false} />);
+      expect(screen.queryByRole('button', { name: '加入黑名单' })).not.toBeInTheDocument();
+    });
+
     it('空黑名单显示提示', () => {
       render(<GeneralSettings settings={makeSettings({ blacklist: [] })} onUpdate={vi.fn()} isSaving={false} />);
       expect(screen.getByText('黑名单为空')).toBeTruthy();

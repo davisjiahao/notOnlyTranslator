@@ -24,6 +24,8 @@ export class FloatingButton {
   private isMinimized: boolean = false;
   private currentMode: TranslationMode = 'inline-only';
   private currentEngine: DefaultEngine = 'hybrid';
+  /** 翻译进行中状态（按钮进度显示） */
+  private isBusy = false;
   private onModeChange: (mode: TranslationMode) => void;
   private onEngineChange: ((engine: DefaultEngine) => void) | null = null;
 
@@ -99,6 +101,8 @@ export class FloatingButton {
     this.container.setAttribute('role', 'button');
     this.container.setAttribute('aria-label', '翻译模式切换');
     this.container.setAttribute('aria-expanded', 'false');
+    // 显式初始非忙碌态：段落不再有加载圈后，进度状态由本按钮承载
+    this.container.setAttribute('aria-busy', 'false');
 
     // 设置位置
     const position = this.getSavedPosition();
@@ -427,20 +431,19 @@ export class FloatingButton {
 
     // 默认显示在按钮上方
     let top = btnRect.top - panelRect.height - 10;
-    let left = btnRect.left;
 
     // 如果上方空间不足，显示在下方
     if (top < 10) {
       top = btnRect.bottom + 10;
     }
 
-    // 确保不超出右边界
-    if (left + panelRect.width > window.innerWidth) {
-      left = window.innerWidth - panelRect.width - 10;
-    }
+    // 限制视口边界；面板大于视口时保留左上方可见
+    top = Math.max(10, Math.min(top, window.innerHeight - panelRect.height - 10));
+    const left = Math.max(10, Math.min(btnRect.left, window.innerWidth - panelRect.width - 10));
 
-    this.panel.style.top = `${top + window.scrollY}px`;
-    this.panel.style.left = `${left + window.scrollX}px`;
+    // fixed 定位使用视口坐标，不叠加页面滚动距离
+    this.panel.style.top = `${top}px`;
+    this.panel.style.left = `${left}px`;
   }
 
   /**
@@ -534,20 +537,27 @@ export class FloatingButton {
   }
 
   /**
+   * 当前模式的按钮文案
+   */
+  private modeLabel(): string {
+    const labels: Record<TranslationMode, string> = {
+      'inline-only': '行内',
+      'bilingual': '对照',
+      'full-translate': '全文',
+    };
+    return labels[this.currentMode] || '翻译';
+  }
+
+  /**
    * 更新当前模式显示
    */
   updateMode(mode: TranslationMode): void {
     this.currentMode = mode;
 
-    // 更新按钮文字
+    // 更新按钮文字（翻译进行中优先显示进度状态）
     const btnText = this.container?.querySelector('.not-translator-floating-btn-text');
     if (btnText) {
-      const labels: Record<TranslationMode, string> = {
-        'inline-only': '行内',
-        'bilingual': '对照',
-        'full-translate': '全文',
-      };
-      btnText.textContent = labels[mode] || '翻译';
+      btnText.textContent = this.isBusy ? '翻译中…' : this.modeLabel();
     }
 
     // 更新面板选中状态
@@ -558,6 +568,21 @@ export class FloatingButton {
       // WCAG 4.1.2: 同步 aria-pressed 状态
       el.setAttribute('aria-pressed', String(isActive));
     });
+  }
+
+  /**
+   * 更新翻译进行中状态
+   * 段落不再注入加载圈，进行中进度由本按钮文案与 aria-busy 呈现
+   */
+  setBusy(busy: boolean): void {
+    if (this.isBusy === busy) return;
+    this.isBusy = busy;
+    const btnText = this.container?.querySelector('.not-translator-floating-btn-text');
+    if (btnText) {
+      btnText.textContent = busy ? '翻译中…' : this.modeLabel();
+    }
+    // WCAG 4.1.3: aria-busy 让屏幕阅读器感知翻译进行中
+    this.container?.setAttribute('aria-busy', String(busy));
   }
 
   /**

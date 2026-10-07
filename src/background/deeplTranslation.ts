@@ -2,9 +2,10 @@ import type {
   TranslationRequest,
   TranslationResult,
   UserSettings,
+  ApiProvider,
   TranslatedWord,
 } from '@/shared/types';
-import { logger, generateCacheKey } from '@/shared/utils';
+import { logger } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { TranslationApiService, type TranslationApiRequestOptions } from './translationApi';
 import { TransportError } from '@/shared/utils/translationErrors';
@@ -12,6 +13,7 @@ import { TranslationPromptBuilder, promptVersionManager } from '@/shared/prompts
 import { enhancedCache } from './enhancedCache';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { TextComplexityAnalyzer } from './textComplexityAnalyzer';
+import { getProviderConfig } from '@/shared/constants/providers';
 
 function throwIfRequestAborted(options?: TranslationApiRequestOptions): void {
   if (options?.signal?.aborted) {
@@ -53,13 +55,18 @@ export class DeepLTranslationService {
     await enhancedCache.initialize();
     throwIfRequestAborted(options);
 
-    // 生成缓存键
-    const cacheKey = generateCacheKey(text, mode);
+    const settings = await StorageManager.getSettings();
+    throwIfRequestAborted(options);
+    const deeplApiKey = await this.getDeepLApiKey(settings, options);
+    throwIfRequestAborted(options);
+    const cacheKey = enhancedCache.generateHash(text, mode, {
+      settings, userLevel: request.userLevel, context: request.context, engine: 'deepl',
+    });
 
-    // 检查缓存
+    // 已配置 DeepL 时忽略历史上误写入的 LLM 回退缓存
     const cached = await enhancedCache.get(cacheKey);
     throwIfRequestAborted(options);
-    if (cached) {
+    if (cached && !(deeplApiKey && cached._source === 'llm')) {
       const duration = performance.now() - startTime;
       recordMetric(MetricType.CACHE_OPERATION, 'deepl_cache_hit', duration, true, {
         cacheHit: true,
@@ -69,12 +76,9 @@ export class DeepLTranslationService {
       return cached;
     }
 
-    // 获取设置
-    const settings = await StorageManager.getSettings();
-    throwIfRequestAborted(options);
-
     // 尝试 DeepL 翻译
-    const deeplResult = await this.tryDeepLTranslate(request, settings, options);
+    const cacheGeneration = enhancedCache.getGeneration();
+    const deeplResult = await this.tryDeepLTranslate(request, settings, deeplApiKey, options);
     throwIfRequestAborted(options);
 
     let result: TranslationResult;
@@ -95,10 +99,12 @@ export class DeepLTranslationService {
     // 标记结果来源（用于调试和分析）
     (result as TranslationResult & { _source?: string })._source = source;
 
-    // 缓存结果
+    // DeepL 临时失败时不把 LLM 回退写入 DeepL 缓存键
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
     throwIfRequestAborted(options);
-    await enhancedCache.set(cacheKey, result, mode, pageUrl, source);
+    if (source === 'deepl' || !deeplApiKey) {
+      await enhancedCache.set(cacheKey, result, mode, pageUrl, source, cacheGeneration);
+    }
     throwIfRequestAborted(options);
 
     // 记录性能指标
@@ -125,25 +131,19 @@ export class DeepLTranslationService {
   private static async tryDeepLTranslate(
     request: TranslationRequest,
     settings: UserSettings,
+    deeplApiKey: string | null,
     options?: TranslationApiRequestOptions
   ): Promise<TranslationResult | null> {
     throwIfRequestAborted(options);
     const startTime = performance.now();
     const { text, userLevel } = request;
 
-    // 获取 DeepL API Key
-    const deeplApiKey = await this.getDeepLApiKey(settings, options);
-    throwIfRequestAborted(options);
     if (!deeplApiKey) {
       logger.info('DeepLTranslationService: DeepL API key not configured');
       return null;
     }
 
-    // 构建 DeepL 设置
-    const deeplSettings: UserSettings = {
-      ...settings,
-      apiProvider: 'deepl',
-    };
+    const deeplSettings = this.getDeepLSettings(settings, deeplApiKey);
 
     try {
       // 调用 DeepL API
@@ -208,6 +208,44 @@ export class DeepLTranslationService {
     }
   }
 
+  /** 从本次设置快照挑选真正的 LLM，密钥和端点始终来自同一配置。 */
+  private static async getLLMFallback(
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
+  ): Promise<{ apiKey: string; settings: UserSettings } | null> {
+    throwIfRequestAborted(options);
+    const isLLM = (provider: ApiProvider): boolean =>
+      ['openai', 'anthropic', 'gemini', 'dashscope', 'baidu', 'ollama']
+        .includes(getProviderConfig(provider)?.apiFormat);
+    const configs = settings.apiConfigs || [];
+    if (configs.length) {
+      const activeId = settings.activeApiConfigId || configs[0].id;
+      const active = configs.find(config => config.id === activeId);
+      const config = [active, ...configs.filter(candidate => candidate !== active)].find(
+        candidate => candidate && isLLM(candidate.provider)
+          && (candidate.apiKey || candidate.provider === 'ollama')
+          && (candidate.provider !== 'custom' || !!candidate.apiUrl)
+          && (candidate.provider !== 'baidu' || !!candidate.secondaryApiKey)
+      );
+      if (!config) return null;
+      return {
+        apiKey: config.apiKey || '',
+        settings: {
+          ...settings,
+          apiProvider: config.provider,
+          customApiUrl: config.apiUrl || '',
+          customModelName: config.modelName || '',
+          secondaryApiKey: config.secondaryApiKey || '',
+          activeApiConfigId: config.id,
+        },
+      };
+    }
+    if (!isLLM(settings.apiProvider)) return null;
+    const apiKey = settings.apiProvider === 'ollama' ? '' : await StorageManager.getApiKey(settings);
+    throwIfRequestAborted(options);
+    return apiKey || settings.apiProvider === 'ollama' ? { apiKey, settings } : null;
+  }
+
   /**
    * 使用 LLM 进行翻译（DeepL 失败时的回退）
    */
@@ -220,12 +258,8 @@ export class DeepLTranslationService {
     const startTime = performance.now();
     const { text } = request;
 
-    // 获取 API Key
-    const apiKey = await StorageManager.getApiKey();
-    throwIfRequestAborted(options);
-    if (!apiKey && settings.apiProvider !== 'ollama') {
-      throw new Error('API key not configured');
-    }
+    const fallback = await this.getLLMFallback(settings, options);
+    if (!fallback) throw new Error('No LLM fallback configured');
 
     // 构建提示词
     const { systemPrompt, userPrompt } = this.buildPrompt(request, settings);
@@ -235,8 +269,8 @@ export class DeepLTranslationService {
     const content = await TranslationApiService.callWithSystem(
       systemPrompt,
       userPrompt,
-      apiKey || '',
-      settings,
+      fallback.apiKey,
+      fallback.settings,
       undefined,
       options
     );
@@ -248,7 +282,7 @@ export class DeepLTranslationService {
 
     // 记录 LLM 性能
     recordMetric(MetricType.API_RESPONSE_TIME, 'llm_fallback_translate', apiDuration, true, {
-      provider: settings.apiProvider,
+      provider: fallback.settings.apiProvider,
       textLength: text.length,
     });
 
@@ -261,6 +295,28 @@ export class DeepLTranslationService {
     return result;
   }
 
+  private static getDeepLConfig(settings: UserSettings) {
+    const active = settings.apiConfigs?.find(config => config.id === settings.activeApiConfigId);
+    return active?.provider === 'deepl'
+      ? active : settings.apiConfigs?.find(config => config.provider === 'deepl');
+  }
+
+  /** 传统密钥只搭配其来源配置的端点，不能继承当前 LLM 的自定义 URL。 */
+  private static getDeepLSettings(settings: UserSettings, apiKey: string): UserSettings {
+    const hybridKey = settings.hybridTranslation?.traditionalProvider === 'deepl'
+      ? settings.hybridTranslation.traditionalApiKey : undefined;
+    const selectedConfig = hybridKey ? undefined : this.getDeepLConfig(settings);
+    const config = selectedConfig?.apiKey === apiKey ? selectedConfig : undefined;
+    return {
+      ...settings,
+      apiProvider: 'deepl',
+      customApiUrl: config?.apiUrl || '',
+      customModelName: '',
+      secondaryApiKey: '',
+      activeApiConfigId: config?.id,
+    };
+  }
+
   /**
    * 获取 DeepL API Key
    * 优先从 hybridTranslation.traditionalApiKey 获取，其次从 apiConfigs 查找
@@ -271,14 +327,13 @@ export class DeepLTranslationService {
   ): Promise<string | null> {
     throwIfRequestAborted(options);
     // 优先从混合翻译配置中获取
-    if (settings.hybridTranslation?.traditionalApiKey) {
+    if (settings.hybridTranslation?.traditionalApiKey
+      && settings.hybridTranslation.traditionalProvider === 'deepl') {
       return settings.hybridTranslation.traditionalApiKey;
     }
 
-    // 从 apiConfigs 中查找 DeepL 配置
-    const deeplConfig = settings.apiConfigs?.find(
-      config => config.provider === 'deepl'
-    );
+    // 优先使用激活的 DeepL 配置，同一密钥也不能被其他端点的配置抢先。
+    const deeplConfig = this.getDeepLConfig(settings);
 
     if (deeplConfig?.apiKey) {
       return deeplConfig.apiKey;
@@ -299,11 +354,8 @@ export class DeepLTranslationService {
     options?: TranslationApiRequestOptions
   ): Promise<TranslatedWord[]> {
     throwIfRequestAborted(options);
-    const apiKey = await StorageManager.getApiKey();
-    throwIfRequestAborted(options);
-    if (!apiKey && settings.apiProvider !== 'ollama') {
-      return [];
-    }
+    const fallback = await this.getLLMFallback(settings, options);
+    if (!fallback) return [];
 
     try {
       // 提取可能的生词
@@ -337,8 +389,8 @@ Only include words that would be challenging for a learner with ~${userLevel.est
       const content = await TranslationApiService.callWithSystem(
         'You are an English learning assistant. Always respond with valid JSON.',
         prompt,
-        apiKey || '',
-        settings,
+        fallback.apiKey,
+        fallback.settings,
         undefined,
         options
       );
@@ -530,21 +582,38 @@ Only include words that would be challenging for a learner with ~${userLevel.est
    */
   static async quickTranslate(
     text: string,
-    options?: TranslationApiRequestOptions
+    options?: TranslationApiRequestOptions,
+    settingsSnapshot?: UserSettings
   ): Promise<string> {
     throwIfRequestAborted(options);
-    const settings = await StorageManager.getSettings();
+    const settings = settingsSnapshot ?? await StorageManager.getSettings();
     throwIfRequestAborted(options);
+
+    // 快速查词无需结构化 LLM 输出，优先使用用户明确选择的传统服务。
+    if (settings.apiProvider === 'google_translate' || settings.apiProvider === 'youdao') {
+      const activeId = settings.activeApiConfigId || settings.apiConfigs?.[0]?.id;
+      const active = settings.apiConfigs?.find(config => config.id === activeId);
+      const config = active?.provider === settings.apiProvider && active.apiKey ? active : undefined;
+      const independentKey = settings.hybridTranslation?.traditionalProvider === settings.apiProvider
+        ? settings.hybridTranslation.traditionalApiKey : undefined;
+      const apiKey = config?.apiKey || independentKey;
+      if (!apiKey) throw new Error('No traditional translation configured');
+      const traditionalSettings: UserSettings = {
+        ...settings,
+        customApiUrl: config?.apiUrl || '',
+        customModelName: config?.modelName || '',
+        secondaryApiKey: config?.secondaryApiKey || '',
+        activeApiConfigId: config?.id,
+      };
+      return TranslationApiService.quickTranslate(text, apiKey, traditionalSettings, options);
+    }
 
     // 优先使用 DeepL
     const deeplApiKey = await this.getDeepLApiKey(settings, options);
     throwIfRequestAborted(options);
     if (deeplApiKey) {
       try {
-        const deeplSettings: UserSettings = {
-          ...settings,
-          apiProvider: 'deepl',
-        };
+        const deeplSettings = this.getDeepLSettings(settings, deeplApiKey);
         const result = await TranslationApiService.quickTranslate(text, deeplApiKey, deeplSettings, options);
         throwIfRequestAborted(options);
         if (result) {
@@ -559,12 +628,9 @@ Only include words that would be challenging for a learner with ~${userLevel.est
     }
 
     // 回退到 LLM 快速翻译
-    const llmApiKey = await StorageManager.getApiKey();
-    throwIfRequestAborted(options);
-    if (!llmApiKey && settings.apiProvider !== 'ollama') {
-      throw new Error('No API key configured');
-    }
+    const fallback = await this.getLLMFallback(settings, options);
+    if (!fallback) throw new Error('No LLM fallback configured');
 
-    return TranslationApiService.quickTranslate(text, llmApiKey || '', settings, options);
+    return TranslationApiService.quickTranslate(text, fallback.apiKey, fallback.settings, options);
   }
 }

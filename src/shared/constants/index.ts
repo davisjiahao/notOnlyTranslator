@@ -228,4 +228,4 @@ export const LLM_CACHE_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000;
 /**
  * 缓存版本号，用于迁移
  */
-export const CACHE_VERSION = 1;
+export const CACHE_VERSION = 3;

@@ -2,7 +2,7 @@
  * 本地单词查询与候选解析服务（local-first）
  *
  * 职责：
- * 1. 单词查词链：用户生词本（语境匹配）→ 语境释义缓存 → 离线词典
+ * 1. 单词查词链：用户生词本（完整语境匹配）→ 语境释义缓存 → 离线词典
  * 2. 文本候选词本地筛选（生词本 / CEFR 难度 / knownWords 排除）与原句位置计算、验证
  * 3. 可注入离线词典源（数据资产 src/data/offline-dictionary.json 由数据侧准备后接入）
  *
@@ -20,7 +20,9 @@ import type {
   UnknownWordEntry,
 } from '@/shared/types';
 import type { CEFRLevel } from '@/shared/types/mastery';
-import { logger, generateCacheKey } from '@/shared/utils';
+import { logger } from '@/shared/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { getCEFRLevelByVocabulary } from '@/shared/constants/mastery';
 import {
   assessWordDifficulty,
@@ -76,12 +78,14 @@ export interface LocalCandidate {
   translation?: string;
   phonetic?: string;
   source?: WordLookupSource;
+  /** 恢复时仅待模型确认是否超纲，即使有词典释义也不能直接高亮。 */
+  requiresLevelAssessment?: boolean;
 }
 
 /** 本地候选解析结果 */
 export interface LocalResolution {
   candidates: LocalCandidate[];
-  /** 无本地释义、需要模型补充语境释义的候选子集 */
+  /** 无本地释义或需要模型复核是否超纲的候选子集 */
   needsContext: LocalCandidate[];
   /** 已释义候选构成的完整结果（inline-only 场景直接可用） */
   result: TranslationResult;
@@ -90,10 +94,14 @@ export interface LocalResolution {
 export interface WordLookupOptions {
   userProfile?: UserProfile;
   context?: string;
+  cacheScope?: string;
 }
 
 export interface LocalResolveOptions {
   context?: string;
+  cacheScope?: string;
+  /** 仅输出耗尽恢复使用：复核低置信度零候选，默认筛选语义不变。 */
+  reassessUncertain?: boolean;
 }
 
 // ============ 模块状态 ============
@@ -192,46 +200,30 @@ export function getWordVariants(raw: string): string[] {
 
 // ============ 语境处理 ============
 
-/** 语境归一化：小写、去标点、压缩空白，用于语境哈希与重叠度计算 */
+/** 保留完整 Unicode 及标点；不同句子即使共享背景词也不能借用旧义。 */
 function normalizeContext(context?: string): string {
-  return (context || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (context || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/** 语境重叠度：两段语境的实质词（>2 字符）交集大小 */
-function contextOverlap(a: string, b: string): number {
-  const na = normalizeContext(a);
-  const nb = normalizeContext(b);
-  if (!na || !nb) return 0;
-
-  const tokensA = new Set(na.split(' ').filter((t) => t.length > 2));
-  let score = 0;
-  for (const token of nb.split(' ')) {
-    if (tokensA.has(token)) score += 1;
-  }
-  return score;
-}
-
-function senseCacheKey(lemma: string, context?: string): string {
-  return generateCacheKey(lemma, `word-sense:${normalizeContext(context)}`);
+function senseCacheKey(lemma: string, context?: string, cacheScope?: string): string {
+  const identity = JSON.stringify([lemma, context?.normalize('NFC') ?? '', cacheScope ?? null]);
+  return `word-sense-v2_${bytesToHex(sha256(utf8ToBytes(identity)))}`;
 }
 
 /**
  * 写入语境释义缓存（按词 + 语境哈希作键，不跨语境混用）
  */
-export function storeWordSense(word: string, context: string, translation: string): void {
+export function storeWordSense(word: string, context: string, translation: string, cacheScope?: string): void {
   const lemma = normalizeWord(word);
   if (!lemma || !translation) return;
 
-  if (senseCache.size >= SENSE_CACHE_MAX && !senseCache.has(senseCacheKey(lemma, context))) {
+  const key = senseCacheKey(lemma, context, cacheScope);
+  if (senseCache.size >= SENSE_CACHE_MAX && !senseCache.has(key)) {
     // 淘汰最早写入的条目（Map 保持插入序）
     const oldest = senseCache.keys().next().value;
     if (oldest !== undefined) senseCache.delete(oldest);
   }
-  senseCache.set(senseCacheKey(lemma, context), { translation, createdAt: Date.now() });
+  senseCache.set(key, { translation, createdAt: Date.now() });
 }
 
 /**
@@ -241,33 +233,27 @@ export function clearWordSenseCache(): void {
   senseCache.clear();
 }
 
-function lookupSenseCache(lemma: string, context?: string): string | undefined {
-  return senseCache.get(senseCacheKey(lemma, context))?.translation;
+function lookupSenseCache(lemma: string, context?: string, cacheScope?: string): string | undefined {
+  return senseCache.get(senseCacheKey(lemma, context, cacheScope))?.translation;
 }
 
 // ============ 查词链 ============
 
-/**
- * 生词本匹配：词形变体匹配 + 语境重叠度选条目（无语境时取首个匹配条目）
- */
+/** 生词本义项只在完整语境一致时复用；无语境查词沿用首个匹配条目。 */
 function selectUserVocabEntry(
   lemma: string,
   userProfile: UserProfile,
   context?: string
 ): UnknownWordEntry | null {
   const variants = new Set(getWordVariants(lemma));
-  let best: UnknownWordEntry | null = null;
-  let bestScore = -1;
-
-  for (const entry of userProfile.unknownWords || []) {
-    if (!variants.has(normalizeWord(entry.word))) continue;
-    const score = context ? contextOverlap(context, entry.context) : 0;
-    if (score > bestScore) {
-      best = entry;
-      bestScore = score;
-    }
-  }
-  return best;
+  // 未填写释义的生词仍需继续查语境缓存或词典，不能阻断查词链。
+  const entries = (userProfile.unknownWords || []).filter((entry) =>
+    variants.has(normalizeWord(entry.word)) && typeof entry.translation === 'string' && entry.translation.trim().length > 0
+  );
+  if (!entries.length) return null;
+  const normalizedContext = normalizeContext(context);
+  if (!normalizedContext) return entries[0];
+  return entries.find((entry) => normalizeContext(entry.context) === normalizedContext) ?? null;
 }
 
 function lookupInDictionary(
@@ -312,7 +298,7 @@ export async function lookupWord(
   const normalized = normalizeWord(raw);
   if (!normalized) return null;
 
-  // 1) 用户生词本（语境重叠度选择最佳条目）
+  // 1) 用户生词本（仅复用完整语境一致的旧义）
   if (opts.userProfile) {
     const entry = selectUserVocabEntry(normalized, opts.userProfile, opts.context);
     if (entry) {
@@ -327,7 +313,7 @@ export async function lookupWord(
   }
 
   // 2) 语境释义缓存（词 + 语境哈希，同语境才命中）
-  const sense = lookupSenseCache(normalized, opts.context);
+  const sense = lookupSenseCache(normalized, opts.context, opts.cacheScope);
   if (sense) {
     return {
       word: normalized,
@@ -376,6 +362,8 @@ interface TextToken {
 }
 
 const WORD_TOKEN_REGEX = /[a-zA-Z]+(?:-[a-zA-Z]+)*/g;
+// 词表匹配置信度最低为 0.75；更低的词形启发式不能证明恢复任务已无难词。
+const RELIABLE_DIFFICULTY_CONFIDENCE = 0.75;
 
 function tokenizeWithPositions(text: string): TextToken[] {
   const tokens: TextToken[] = [];
@@ -411,6 +399,7 @@ export function resolveLocalCandidates(
   }
 
   const knownWords = new Set((userProfile.knownWords || []).map((w) => normalizeWord(w)));
+  const unknownWords = new Set((userProfile.unknownWords || []).flatMap((entry) => getWordVariants(entry.word)));
   const userLevel: CEFRLevel = getCEFRLevelByVocabulary(userProfile.estimatedVocabulary);
   const seen = new Set<string>();
 
@@ -438,12 +427,16 @@ export function resolveLocalCandidates(
       continue;
     }
 
-    // 本地 CEFR 难度评估：未超纲不入选
+    // 已标记未知的词即使旧释义不适合当前语境，仍须入选
+    const isUnknown = getWordVariants(lemma).some((variant) => unknownWords.has(variant));
     const assessed = assessWordDifficulty(lemma);
-    if (!isWordAboveLevel(assessed.level, userLevel)) continue;
+    const requiresLevelAssessment = !isUnknown && !isWordAboveLevel(assessed.level, userLevel);
+    if (requiresLevelAssessment && !(opts.reassessUncertain && userLevel !== 'C2'
+      && !assessed.isCommon && assessed.confidence < RELIABLE_DIFFICULTY_CONFIDENCE)) continue;
+    const assessmentFlag = requiresLevelAssessment ? { requiresLevelAssessment: true } : {};
 
-    // 超纲词：先查语境缓存与离线词典，仍无释义才需要模型
-    const sense = lookupSenseCache(lemma, opts.context);
+    // 未匹配旧释义时查同语境缓存与通用词典，仍无释义才需要模型
+    const sense = lookupSenseCache(lemma, opts.context, opts.cacheScope);
     if (sense) {
       candidates.push({
         lemma,
@@ -452,6 +445,7 @@ export function resolveLocalCandidates(
         difficulty: clampDifficulty(assessed.difficulty),
         translation: sense,
         source: 'sense_cache',
+        ...assessmentFlag,
       });
       continue;
     }
@@ -465,17 +459,18 @@ export function resolveLocalCandidates(
       translation: dictHit?.entry.translation,
       phonetic: dictHit?.entry.phonetic,
       source: dictHit ? 'dictionary' : undefined,
+      ...assessmentFlag,
     });
   }
 
-  logger.info(`LocalWordLookup: 本地候选解析完成，${candidates.length} 个候选，${candidates.filter((c) => !c.translation).length} 个需语境释义`);
+  logger.info(`LocalWordLookup: 本地候选解析完成，${candidates.length} 个候选，${candidates.filter((c) => !c.translation || c.requiresLevelAssessment).length} 个需语境释义或等级复核`);
   return finishResolution(text, candidates);
 }
 
 function finishResolution(text: string, candidates: LocalCandidate[]): LocalResolution {
   return {
     candidates,
-    needsContext: candidates.filter((c) => !c.translation),
+    needsContext: candidates.filter((c) => !c.translation || c.requiresLevelAssessment),
     result: buildLocalTranslationResult(text, candidates),
   };
 }
@@ -485,7 +480,7 @@ function finishResolution(text: string, candidates: LocalCandidate[]): LocalReso
  */
 export function buildLocalTranslationResult(_text: string, candidates: LocalCandidate[]): TranslationResult {
   const words: TranslatedWord[] = candidates
-    .filter((c) => !!c.translation)
+    .filter((c) => !!c.translation && !c.requiresLevelAssessment)
     .map((c) => ({
       original: c.original,
       translation: c.translation as string,

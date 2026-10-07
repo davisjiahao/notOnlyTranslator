@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranslationApiService } from '@/background/translationApi';
 import { logger } from '@/shared/utils';
+import { TransportError } from '@/shared/utils/translationErrors';
 import type { UserSettings } from '@/shared/types';
 
 const settings = (apiProvider: UserSettings['apiProvider']): UserSettings => ({ apiProvider } as UserSettings);
@@ -66,6 +67,58 @@ describe('真实请求构造和失败处理（只模拟 fetch，不调用付费�
     fetchMock.mockResolvedValue(response(data));
     await expect(TranslationApiService.callWithSystem('system', 'text', 'fake-key', settings('openai'), noRetry))
       .rejects.toMatchObject({ kind: 'unavailable' });
+  });
+
+  it.each([
+    ['null', null],
+    ['数组', []],
+    ['非空截断字符串', '{"paragraphs":'],
+  ] as const)('输出耗尽（%s）尊重显式预算并拒绝原样重试', async (_name, content) => {
+    const onRetry = vi.fn();
+    fetchMock.mockResolvedValue(response({ choices: [{ finish_reason: 'length', message: { content } }] }));
+    const customSettings = {
+      ...settings('custom'),
+      customApiUrl: 'https://translator.test/v1/chat/completions',
+      customModelName: 'synthetic-model',
+    };
+
+    const error = await TranslationApiService.callWithSystem(
+      'system', 'text', 'fake-key', customSettings,
+      { ...noRetry, maxRetries: 3, onRetry }, { maxTokens: 2000 }
+    ).catch((error: unknown) => error);
+
+    expect.soft(error).toBeInstanceOf(TransportError);
+    expect.soft(error).toMatchObject({ kind: 'output_limit', retryable: false });
+    expect.soft(error).toHaveProperty('message', TransportError.outputLimit().message);
+    expect.soft(fetchMock).toHaveBeenCalledTimes(1);
+    expect.soft(onRetry).not.toHaveBeenCalled();
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string).max_tokens).toBe(2000);
+  });
+
+  it.each([
+    ['数组', []],
+    ['对象', { text: '译文' }],
+  ] as const)('非字符串 content（%s）不能作为成功译文返回', async (_name, content) => {
+    fetchMock.mockResolvedValue(response({ choices: [{ finish_reason: 'stop', message: { content } }] }));
+
+    await expect(TranslationApiService.callWithSystem('system', 'text', 'fake-key', settings('openai'), noRetry))
+      .rejects.toBeInstanceOf(Error);
+  });
+
+  it('finish_reason 为 stop 且 content 为正常字符串时仍成功返回译文', async () => {
+    fetchMock.mockResolvedValue(response({ choices: [{ finish_reason: 'stop', message: { content: '完整译文' } }] }));
+
+    await expect(TranslationApiService.callWithSystem('system', 'text', 'fake-key', settings('openai'), noRetry))
+      .resolves.toBe('完整译文');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('输出耗尽时省略 retryOptions 的默认重试配置也只请求一次', async () => {
+    fetchMock.mockResolvedValue(response({ choices: [{ finish_reason: 'length', message: { content: null } }] }));
+
+    await expect(TranslationApiService.callWithSystem('system', 'text', 'fake-key', settings('openai')))
+      .rejects.toMatchObject({ kind: 'output_limit', retryable: false });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('快译认证失败降级为空串，已取消的请求不发往网络', async () => {

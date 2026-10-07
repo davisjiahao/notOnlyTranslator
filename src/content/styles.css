@@ -8,6 +8,12 @@ mark.not-translator-vocab-highlight {
   background-color: transparent;
 }
 
+/* 全文中的旧英语词汇包装只保留结构，不装饰中文或提供旧词交互。 */
+mark.not-translator-inactive-vocabulary {
+  background-color: transparent;
+  color: inherit;
+}
+
 /* 高亮词汇 - 简洁下划线风格 */
 .not-translator-highlight {
   background-color: transparent;
@@ -438,7 +444,7 @@ mark.not-translator-vocab-highlight {
   animation: not-translator-spin 0.8s linear infinite;
 }
 
-/* Loading spinner and text classes */
+/* Loading spinner and text classes（tooltip 查词加载使用；段落不再注入） */
 .not-translator-loading-spinner {
   width: 18px;
   height: 18px;
@@ -446,6 +452,15 @@ mark.not-translator-vocab-highlight {
   border-top-color: #3b82f6;
   border-radius: 50%;
   animation: not-translator-spin 0.8s linear infinite;
+}
+
+@keyframes not-translator-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .not-translator-loading-text {
@@ -1351,24 +1366,6 @@ a .not-translator-inline-translation,
   border-bottom-width: 1px;
 }
 
-/* 段落 Loading 效果 */
-.not-translator-paragraph-loading {
-  position: relative;
-}
-
-.not-translator-paragraph-loading::after {
-  content: '';
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-left: 8px;
-  border: 2px solid #e5e7eb;
-  border-top-color: #60a5fa;
-  border-radius: 50%;
-  animation: not-translator-spin 1s linear infinite;
-  vertical-align: middle;
-}
-
 /* 语法高亮 - 紫色波浪线风格 */
 .not-translator-grammar-highlight {
   background-color: transparent;
@@ -1461,10 +1458,6 @@ a .not-translator-inline-translation,
 
   .not-translator-inline-translation {
     color: #666;
-  }
-
-  .not-translator-paragraph-loading::after {
-    display: none !important;
   }
 
   .not-translator-original-reference {
@@ -1644,11 +1637,6 @@ a .not-translator-inline-translation,
   .not-translator-grammar-highlight:hover .not-translator-grammar-annotation {
     background: linear-gradient(135deg, #3730a3 0%, #4c1d95 100%);
     border-color: #6d28d9;
-  }
-
-  .not-translator-paragraph-loading::after {
-    border-color: #4b5563;
-    border-top-color: #60a5fa;
   }
 }
 
@@ -2109,6 +2097,11 @@ a .not-translator-inline-translation,
 /* ========== 错误提示样式 ========== */
 
 .not-translator-error-notification {
+  /* 挂载于 body 直下的固定浮层：不进入被观察段落的子树，也不撑开正文布局 */
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
   padding: 16px;
   background: #ffffff;
   border-radius: 12px;

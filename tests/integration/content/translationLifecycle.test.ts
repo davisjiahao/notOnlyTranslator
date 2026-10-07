@@ -31,6 +31,8 @@ const chromeMock = vi.hoisted(() => {
     translationCallbacks: [] as Array<(response: unknown) => void>,
     profileResolvers: [] as Array<() => void>,
     deferProfile: false,
+    deferSettings: false,
+    settingsResolvers: [] as Array<(settings: unknown) => void>,
   };
 
   const respond = (data: unknown) => ({ success: true, data });
@@ -43,6 +45,16 @@ const chromeMock = vi.hoisted(() => {
     if (message.type === 'TRANSLATE_TEXT' || message.type === 'BATCH_TRANSLATE_TEXT') {
       if (callback) state.translationCallbacks.push(callback);
       return Promise.resolve(undefined);
+    }
+
+    if (message.type === 'GET_SETTINGS' && state.deferSettings) {
+      return new Promise(resolve => {
+        state.settingsResolvers.push(settings => {
+          const response = respond(settings);
+          callback?.(response);
+          resolve(response);
+        });
+      });
     }
 
     if (message.type === 'GET_USER_PROFILE' && state.deferProfile) {
@@ -98,6 +110,8 @@ vi.mock('@/shared/utils', async (importOriginal) => {
 });
 
 import { NotOnlyTranslator } from '@/content/index';
+import { TranslationDisplay } from '@/content/translationDisplay';
+import { logger } from '@/shared/utils';
 
 const { state } = chromeMock;
 const initialSettings = { ...state.settings };
@@ -161,6 +175,8 @@ beforeEach(() => {
   state.translationCallbacks.length = 0;
   state.profileResolvers.length = 0;
   state.deferProfile = false;
+  state.deferSettings = false;
+  state.settingsResolvers = [];
   state.settings = { ...initialSettings };
   document.body.textContent = LONG_ENGLISH_TEXT;
 });
@@ -170,9 +186,87 @@ afterEach(() => {
     created.pop()?.destroy();
   }
   document.body.innerHTML = '';
+  vi.restoreAllMocks();
 });
 
+type SettingsControl = {
+  settings: typeof state.settings;
+  isEnabled: boolean;
+  handleSettingsUpdated(): Promise<void>;
+  handleModeChange(mode: 'inline-only' | 'bilingual' | 'full-translate'): void;
+  toggleEnabled(): void;
+  refreshTranslation(mode: string): void;
+};
+
 describe('设置热更新的页面生命周期', () => {
+  it.each([
+    [true, 'inline-only'], [true, 'bilingual'], [false, 'inline-only'], [false, 'bilingual'],
+  ] as const)('GET_SETTINGS挂起期间本页开关从%s反转后，%s响应不覆盖最新本页状态', async (enabled, mode) => {
+    const control = await createTranslator() as unknown as SettingsControl;
+    if (!enabled) control.toggleEnabled();
+    state.deferSettings = true;
+    const reading = control.handleSettingsUpdated();
+    control.toggleEnabled();
+    state.settingsResolvers[0]({ ...state.settings, translationMode: mode });
+    await reading;
+    expect(control.isEnabled).toBe(!enabled);
+    expect(control.settings.translationMode).toBe(mode);
+  });
+
+  it('两次设置读取乱序时拒绝旧响应，不覆盖最新服务配置或模式', async () => {
+    const control = await createTranslator() as unknown as SettingsControl;
+    const refresh = vi.spyOn(control, 'refreshTranslation').mockImplementation(() => {});
+    state.deferSettings = true;
+    const first = control.handleSettingsUpdated();
+    const second = control.handleSettingsUpdated();
+    state.settingsResolvers[1]({ ...state.settings, translationMode: 'full-translate', apiProvider: 'anthropic' });
+    await second;
+    state.settingsResolvers[0]({ ...state.settings, translationMode: 'bilingual' });
+    await first;
+    expect(control.settings).toMatchObject({ translationMode: 'full-translate', apiProvider: 'anthropic' });
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each(['mode', 'provider'] as const)('并发重复%s设置只提交一次有效变化，不重复重绘或刷新', async change => {
+    const control = await createTranslator() as unknown as SettingsControl;
+    const refresh = vi.spyOn(control, 'refreshTranslation').mockImplementation(() => {});
+    const rerender = vi.spyOn(TranslationDisplay, 'rerenderTranslations');
+    state.deferSettings = true;
+    const first = control.handleSettingsUpdated();
+    const second = control.handleSettingsUpdated();
+    const snapshot = { ...state.settings, translationMode: 'bilingual', ...(change === 'provider' ? { apiProvider: 'anthropic' } : {}) };
+    state.settingsResolvers[0](snapshot);
+    await first;
+    state.settingsResolvers[1](snapshot);
+    await second;
+    expect(refresh).toHaveBeenCalledTimes(change === 'provider' ? 1 : 0);
+    expect(rerender).toHaveBeenCalledTimes(change === 'mode' ? 1 : 0);
+    rerender.mockRestore();
+  });
+
+  it('本地模式选择使更早的设置读取失效，保存回声不取消或刷新', async () => {
+    const control = await createTranslator() as unknown as SettingsControl;
+    const refresh = vi.spyOn(control, 'refreshTranslation').mockImplementation(() => {});
+    state.deferSettings = true;
+    const reading = control.handleSettingsUpdated();
+    control.handleModeChange('bilingual');
+    state.settingsResolvers[0](state.settings);
+    await reading;
+    expect(control.settings.translationMode).toBe('bilingual');
+    state.deferSettings = false;
+    state.settings = { ...state.settings, translationMode: 'bilingual' };
+    await control.handleSettingsUpdated();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(state.sentMessages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(0);
+  });
+
+  it('设置读取的日志不打印包含凭据的完整响应', async () => {
+    state.settings = { ...state.settings, apiConfigs: [{ apiKey: 'SYNTH_PRIVATE_SETTINGS_KEY' }] };
+    const control = await createTranslator() as unknown as SettingsControl;
+    await control.handleSettingsUpdated();
+    expect(JSON.stringify([...vi.mocked(logger.debug).mock.calls, ...vi.mocked(logger.info).mock.calls]))
+      .not.toContain('SYNTH_PRIVATE_SETTINGS_KEY');
+  });
   it('禁用时取消在途翻译且迟到响应不写 DOM，重新启用后恢复扫描', async () => {
     const translator = await createTranslator();
     const control = translator as unknown as {
@@ -211,7 +305,7 @@ describe('设置热更新的页面生命周期', () => {
     expect(scan).toHaveBeenCalled();
   });
 
-  it('模式变化才刷新翻译，其他设置变化只同步高亮', async () => {
+  it('模式变化仅重绘，真实其他设置变化才刷新翻译和同步高亮', async () => {
     const translator = await createTranslator();
     const control = translator as unknown as {
       handleSettingsUpdated(): Promise<void>;
@@ -223,13 +317,13 @@ describe('设置热更新的页面生命周期', () => {
 
     state.settings = { ...state.settings, translationMode: 'bilingual' };
     await control.handleSettingsUpdated();
-    expect(refresh).toHaveBeenCalledOnce();
-    expect(refresh).toHaveBeenCalledWith('bilingual');
+    expect(refresh).not.toHaveBeenCalled();
+    expect(sync).not.toHaveBeenCalled();
 
     state.settings = { ...state.settings, vocabHighlightEnabled: true };
     await control.handleSettingsUpdated();
     expect(refresh).toHaveBeenCalledOnce();
-    expect(sync).toHaveBeenCalledTimes(2);
+    expect(sync).toHaveBeenCalledOnce();
   });
 });
 
@@ -294,7 +388,7 @@ describe('内容脚本翻译请求生命周期', () => {
     await first;
   });
 
-  it('切换模式会取消直接发起的在途翻译请求', async () => {
+  it('切换模式保留直接发起的在途翻译，并按最新模式显示响应', async () => {
     const translator = await createTranslator();
     const paragraph = document.createElement('p');
     paragraph.textContent = 'The ephemeral nature of existence is difficult.';
@@ -309,7 +403,10 @@ describe('内容脚本翻译请求生命周期', () => {
       handleModeChange(mode: 'inline-only' | 'bilingual'): void;
     }).handleModeChange('bilingual');
 
-    expect(state.sentMessages.filter((message) => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
+    expect(state.sentMessages.filter((message) => message.type === 'CANCEL_TRANSLATION')).toHaveLength(0);
+    resolveTranslation(0);
+    await waitUntil(() => expect(document.querySelector('.not-translator-translation-line')?.textContent).toBe('短暂的'));
+    expect(state.translationCallbacks).toHaveLength(1);
   });
 
   it('去抖窗口累积多批动态元素，不丢弃先到元素', async () => {

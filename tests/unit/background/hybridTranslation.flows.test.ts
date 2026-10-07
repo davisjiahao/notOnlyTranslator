@@ -11,7 +11,7 @@ import type { TranslationRequest, UserSettings } from '@/shared/types';
 
 vi.mock('@/background/storage', () => ({ StorageManager: { getSettings: vi.fn(), getApiKey: vi.fn() } }));
 vi.mock('@/background/translationApi', () => ({ TranslationApiService: { callWithSystem: vi.fn(), quickTranslate: vi.fn(), quickTranslateWithSystem: vi.fn() } }));
-vi.mock('@/background/enhancedCache', () => ({ enhancedCache: { initialize: vi.fn(), get: vi.fn(), set: vi.fn() } }));
+vi.mock('@/background/enhancedCache', () => ({ enhancedCache: { initialize: vi.fn(), getGeneration: vi.fn().mockReturnValue(0), generateHash: vi.fn().mockReturnValue('test-cache-key'), get: vi.fn(), set: vi.fn() } }));
 vi.mock('@/background/llmEnhancedAnalysis', () => ({ LlmEnhancedAnalysisService: { analyze: vi.fn(), convertToTranslatedWords: vi.fn(), convertToGrammarPoints: vi.fn() } }));
 vi.mock('@/background/textComplexityAnalyzer', () => ({ TextComplexityAnalyzer: { analyze: vi.fn() } }));
 vi.mock('@/shared/performance', () => ({ MetricType: { API_RESPONSE_TIME: 'api', CACHE_OPERATION: 'cache', TRANSLATION_TOTAL_TIME: 'total' }, recordMetric: vi.fn() }));
@@ -22,6 +22,8 @@ const llmResponse = JSON.stringify({ words: [{ original: 'intricate', translatio
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(enhancedCache.generateHash).mockReturnValue('test-cache-key');
+  vi.mocked(enhancedCache.getGeneration).mockReturnValue(0);
   HybridTranslationService.updateConfig({ defaultEngine: 'hybrid', enableSmartRouting: false, traditionalProvider: 'deepl', traditionalApiKey: undefined, enableParallelTranslation: false, enableEnhancedAnalysis: false, fallbackStrategy: 'traditional_first' });
   vi.mocked(StorageManager.getSettings).mockResolvedValue(settings);
   vi.mocked(StorageManager.getApiKey).mockResolvedValue('fake-llm');
@@ -40,13 +42,172 @@ describe('混合翻译真实公开流程', () => {
     expect(result.words).toEqual(expect.arrayContaining([expect.objectContaining({ original: 'intricate' })]));
   });
 
+  it.each(['translate', 'quickTranslate'] as const)('用户选择 DeepL 时 %s 使用 DeepL 端点和密钥，不送往默认 youdao', async method => {
+    HybridTranslationService.updateConfig({ defaultEngine: 'traditional', traditionalProvider: 'youdao' });
+    vi.mocked(StorageManager.getSettings).mockResolvedValue({
+      ...settings,
+      hybridTranslation: { enabled: true, defaultEngine: 'traditional', traditionalProvider: 'deepl', simpleTextThreshold: 20, enableSmartRouting: false, priority: 'balanced', traditionalApiKey: 'DEEPL-SECRET' },
+    });
+
+    if (method === 'translate') {
+      await HybridTranslationService.translate(request);
+    } else {
+      await HybridTranslationService.quickTranslate(request.text);
+    }
+
+    expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith(
+      request.text, 'DEEPL-SECRET', expect.objectContaining({ apiProvider: 'deepl' }), undefined,
+    );
+  });
+
+  describe.each(['translate', 'quickTranslate'] as const)('%s 的传统配置隔离', method => {
+    const llmSettings: UserSettings = {
+      ...settings,
+      apiProvider: 'custom',
+      customApiUrl: 'https://llm.example/v1/chat/completions',
+      customModelName: 'llm-model',
+      secondaryApiKey: 'LLM-SECONDARY',
+      activeApiConfigId: 'llm',
+    };
+    const options = { signal: new AbortController().signal, timeoutMs: 1234 };
+    const translate = () => method === 'translate'
+      ? HybridTranslationService.translate(request, options)
+      : HybridTranslationService.quickTranslate(request.text, options);
+
+    it.each(['deepl', 'google_translate', 'youdao'] as const)('%s 的端点及凭据只能来自同一 apiConfig', async provider => {
+      HybridTranslationService.updateConfig({ defaultEngine: 'traditional', traditionalProvider: provider });
+      const config = {
+        id: 'traditional-a', name: '传统 A', provider, apiKey: 'TRADITIONAL-A',
+        apiUrl: 'https://traditional-a.example/translate', modelName: 'traditional-model',
+        secondaryApiKey: 'TRADITIONAL-SECONDARY', tested: true, createdAt: 0,
+      };
+      const snapshot: UserSettings = {
+        ...llmSettings,
+        apiConfigs: [
+          { ...config, id: 'llm', provider: 'custom', apiKey: 'LLM-KEY', apiUrl: llmSettings.customApiUrl },
+          config,
+          { ...config, id: 'traditional-b', apiKey: 'TRADITIONAL-B', apiUrl: 'https://traditional-b.example/translate' },
+        ],
+      };
+      const originalSnapshot = JSON.stringify(snapshot);
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(snapshot);
+
+      await translate();
+
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledExactlyOnceWith(
+        request.text, config.apiKey, expect.objectContaining({
+          apiProvider: provider, customApiUrl: config.apiUrl, customModelName: config.modelName,
+          secondaryApiKey: config.secondaryApiKey, activeApiConfigId: config.id,
+        }), options,
+      );
+      expect(JSON.stringify(snapshot)).toBe(originalSnapshot);
+      if (method === 'translate') {
+        expect(TranslationApiService.callWithSystem).toHaveBeenCalledWith(
+          expect.any(String), expect.any(String), 'fake-llm', snapshot, undefined, options,
+        );
+      }
+    });
+
+    it('apiConfig 未设置可选字段时不继承 LLM 端点、模型或次级密钥', async () => {
+      HybridTranslationService.updateConfig({ defaultEngine: 'traditional' });
+      vi.mocked(StorageManager.getSettings).mockResolvedValue(llmSettings);
+
+      await translate();
+
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledExactlyOnceWith(
+        request.text, 'fake-traditional', expect.objectContaining({
+          apiProvider: 'deepl', customApiUrl: '', customModelName: '',
+          secondaryApiKey: '', activeApiConfigId: 'traditional',
+        }), options,
+      );
+    });
+
+    it.each([false, true])('独立传统密钥使用默认端点，不拼接其他配置（存在同提供商配置：%s）', async hasConfig => {
+      HybridTranslationService.updateConfig({ defaultEngine: 'traditional' });
+      vi.mocked(StorageManager.getSettings).mockResolvedValue({
+        ...llmSettings,
+        apiConfigs: hasConfig ? [{
+          ...settings.apiConfigs[0], apiUrl: 'https://another-account.example/translate',
+          modelName: 'another-model', secondaryApiKey: 'ANOTHER-SECONDARY',
+        }] : [],
+        hybridTranslation: { traditionalProvider: 'deepl', traditionalApiKey: 'INDEPENDENT-KEY' } as UserSettings['hybridTranslation'],
+      });
+
+      await translate();
+
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledExactlyOnceWith(
+        request.text, 'INDEPENDENT-KEY', expect.objectContaining({
+          apiProvider: 'deepl', customApiUrl: '', customModelName: '',
+          secondaryApiKey: '', activeApiConfigId: undefined,
+        }), options,
+      );
+    });
+  });
+
+  it.each(['translate', 'quickTranslate'] as const)('%s 不把来源未标记的传统密钥送往默认 youdao', async method => {
+    HybridTranslationService.updateConfig({ defaultEngine: 'traditional', traditionalProvider: 'youdao' });
+    vi.mocked(StorageManager.getSettings).mockResolvedValue({
+      ...settings,
+      apiConfigs: [{ id: 'deepl', name: 'DeepL', provider: 'deepl', apiKey: 'DEEPL-CONFIG-SECRET' }],
+      hybridTranslation: { traditionalApiKey: 'UNBOUND-SECRET' } as UserSettings['hybridTranslation'],
+    });
+
+    if (method === 'translate') {
+      await HybridTranslationService.translate(request);
+    } else {
+      await HybridTranslationService.quickTranslate(request.text);
+    }
+
+    if (method === 'translate') {
+      expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
+      expect(TranslationApiService.callWithSystem).toHaveBeenCalledWith(
+        expect.any(String), expect.any(String), 'fake-llm', expect.objectContaining({ apiProvider: 'openai' }), undefined, undefined,
+      );
+    } else {
+      expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith(
+        request.text, 'fake-llm', expect.objectContaining({ apiProvider: 'openai' }), undefined,
+      );
+    }
+  });
+
+  it('无效传统提供商不得以未知端点发送密钥', async () => {
+    HybridTranslationService.updateConfig({ defaultEngine: 'traditional', traditionalProvider: 'youdao' });
+    vi.mocked(StorageManager.getSettings).mockResolvedValue({
+      ...settings,
+      apiConfigs: [],
+      hybridTranslation: { traditionalProvider: 'not-a-provider', traditionalApiKey: 'UNKNOWN-SECRET' } as unknown as UserSettings['hybridTranslation'],
+    });
+
+    await HybridTranslationService.translate(request);
+
+    expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
+    expect(TranslationApiService.callWithSystem).toHaveBeenCalled();
+  });
+
+  it('apiConfigs 中只有目标提供商的密钥可用于传统请求', async () => {
+    HybridTranslationService.updateConfig({ defaultEngine: 'traditional', traditionalProvider: 'youdao' });
+    vi.mocked(StorageManager.getSettings).mockResolvedValue({
+      ...settings,
+      apiConfigs: [
+        { id: 'deepl', name: 'DeepL', provider: 'deepl', apiKey: 'DEEPL-CONFIG-SECRET' },
+        { id: 'youdao', name: '有道', provider: 'youdao', apiKey: 'YOUDAO-SECRET' },
+      ],
+    });
+
+    await HybridTranslationService.translate(request);
+
+    expect(TranslationApiService.quickTranslate).toHaveBeenCalledWith(
+      request.text, 'YOUDAO-SECRET', expect.objectContaining({ apiProvider: 'youdao' }), undefined,
+    );
+  });
+
   it('传统密钥缺失时只调用 LLM，解析结果并写缓存', async () => {
     HybridTranslationService.updateConfig({ defaultEngine: 'traditional' });
     vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...settings, apiConfigs: [] });
     const result = await HybridTranslationService.translate(request);
     expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
     expect(result.fullText).toBe('完整译文');
-    expect(enhancedCache.set).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ fullText: '完整译文' }), request.mode, expect.any(String), 'llm');
+    expect(enhancedCache.set).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ fullText: '完整译文' }), request.mode, expect.any(String), 'llm', 0);
   });
 
   it('缓存命中时不读取密钥或发送网络请求', async () => {
@@ -69,8 +230,8 @@ describe('混合翻译真实公开流程', () => {
 
   it('并行首个失败时等待另一端成功，而非再次读取已失败的 Promise', async () => {
     HybridTranslationService.updateConfig({ enableParallelTranslation: true });
-    vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(settings).mockRejectedValueOnce(new Error('offline'));
-    expect((await HybridTranslationService.translate(request)).fullText).toBe('完整译文');
+    vi.mocked(enhancedCache.initialize).mockRejectedValueOnce(new Error('llm offline'));
+    expect((await HybridTranslationService.translate(request)).fullText).toBe('传统译文');
     expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(1);
   });
 
@@ -96,6 +257,34 @@ describe('混合翻译真实公开流程', () => {
     await HybridTranslationService.translate({ ...request, text: sensitive });
     expect(errors.mock.calls.flat().map(String).join(' ')).not.toContain(sensitive);
     errors.mockRestore();
+  });
+
+  it.each(['增强分析', '简易分析'] as const)('传统请求等待期间切配置，%s仍只读取原配置密钥', async analysis => {
+    HybridTranslationService.updateConfig({ enableEnhancedAnalysis: analysis === '增强分析' });
+    vi.mocked(StorageManager.getApiKey).mockImplementation(async snapshot => snapshot === settings ? 'KEY_A' : 'KEY_B');
+    vi.mocked(LlmEnhancedAnalysisService.analyze).mockResolvedValue({
+      analysisTime: 1, wordDetails: [], grammarAnalysis: [], phrases: [], culturalNotes: [],
+    });
+    vi.mocked(TranslationApiService.quickTranslateWithSystem).mockResolvedValue('{"words":[]}');
+    let release!: (value: string) => void;
+    vi.mocked(TranslationApiService.quickTranslate).mockImplementationOnce(() =>
+      new Promise(resolve => { release = resolve; })
+    );
+
+    const pending = HybridTranslationService.translate(request);
+    await vi.waitFor(() => expect(TranslationApiService.quickTranslate).toHaveBeenCalledOnce());
+    vi.mocked(StorageManager.getSettings).mockResolvedValue({ ...settings, apiProvider: 'custom', customApiUrl: 'https://b.example/v1' });
+    release('传统译文');
+    expect((await pending).fullText).toBe('传统译文');
+    expect(StorageManager.getSettings).toHaveBeenCalledOnce();
+    expect(vi.mocked(StorageManager.getApiKey).mock.calls.every(([snapshot]) => snapshot === settings)).toBe(true);
+    if (analysis === '增强分析') {
+      expect(LlmEnhancedAnalysisService.analyze).toHaveBeenCalledWith(request.text, settings, expect.any(Object), undefined);
+    } else {
+      expect(TranslationApiService.quickTranslateWithSystem).toHaveBeenCalledWith(
+        expect.any(String), expect.any(String), 'KEY_A', settings, undefined,
+      );
+    }
   });
 
   it('配置更新日志不输出传统 API 密钥', () => {
@@ -160,7 +349,7 @@ describe('混合翻译真实公开流程', () => {
   });
 
   it('传统路径中非取消故障依次回退，最终返回原文', async () => {
-    vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(settings).mockRejectedValue(new Error('offline'));
+    vi.mocked(TranslationApiService.quickTranslate).mockRejectedValue(new Error('offline'));
     vi.mocked(enhancedCache.initialize).mockRejectedValue(new Error('offline'));
     const warning = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     const result = await HybridTranslationService.translate(request);
@@ -197,7 +386,7 @@ describe('混合翻译真实公开流程', () => {
 
   it('并行两端均失败时明确报错，避免无限等待', async () => {
     HybridTranslationService.updateConfig({ enableParallelTranslation: true });
-    vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(settings).mockRejectedValueOnce(new Error('traditional offline'));
+    vi.mocked(TranslationApiService.quickTranslate).mockRejectedValue(new Error('traditional offline'));
     vi.mocked(enhancedCache.initialize).mockRejectedValue(new Error('llm offline'));
     await expect(HybridTranslationService.translate(request)).rejects.toThrow('Both traditional and LLM translation failed');
   });
@@ -309,12 +498,13 @@ describe('混合翻译真实公开流程', () => {
     expect(result.words).toEqual([expect.objectContaining({ original: 'intricate', translation: '旧义' })]);
   });
 
-  it('LLM 优先回退策略在传统请求失败后只重新尝试 LLM', async () => {
+  it('LLM 优先回退策略在传统 API 故障后只请求一次 LLM', async () => {
     HybridTranslationService.updateConfig({ fallbackStrategy: 'llm_first' });
-    vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(settings).mockRejectedValueOnce(new Error('traditional offline'));
+    vi.mocked(TranslationApiService.quickTranslate).mockRejectedValueOnce(new Error('traditional offline'));
     const result = await HybridTranslationService.translate(request);
     expect(result.fullText).toBe('完整译文');
-    expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
+    expect(TranslationApiService.quickTranslate).toHaveBeenCalledOnce();
+    expect(TranslationApiService.callWithSystem).toHaveBeenCalledOnce();
   });
 
   it('开始前取消请求不访问配置，也不进入回退策略', async () => {

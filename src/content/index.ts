@@ -17,6 +17,7 @@ import { BatchTranslationManager } from './batchTranslationManager';
 import { FloatingButton } from './floatingButton';
 import { NavigationManager, PageScanner, HoverManager, isInExcludedArea } from './core';
 import { VocabularyHighlighter } from './vocabularyHighlighter';
+import { getTranslatableText } from './pageScanner';
 import {
   VocabularyStateSync,
   fetchVocabularySnapshot,
@@ -42,6 +43,8 @@ class NotOnlyTranslator {
   private tooltip: Tooltip;
   private marker: MarkerService;
   private settings: UserSettings | undefined = undefined;
+  /** 设置读取按发起顺序提交，本地设置选择也会作废旧读取。 */
+  private settingsReadGeneration = 0;
   private isEnabled: boolean = true;
   private observer: MutationObserver | null = null;
   private removeMessageListener: (() => void) | null = null;
@@ -350,11 +353,14 @@ class NotOnlyTranslator {
       && token.tooltipGeneration === this.tooltipRequestGeneration;
   }
 
-  /** 作废所有在途翻译，并清除不再有效的加载状态 */
-  private cancelInFlightTranslations(): void {
+  /** 作废所有在途翻译，并清除不再有效的加载状态
+   * @param notifyBackground false 为页面卸载路径：只做前端清理，不发后台取消，
+   *   让后台在途批次继续完成并写缓存（费用已花，写缓存是止损）
+   */
+  private cancelInFlightTranslations(notifyBackground = true): void {
     this.translationGeneration++;
     this.tooltipRequestGeneration++;
-    cancelTranslationMessages();
+    cancelTranslationMessages(notifyBackground);
     this.tooltip.hide();
     document.querySelectorAll<HTMLElement>('.not-translator-translating').forEach((element) => {
       element.classList.remove('not-translator-translating');
@@ -543,7 +549,7 @@ class NotOnlyTranslator {
     // 初始化浮动模式切换按钮
     this.initFloatingButton();
 
-    logger.info('NotOnlyTranslator initialized with settings:', this.settings);
+    logger.info('NotOnlyTranslator initialized');
 
     // 设置扩展加载完成标记（供E2E测试检测）
     document.body.setAttribute('data-extension-loaded', 'true');
@@ -572,6 +578,7 @@ class NotOnlyTranslator {
         showDifficultyIndicator: true,
       });
 
+      TranslationDisplay.setKnownWords(Array.from(snapshot?.knownWords ?? []));
       if (snapshot) {
         this.vocabHighlighter.setCustomWords(snapshot.knownWords, snapshot.unknownWords);
       }
@@ -601,9 +608,18 @@ class NotOnlyTranslator {
    * 应用词汇快照：开关状态与词表/等级一次性对齐
    */
   private applyVocabularySnapshot(snapshot: VocabularySnapshot): void {
-    if (!this.vocabHighlighter) return;
-    this.vocabHighlighter.updateConfig({ enabled: this.isVocabHighlightEnabled() });
-    this.vocabHighlighter.applySnapshot(snapshot);
+    TranslationDisplay.setKnownWords(Array.from(snapshot.knownWords));
+    if (this.vocabHighlighter) {
+      this.vocabHighlighter.updateConfig({ enabled: this.isVocabHighlightEnabled() });
+      this.vocabHighlighter.applySnapshot(snapshot);
+    }
+    if (this.isEnabled) TranslationDisplay.rerenderTranslations(this.settings?.translationMode || 'inline-only');
+  }
+
+  /** 学习事件只更新本页过滤状态和展示，保留完整结果，不重新获取。 */
+  private updateWordPresentation(word: string, known: boolean): void {
+    TranslationDisplay.setWordKnown(word, known);
+    if (this.isEnabled) TranslationDisplay.rerenderTranslations(this.settings?.translationMode || 'inline-only');
   }
 
   /**
@@ -640,6 +656,11 @@ class NotOnlyTranslator {
       this.setupParagraphClickHandlers(element);
       // 通知观察器该元素已处理
       this.viewportObserver?.markAsProcessed(element);
+    });
+
+    // 段落不再注入加载圈：翻译进行中状态由悬浮按钮显示
+    this.batchManager.setOnProgress((activeBatches) => {
+      this.floatingButton?.setBusy(activeBatches > 0);
     });
 
     // 创建可视区域观察器
@@ -693,12 +714,10 @@ class NotOnlyTranslator {
    * 处理翻译模式切换
    */
   private handleModeChange(mode: TranslationMode): void {
-    if (!this.settings) return;
+    if (!this.settings || this.settings.translationMode === mode) return;
 
-    this.cancelInFlightTranslations();
-    this.batchManager?.cancelAll();
-
-    // 更新设置
+    // 本地选择立即生效，之前发出的设置读取不能覆盖它。
+    this.settingsReadGeneration++;
     const newSettings = { ...this.settings, translationMode: mode };
     this.settings = newSettings;
 
@@ -721,16 +740,17 @@ class NotOnlyTranslator {
       logger.error('NotOnlyTranslator: 保存设置失败:', error);
     });
 
-    // 刷新页面翻译
-    this.refreshTranslation(mode);
+    // 只重绘已有结果，不改变在途和排队任务的获取契约。
+    TranslationDisplay.rerenderTranslations(mode);
   }
 
   /**
    * 处理翻译引擎切换
    */
   private handleEngineChange(engine: 'llm' | 'traditional' | 'hybrid'): void {
-    if (!this.settings) return;
+    if (!this.settings || this.settings.hybridTranslation?.defaultEngine === engine) return;
 
+    this.settingsReadGeneration++;
     // 更新混合翻译配置
     const currentHybrid = this.settings.hybridTranslation || {
       enabled: true,
@@ -751,10 +771,10 @@ class NotOnlyTranslator {
     // 更新浮动按钮显示
     this.floatingButton?.setEngine(engine);
 
-    // 保存设置到 background
+    // 只持久化用户切换的引擎，不回传内容脚本快照中的旧提供商或密钥。
     this.sendMessage({
       type: 'UPDATE_SETTINGS',
-      payload: { hybridTranslation: newHybridConfig }
+      payload: { hybridTranslationPatch: { defaultEngine: engine } }
     }).then(() => {
       logger.info(`NotOnlyTranslator: 翻译引擎已切换为 ${engine}`);
     }).catch((error) => {
@@ -766,7 +786,7 @@ class NotOnlyTranslator {
   }
 
   /**
-   * 刷新页面翻译（模式切换后）
+   * 配置或个人词表失效后重新获取翻译
    */
   private refreshTranslation(_mode: TranslationMode): void {
     this.cancelInFlightTranslations();
@@ -778,19 +798,12 @@ class NotOnlyTranslator {
       this.refreshTimer = null;
     }
 
-    // 淡出现有翻译
-    const processedElements = document.querySelectorAll<HTMLElement>(
-      '.not-translator-processed, .not-translator-translation-line'
-    );
-    processedElements.forEach((el) => el.classList.add('not-translator-fade-out'));
+    // 立即丢弃旧结果，避免刷新等待期内的展示切换复活失效翻译。
+    this.clearAllTranslations();
 
-    // 淡出完成后清理并重新扫描
+    // 合并短时间内的配置广播，再重新扫描。
     this.refreshTimer = setTimeout(() => {
       this.refreshTimer = null;
-
-      document.querySelectorAll('.not-translator-processed').forEach((el) => {
-        TranslationDisplay.clearTranslation(el as HTMLElement);
-      });
 
       // 重置批量翻译状态
       if (this.batchManager) {
@@ -921,15 +934,18 @@ class NotOnlyTranslator {
   /**
    * Load settings from background
    */
-  private async loadSettings(): Promise<void> {
+  private async loadSettings(reconcile = false): Promise<void> {
+    const generation = ++this.settingsReadGeneration;
     try {
       logger.debug('加载设置...');
       const response = await this.sendMessage({ type: 'GET_SETTINGS' });
-      if (this.destroyed) return;
-      logger.debug('设置响应:', response);
+      if (this.destroyed || generation !== this.settingsReadGeneration) return;
       if (response.success && response.data) {
+        // 提交时读取最新本页状态；异步读取期间的本地开关不能被旧快照覆盖。
+        const oldSettings = this.settings;
+        const oldEnabled = this.isEnabled;
         this.settings = response.data as UserSettings;
-        this.isEnabled = this.settings.enabled;
+        if (oldSettings?.enabled !== this.settings.enabled) this.isEnabled = this.settings.enabled;
 
         // Apply highlight color
         document.documentElement.style.setProperty(
@@ -942,6 +958,9 @@ class NotOnlyTranslator {
           this.batchManager.setMode(this.settings.translationMode);
           this.batchManager.setSettings(this.settings);
         }
+        this.floatingButton?.updateMode(this.settings.translationMode);
+        // 更新设置和失效/重绘在同一同步延续内完成，重复通知不会跳过真实配置失效。
+        if (reconcile) this.applySettingsUpdate(oldSettings, oldEnabled);
 
         logger.info('NotOnlyTranslator: Settings loaded successfully');
       } else {
@@ -1179,6 +1198,8 @@ class NotOnlyTranslator {
     const listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] =
       (message: Message & { type: string }, _sender, sendResponse) => {
         switch (message.type) {
+          case 'BATCH_TRANSLATION_PROGRESS':
+            return false;
           case 'SHOW_TRANSLATION':
             this.handleShowTranslation(message.payload as { text: string });
             sendResponse({ success: true });
@@ -1242,8 +1263,22 @@ class NotOnlyTranslator {
         }
         return true;
       };
+    const storageListener: Parameters<typeof chrome.storage.onChanged.addListener>[0] = (changes, area) => {
+      if (this.destroyed || (area !== 'sync' && area !== 'local')) return;
+      const usesLegacyKey = this.settings?.apiProvider === 'openai' && !this.settings.customApiUrl
+        && !this.settings.apiConfigs?.length && !this.settings.activeApiConfigId;
+      const credentialsChanged = usesLegacyKey && ('apiKey' in changes || 'legacyApiKeyInvalidated' in changes);
+      if (credentialsChanged) {
+        this.refreshTranslation(this.settings?.translationMode || 'inline-only');
+      }
+      if ('settings' in changes) void this.handleSettingsUpdated();
+    };
     chrome.runtime.onMessage.addListener(listener);
-    this.removeMessageListener = () => chrome.runtime.onMessage.removeListener(listener);
+    chrome.storage.onChanged.addListener(storageListener);
+    this.removeMessageListener = () => {
+      chrome.runtime.onMessage.removeListener(listener);
+      chrome.storage.onChanged.removeListener(storageListener);
+    };
   }
 
   /**
@@ -1393,20 +1428,20 @@ class NotOnlyTranslator {
   /**
    * 顺序扫描页面（原有逻辑，保持向后兼容）
    */
-  private async scanPageSequential(paragraphs: HTMLElement[], mode: string): Promise<void> {
+  private async scanPageSequential(paragraphs: HTMLElement[], mode: TranslationMode): Promise<void> {
     const generation = this.startTranslationRequest();
     for (const paragraph of paragraphs) {
       if (!this.isTranslationRequestCurrent(generation)) return;
       if (TranslationDisplay.isProcessed(paragraph)) continue;
 
-      const text = paragraph.textContent || '';
+      const text = getTranslatableText(paragraph);
       if (text.length < TIMING.MIN_PARAGRAPH_LENGTH) continue;
 
       try {
         logger.info(`NotOnlyTranslator: Translating paragraph (${text.length} chars):`, text.substring(0, 100) + '...');
         TranslationDisplay.saveOriginalText(paragraph);
 
-        const result = await this.translateText(text, undefined, generation);
+        const result = await this.translateText(text, undefined, generation, mode);
         if (!this.isTranslationRequestCurrent(generation)) return;
 
         logger.info('NotOnlyTranslator: Translation result received:', {
@@ -1417,14 +1452,8 @@ class NotOnlyTranslator {
           words: result.words?.slice(0, 3) || []
         });
 
-        if (result.words.length > 0 || result.fullText) {
-          logger.info(`NotOnlyTranslator: Applying translation to paragraph with mode: ${mode}`);
-          TranslationDisplay.applyTranslation(paragraph, result, mode as import('@/shared/types').TranslationMode, this.settings ?? undefined);
-          this.setupParagraphClickHandlers(paragraph);
-          logger.info('NotOnlyTranslator: Translation applied successfully');
-        } else {
-          logger.info('NotOnlyTranslator: No words or fullText in result, skipping paragraph');
-        }
+        TranslationDisplay.applyTranslation(paragraph, result, this.settings?.translationMode || 'inline-only', this.settings);
+        this.setupParagraphClickHandlers(paragraph);
       } catch (error) {
         if (!this.isTranslationRequestCurrent(generation)) return;
         logger.error('NotOnlyTranslator: Failed to translate content:', error);
@@ -1486,13 +1515,12 @@ class NotOnlyTranslator {
   private async translateText(
     text: string,
     context?: string,
-    generation = this.startTranslationRequest()
+    generation = this.startTranslationRequest(),
+    mode: TranslationMode = this.settings?.translationMode || 'inline-only'
   ): Promise<TranslationResult> {
     if (!this.isTranslationRequestCurrent(generation)) {
       throw new Error('翻译请求已取消');
     }
-
-    const mode = this.settings?.translationMode || 'inline-only';
 
     logger.info('NotOnlyTranslator: Sending TRANSLATE_TEXT message to background');
     const response = await sendTranslationMessage({
@@ -1557,7 +1585,8 @@ class NotOnlyTranslator {
   private async handleMarkKnown(word: string): Promise<void> {
     try {
       this.lastMarkAction = { type: 'known', word, translation: '' };
-      await this.marker.markKnown(word);
+      await this.marker.markKnown(word, { updateUI: false });
+      this.updateWordPresentation(word, true);
       this.highlighter.markAsKnown(word);
       // 同步词汇高亮器：还原该词的 DOM 标记
       this.vocabHighlighter?.addKnownWord(word);
@@ -1576,7 +1605,8 @@ class NotOnlyTranslator {
     try {
       const context = this.marker.getSelectionContext();
       this.lastMarkAction = { type: 'unknown', word, translation };
-      await this.marker.markUnknown(word, translation, { context });
+      await this.marker.markUnknown(word, translation, { context, updateUI: false });
+      this.updateWordPresentation(word, false);
       this.highlighter.markAsUnknown(word);
       // 同步词汇高亮器：立即重扫生成高亮
       this.vocabHighlighter?.addUnknownWord(word);
@@ -1597,6 +1627,7 @@ class NotOnlyTranslator {
       const context = this.marker.getSelectionContext();
       this.lastMarkAction = { type: 'add', word, translation };
       await this.marker.addToVocabulary(word, translation, context);
+      this.updateWordPresentation(word, false);
       this.highlighter.markAsUnknown(word);
       this.vocabHighlighter?.addUnknownWord(word);
     } catch (error) {
@@ -1618,7 +1649,8 @@ class NotOnlyTranslator {
         payload: { word, originalAction: type },
       });
 
-      // 清除本地标记状态
+      // 清除本地标记状态；完整原始结果仍可用于撤销认识后的本地重绘。
+      if (type === 'known') this.updateWordPresentation(word, false);
       this.marker.unmark(word);
 
       // 根据操作类型恢复高亮状态
@@ -1762,6 +1794,7 @@ class NotOnlyTranslator {
    * Handle word marked message（其他标签页标记的广播）
    */
   private handleWordMarked(payload: { word: string; isKnown: boolean }): void {
+    this.updateWordPresentation(payload.word, payload.isKnown);
     if (payload.isKnown) {
       this.highlighter.markAsKnown(payload.word);
       this.vocabHighlighter?.addKnownWord(payload.word);
@@ -1779,6 +1812,7 @@ class NotOnlyTranslator {
     word: string;
     translation: string;
   }): void {
+    this.updateWordPresentation(payload.word, false);
     this.highlighter.markAsUnknown(payload.word);
     this.vocabHighlighter?.addUnknownWord(payload.word);
   }
@@ -1787,19 +1821,28 @@ class NotOnlyTranslator {
    * 处理设置更新（包括翻译开关和模式切换）
    * 支持无刷新切换：用户在 popup 中切换设置后立即生效
    */
-  private async handleSettingsUpdated(): Promise<void> {
+  private handleSettingsUpdated(): Promise<void> {
+    return this.loadSettings(true);
+  }
+
+  private applySettingsUpdate(oldSettings: UserSettings | undefined, oldEnabled: boolean): void {
+    if (!this.settings) return;
+    const newEnabled = this.isEnabled;
+    const newMode = this.settings.translationMode;
+    const onlyPresentationChanged = oldEnabled === newEnabled
+      && JSON.stringify({ ...oldSettings, translationMode: undefined })
+        === JSON.stringify({ ...this.settings, translationMode: undefined });
+    if (onlyPresentationChanged) {
+      // 重复广播和 storage 事件均为幂等操作，不进入失效/扫描分支。
+      if (oldSettings?.translationMode !== newMode && newEnabled) {
+        TranslationDisplay.rerenderTranslations(newMode);
+      }
+      return;
+    }
+
     this.cancelInFlightTranslations();
     this.batchManager?.cancelAll();
-
-    const oldEnabled = this.isEnabled;
-    const oldAutoHighlight = this.settings?.autoHighlight;
-    const oldMode = this.settings?.translationMode;
-
-    await this.loadSettings();
-    if (this.destroyed) return;
-
-    const newEnabled = this.isEnabled;
-    const newMode = this.settings?.translationMode;
+    this.clearAllTranslations();
 
     // 处理启用状态变化（无刷新切换）
     if (oldEnabled !== newEnabled) {
@@ -1824,16 +1867,8 @@ class NotOnlyTranslator {
       return; // 状态变化时不再处理模式变化
     }
 
-    // 如果翻译模式改变了，使用淡出过渡刷新翻译
-    if (oldMode !== newMode && newMode && this.isEnabled) {
-      logger.info(`NotOnlyTranslator: 翻译模式从 ${oldMode} 切换为 ${newMode}`);
-      this.refreshTranslation(newMode);
-    }
-
-    // 自动高亮从关闭变为开启时，补扫初始化时跳过的正文
-    if (!oldAutoHighlight && this.settings?.autoHighlight && this.isEnabled) {
-      void this.scanPage();
-    }
+    // 非模式配置变化必须重新获取，不能重用此前的结果或请求。
+    this.refreshTranslation(newMode);
 
     // 设置（含词汇高亮开关）变化后保持词汇高亮状态一致
     this.syncVocabHighlightEnabledState();
@@ -1870,10 +1905,7 @@ class NotOnlyTranslator {
    * Clear all translations from the page
    */
   private clearAllTranslations(): void {
-    const processedElements = document.querySelectorAll<HTMLElement>('.not-translator-processed');
-    processedElements.forEach((element) => {
-      TranslationDisplay.clearTranslation(element);
-    });
+    TranslationDisplay.clearAll();
   }
 
   /**
@@ -1950,8 +1982,11 @@ class NotOnlyTranslator {
   /**
    * 翻译指定段落
    */
-  private async translateParagraph(paragraph: HTMLElement): Promise<'translated' | 'skipped' | 'failed'> {
-    const text = paragraph.textContent?.trim();
+  private async translateParagraph(
+    paragraph: HTMLElement,
+    mode: TranslationMode = this.settings?.translationMode || 'inline-only'
+  ): Promise<'translated' | 'skipped' | 'failed'> {
+    const text = getTranslatableText(paragraph).trim();
     if (!text) return 'skipped';
 
     const generation = this.startTranslationRequest();
@@ -1959,7 +1994,6 @@ class NotOnlyTranslator {
     paragraph.classList.add('not-translator-translating');
 
     try {
-      const mode = this.settings?.translationMode || 'inline-only';
       const result = await sendTranslationMessage({
         type: 'TRANSLATE_TEXT',
         payload: {
@@ -1972,9 +2006,6 @@ class NotOnlyTranslator {
 
       if (result.success && result.data) {
         const translationResult = result.data as TranslationResult;
-        if (!translationResult.fullText && !translationResult.words?.length && !translationResult.grammarPoints?.length) {
-          return 'skipped';
-        }
         TranslationDisplay.applyTranslation(
           paragraph,
           translationResult,
@@ -2043,6 +2074,7 @@ class NotOnlyTranslator {
     this.cancelInFlightTranslations();
     this.batchManager?.cancelAll();
     const generation = this.startTranslationRequest();
+    const mode = this.settings?.translationMode || 'inline-only';
     if (!this.isTranslationRequestCurrent(generation)) return { translated, failed, cancelled: true };
 
     const paragraphs = document.querySelectorAll<HTMLElement>(
@@ -2051,7 +2083,7 @@ class NotOnlyTranslator {
 
     const eligible: HTMLElement[] = [];
     paragraphs.forEach((p) => {
-      const text = p.textContent?.trim() || '';
+      const text = getTranslatableText(p).trim();
       if (
         text.length >= TIMING.MIN_PARAGRAPH_LENGTH &&
         !p.classList.contains('not-translator-processed') &&
@@ -2078,7 +2110,7 @@ class NotOnlyTranslator {
       let totalChars = 0;
       while (i < eligible.length && batch.length < DEFAULT_BATCH_CONFIG.maxParagraphsPerBatch) {
         const paragraph = eligible[i];
-        const length = (paragraph.textContent?.trim() || '').length;
+        const length = getTranslatableText(paragraph).trim().length;
         if (length > DEFAULT_BATCH_CONFIG.maxCharsPerBatch) {
           if (batch.length > 0) break;
           i++;
@@ -2086,7 +2118,7 @@ class NotOnlyTranslator {
             failed++;
             logger.warn('页面段落超出单段翻译字符限制');
           } else {
-            const outcome = await this.translateParagraph(paragraph);
+            const outcome = await this.translateParagraph(paragraph, mode);
             if (outcome === 'translated') translated++;
             if (outcome === 'failed') failed++;
           }
@@ -2100,7 +2132,7 @@ class NotOnlyTranslator {
       }
       if (batch.length === 0) continue;
       batchNumber++;
-      const texts = batch.map(p => p.textContent?.trim() || '');
+      const texts = batch.map(p => getTranslatableText(p).trim());
 
       try {
         // 页面级批量按新契约携带 mode/pageUrl；结果按批次下标回填，elementPath 仅作占位
@@ -2112,7 +2144,7 @@ class NotOnlyTranslator {
               text,
               elementPath: 'p',
             })),
-            mode: this.settings?.translationMode || 'inline-only',
+            mode,
             pageUrl: window.location.origin,
           },
         });
@@ -2127,7 +2159,6 @@ class NotOnlyTranslator {
               failed++;
               continue;
             }
-            if (!result.fullText && !result.words?.length && !result.grammarPoints?.length) continue;
             try {
               TranslationDisplay.applyTranslation(
                 paragraph,
@@ -2198,7 +2229,7 @@ class NotOnlyTranslator {
             logger.debug('sendMessage no response received');
             resolve(response || { success: false, error: 'No response' });
           } else {
-            logger.debug('sendMessage response:', response);
+            logger.debug('sendMessage response:', { type: message.type, success: response.success });
             resolve(response);
           }
         });
@@ -2226,7 +2257,9 @@ class NotOnlyTranslator {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    this.cancelInFlightTranslations();
+    // 页面卸载（pagehide 经由 destroy 到达）：只做前端清理，不发后台取消，
+    // 在途批次让后台继续完成并写缓存，刷新后的新页面不重发
+    this.cancelInFlightTranslations(false);
 
     // 清理 document 级别事件监听器
     document.removeEventListener('mouseup', this.handleMouseUp);
@@ -2254,16 +2287,18 @@ class NotOnlyTranslator {
     // 清理 MutationObserver
     this.observer?.disconnect();
 
-    // 清理批量翻译组件，并取消所有在途翻译请求（pagehide 经由 destroy 到达这里）
+    // 清理批量翻译组件；卸载路径不发后台取消，在途批次由后台继续完成写缓存
     this.viewportObserver?.destroy();
-    this.batchManager?.cancelAll();
+    this.batchManager?.cancelAll(false);
 
     // 清理词汇状态同步（解绑 storage 监听）与词汇高亮器
     this.vocabStateSync?.stop();
     this.vocabStateSync = null;
     this.vocabHighlighter?.destroy();
 
-    // 清理高亮和提示框
+    // 清理高亮、展示结果和本页知识状态，常规清空则仍保留知识过滤。
+    this.clearAllTranslations();
+    TranslationDisplay.setKnownWords([]);
     this.highlighter.clearAllHighlights();
     this.tooltip.destroy();
 

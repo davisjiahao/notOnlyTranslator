@@ -35,6 +35,7 @@ vi.mock('@/shared/performance', () => ({
 
 vi.mock('@/background/enhancedCache', () => ({
   enhancedCache: {
+    getGeneration: vi.fn(() => 0),
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
     fuzzyGet: vi.fn().mockResolvedValue(null),
@@ -118,7 +119,7 @@ function makeRequest(overrides: Partial<BatchTranslationRequest> = {}): BatchTra
     mode: 'inline-only',
     pageUrl: 'https://example.com',
     userLevel: makeProfile({
-      unknownWords: [makeEntry('ubiquitous', 'the ubiquitous smartphone', '无处不在的')],
+      unknownWords: [makeEntry('ubiquitous', 'The ubiquitous smartphone is very good.', '无处不在的')],
     }),
     ...overrides,
   };
@@ -179,12 +180,15 @@ describe('敏感日志防护', () => {
     expect(enhancedCache.set).not.toHaveBeenCalled();
   });
 
-  it('模型明确返回空词汇列表时允许合法的无需翻译结果', async () => {
+  it('inline-only 请求允许模型返回空词汇，不受全局双语模式影响', async () => {
+    mockedGetSettings.mockResolvedValueOnce(createMockSettings({ translationMode: 'bilingual', phraseTranslationEnabled: true }));
     mockedCallWithSystem.mockResolvedValueOnce('{"paragraphs":[{"id":"0","words":[],"sentences":[]}]}');
 
-    const response = await BatchTranslationService.translateBatch(makeRequest({ mode: 'bilingual' }));
+    const response = await BatchTranslationService.translateBatch(makeRequest({ mode: 'inline-only' }));
 
     expect(response.results[0].result).toMatchObject({ words: [], sentences: [] });
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).toHaveBeenCalledTimes(1);
   });
 
   it('模型未返回任何段落时拒绝批次且不缓存空译文', async () => {
@@ -208,8 +212,361 @@ describe('敏感日志防护', () => {
   });
 });
 
+describe('行内输出耗尽后的批量候选词义恢复', () => {
+  const paragraphs = [
+    { id: 'p1', text: '  house book\n internationalization accelerated.', elementPath: '#p1' },
+    { id: 'p2', text: 'The  internationalization of software accelerated.', elementPath: '#p2' },
+  ];
+  const request = () => makeRequest({ paragraphs, userLevel: makeProfile({
+    estimatedVocabulary: 3000, knownWords: ['house', 'accelerated', 'software'],
+    unknownWords: [makeEntry('book', paragraphs[0].text, '本地书义')],
+  }) });
+  const responseParagraphs = [
+    { id: 'PARA_1', words: [
+      { original: 'internationalization', translation: '软件国际化' },
+      { original: 'book', translation: '跨段词' },
+    ] },
+    { id: 'PARA_0', words: [
+      { original: 'internationalization', translation: '市场国际化', position: [0, 1] },
+      { original: 'book', translation: '不覆盖本地' },
+      { original: 'house', translation: '不翻译已知词' },
+      { original: 'extraneous', translation: '候选外词' },
+    ] },
+  ];
+
+  beforeEach(() => {
+    mockedGetSettings.mockResolvedValue(createMockSettings({ apiProvider: 'custom',
+      customModelName: 'space-bunny', grammarTranslationEnabled: true, phraseTranslationEnabled: true }));
+  });
+
+  it('仅追加一次批量请求，按乱序ID隔离词义，保留本地词和未归一化位置且不缓存', async () => {
+    const controller = new AbortController();
+    const options = { signal: controller.signal, timeoutMs: 5000, maxTokens: 2000 };
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit())
+      .mockResolvedValueOnce(JSON.stringify({ paragraphs: responseParagraphs }));
+
+    const result = await BatchTranslationService.translateBatch(request(), options);
+
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    const [system, prompt, key, settings, retry, sentOptions] = mockedCallWithSystem.mock.calls[1];
+    expect(system).toContain('禁止整句翻译');
+    expect(prompt).toContain('PARA_0');
+    expect(prompt).toContain('PARA_1');
+    expect(prompt).not.toContain('fullText');
+    expect(prompt).not.toContain('grammarPoints');
+    expect(key).toBe('sk-test');
+    expect(settings).toBe(mockedCallWithSystem.mock.calls[0][3]);
+    expect(retry?.maxRetries).toBe(0);
+    expect(sentOptions).toMatchObject(options);
+    expect(result.apiCallCount).toBe(2);
+    expect(result.results.map(item => item.id)).toEqual(['p1', 'p2']);
+    expect(result.results.map(item => item.result.words.map(word => [word.original, word.translation]))).toEqual([
+      [['book', '本地书义'], ['internationalization', '市场国际化']],
+      [['internationalization', '软件国际化']],
+    ]);
+    for (const [index, item] of result.results.entries()) {
+      for (const word of item.result.words) expect(paragraphs[index].text.slice(...word.position)).toBe(word.original);
+      expect(item.result).toMatchObject({ sentences: [], grammarPoints: [], _source: 'llm' });
+      expect(item.result.fullText).toBeUndefined();
+    }
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('恢复请求逐段只列出未解候选，不截断超过三个的候选，也保留空候选段ID', async () => {
+    const words = ['neologisma', 'neologismb', 'neologismc', 'neologismd', 'neologisme'];
+    const text = `  ${words.join('  ')}.`;
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockResolvedValueOnce(JSON.stringify({ paragraphs: [
+      { id: 'PARA_1', words: [{ original: 'house', translation: '不采纳已知词' }] },
+      { id: 'PARA_0', words: words.map(original => ({ original, translation: '候选义' })) },
+    ] }));
+    const result = await BatchTranslationService.translateBatch(makeRequest({
+      paragraphs: [
+        { id: 'p1', text, elementPath: '#p1' },
+        { id: 'p2', text: 'The house is already familiar.', elementPath: '#p2' },
+      ],
+      userLevel: makeProfile({ unknownWords: words.map(word => makeEntry(word, text, '')) }),
+    }));
+    const input = JSON.parse(mockedCallWithSystem.mock.calls[1][1]);
+    expect(input.paragraphs).toEqual([
+      { id: 'PARA_0', sentence: text, candidates: words },
+      { id: 'PARA_1', sentence: 'The house is already familiar.', candidates: [] },
+    ]);
+    expect(result.results[0].result.words).toHaveLength(5);
+    expect(result.results[1].result.words).toEqual([]);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'not json', 'null', '{}', '{"paragraphs":null}',
+    '{"paragraphs":[null,null]}',
+    '{"paragraphs":[{"id":"PARA_0","words":null},{"id":"PARA_1","words":[]}]}',
+  ])('批量恢复结构非法 %s 时明确失败且不缓存', async content => {
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockResolvedValueOnce(content);
+    await expect(BatchTranslationService.translateBatch(request())).rejects.toThrow('词汇恢复响应无效');
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: '重复', value: [responseParagraphs[0], responseParagraphs[0]] },
+    { name: '缺少', value: [responseParagraphs[0]] },
+    { name: '未知', value: [responseParagraphs[0], { ...responseParagraphs[1], id: 'PARA_7' }] },
+    { name: '无ID', value: responseParagraphs.map(({ words }) => ({ words })) },
+  ])('$name段落ID时拒绝恢复，不缓存也不继续请求', async ({ value }) => {
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit())
+      .mockResolvedValueOnce(JSON.stringify({ paragraphs: value }));
+    await expect(BatchTranslationService.translateBatch(request())).rejects.toThrow('词汇恢复响应无效');
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['output_limit', 'timeout'] as const)('恢复再次失败 %s 时不递归、不拆成逐段请求', async kind => {
+    const error = kind === 'output_limit' ? TransportError.outputLimit() : TransportError.timeout(5000);
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockRejectedValueOnce(error);
+    await expect(BatchTranslationService.translateBatch(request())).rejects.toBe(error);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['首次失败', '恢复响应', '恢复失败'] as const)('%s时调用方取消优先，不接受迟到结果', async stage => {
+    const controller = new AbortController();
+    mockedCallWithSystem.mockImplementationOnce(async () => {
+      if (stage === '首次失败') controller.abort();
+      throw TransportError.outputLimit();
+    }).mockImplementationOnce(async () => {
+      controller.abort();
+      if (stage === '恢复失败') throw TransportError.outputLimit();
+      return JSON.stringify({ paragraphs: responseParagraphs });
+    });
+    await expect(BatchTranslationService.translateBatch(request(), { signal: controller.signal })).rejects.toThrow(/abort|取消/i);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(stage === '首次失败' ? 1 : 2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('所有段落本地可解时不追加API，计数只包含首次失败调用', async () => {
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit());
+    const result = await BatchTranslationService.translateBatch(makeRequest({ paragraphs: [
+      { id: 'p1', text: 'Read  this book carefully.', elementPath: '#p1' },
+      { id: 'p2', text: 'The house is already familiar.', elementPath: '#p2' },
+    ], userLevel: makeProfile({ unknownWords: [makeEntry('book', 'Read  this book carefully.', '本地书义')] }) }));
+    expect(result.results[0].result.words[0].translation).toBe('本地书义');
+    expect(result.results[1].result.words).toEqual([]);
+    expect(result.apiCallCount).toBe(1);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('Ollama 恢复仅使用原整体截止时间的剩余预算', async () => {
+    mockedGetSettings.mockResolvedValue(createMockSettings({ apiProvider: 'ollama', grammarTranslationEnabled: true }));
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    mockedCallWithSystem.mockImplementationOnce(async () => {
+      clock.mockReturnValue(2200);
+      throw TransportError.outputLimit();
+    }).mockResolvedValueOnce(JSON.stringify({ paragraphs: responseParagraphs }));
+    try {
+      await BatchTranslationService.translateBatch(request(), { timeoutMs: 5000, maxTokens: 2000 });
+      expect(mockedCallWithSystem.mock.calls[1][5]).toMatchObject({ timeoutMs: 3800, maxTokens: 2000 });
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('Ollama 恢复等待超过整体截止时间转换为timeout，不继续请求也不缓存', async () => {
+    vi.useFakeTimers();
+    mockedGetSettings.mockResolvedValue(createMockSettings({ apiProvider: 'ollama', grammarTranslationEnabled: true }));
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit())
+      .mockImplementationOnce((_s, _p, _k, _settings, _retry, options) => new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => reject(TransportError.cancelled()), { once: true });
+      }));
+    try {
+      const outcome = BatchTranslationService.translateBatch(request(), { timeoutMs: 5000 }).catch(error => error);
+      await vi.waitFor(() => expect(mockedCallWithSystem).toHaveBeenCalledTimes(2));
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(await outcome).toMatchObject({ kind: 'timeout' });
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('输出耗尽后的纯全文恢复', () => {
+  const paragraphs = [
+    { id: 'p1', text: 'The ubiquitous smartphone is very good.', elementPath: '#p1' },
+    { id: 'p2', text: 'Read this book carefully.', elementPath: '#p2' },
+  ];
+  const recoveryRequest = (mode: BatchTranslationRequest['mode'] = 'bilingual') => makeRequest({
+    paragraphs, mode,
+    userLevel: makeProfile({ unknownWords: [
+      makeEntry('ubiquitous', paragraphs[0].text, '无处不在的'),
+      makeEntry('book', paragraphs[1].text, '书；预订'),
+    ] }),
+  });
+  const fullTextResponse = JSON.stringify({ paragraphs: [
+    { id: 'PARA_1', fullText: '仔细阅读这本书。' },
+    { id: 'PARA_0', fullText: '无处不在的智能手机非常好。' },
+  ] });
+
+  it.each([
+    { mode: 'bilingual', provider: 'custom', timeoutMs: undefined, fallbackTimeoutMs: undefined },
+    { mode: 'full-translate', provider: 'custom', timeoutMs: 5000, fallbackTimeoutMs: 5000 },
+    { mode: 'bilingual', provider: 'ollama', timeoutMs: undefined, fallbackTimeoutMs: 88800 },
+  ] as const)('$mode/$provider 恢复按 PARA ID 对齐全文，保留既有超时语义且不缓存降级结果', async ({ mode, provider, timeoutMs, fallbackTimeoutMs }) => {
+    const settings = createMockSettings({ apiProvider: provider, translationMode: mode, grammarTranslationEnabled: true });
+    mockedGetSettings.mockResolvedValue(settings);
+    const controller = new AbortController();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    const performanceClock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    mockedCallWithSystem.mockImplementationOnce(async () => {
+      clock.mockReturnValue(2200);
+      performanceClock.mockReturnValue(2200);
+      throw TransportError.outputLimit();
+    }).mockResolvedValueOnce(fullTextResponse);
+
+    try {
+      const request = recoveryRequest(mode);
+      const response = await BatchTranslationService.translateBatch(request, {
+        signal: controller.signal, timeoutMs, maxTokens: 2000,
+      });
+      expect(response.results.map(item => item.id)).toEqual(['p1', 'p2']);
+      expect(response.results.map(item => item.result.fullText)).toEqual(['无处不在的智能手机非常好。', '仔细阅读这本书。']);
+      expect(response.results.map(item => item.result.words)).toEqual([
+        [expect.objectContaining({ original: 'ubiquitous', translation: '无处不在的', position: [4, 14] })],
+        [expect.objectContaining({ original: 'book', translation: '书；预订', position: [10, 14] })],
+      ]);
+      expect(response.results.every(item => item.result.sentences.length === 0 && item.result.grammarPoints === undefined)).toBe(true);
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+      const [system, prompt, key, snapshot, retry, options] = mockedCallWithSystem.mock.calls[1];
+      expect(system).not.toMatch(/CET|grammar|语法|分析/i);
+      expect(`${system}\n${prompt}`).toContain('fullText');
+      for (const paragraph of paragraphs) expect(prompt).toContain(paragraph.text);
+      expect(key).toBe('sk-test');
+      expect(snapshot).toBe(settings);
+      expect(retry).toMatchObject({ maxRetries: 0 });
+      expect(options?.signal).toBe(mockedCallWithSystem.mock.calls[0][5]?.signal);
+      if (provider === 'custom') expect(options?.signal).toBe(controller.signal);
+      expect(options?.timeoutMs).toBe(fallbackTimeoutMs);
+      expect(options?.maxTokens).toBe(2000);
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    } finally {
+      clock.mockRestore();
+      performanceClock.mockRestore();
+    }
+  });
+
+  it.each([
+    { name: '缺少完整全文', paragraphs: [{ id: 'PARA_0', fullText: '' }, { id: 'PARA_1', fullText: '第二段译文。' }] },
+    { name: '缺少段落 ID', paragraphs: [{ fullText: '第一段译文。' }, { id: 'PARA_1', fullText: '第二段译文。' }] },
+    { name: '任意段落 ID', paragraphs: [{ id: 'arbitrary-a', fullText: '第一段译文。' }, { id: 'arbitrary-b', fullText: '第二段译文。' }] },
+    { name: '重复段落 ID', paragraphs: [{ id: 'PARA_0', fullText: '第一段译文。' }, { id: 'PARA_0', fullText: '第二段译文。' }] },
+  ])('恢复响应$name 时拒绝部分结果、不再恢复且不缓存', async ({ paragraphs: returned }) => {
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit())
+      .mockResolvedValueOnce(JSON.stringify({ paragraphs: returned }));
+
+    await expect.soft(BatchTranslationService.translateBatch(recoveryRequest())).rejects.toThrow();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('纯全文恢复忽略夹带的无效分析数组，只保留逐段本地词汇', async () => {
+    mockedGetSettings.mockResolvedValue(createMockSettings({ grammarTranslationEnabled: true }));
+    const data = JSON.parse(fullTextResponse) as { paragraphs: Array<{ id: string; fullText: string }> };
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockResolvedValueOnce(JSON.stringify({
+      paragraphs: data.paragraphs.map(paragraph => ({
+        ...paragraph,
+        words: [null, { original: 'book', translation: '伪造词义', position: [10, 14] }],
+        sentences: [null],
+        grammarPoints: [null],
+      })),
+    }));
+
+    const response = await BatchTranslationService.translateBatch(recoveryRequest());
+
+    expect(response.results.map(item => item.result.fullText)).toEqual(['无处不在的智能手机非常好。', '仔细阅读这本书。']);
+    expect(response.results.map(item => item.result.words)).toEqual([
+      [expect.objectContaining({ original: 'ubiquitous', translation: '无处不在的' })],
+      [expect.objectContaining({ original: 'book', translation: '书；预订' })],
+    ]);
+    expect(response.results.every(item => item.result.sentences.length === 0 && item.result.grammarPoints === undefined)).toBe(true);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+
+  it('Ollama 纯全文恢复等待期间达到服务截止时间，取消应还原为超时且不缓存', async () => {
+    vi.useFakeTimers();
+    mockedGetSettings.mockResolvedValue(createMockSettings({ apiProvider: 'ollama' }));
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit())
+      .mockImplementationOnce((_system, _prompt, _key, _settings, _retry, options) => new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => reject(TransportError.cancelled()), { once: true });
+      }));
+
+    try {
+      const outcome = BatchTranslationService.translateBatch(recoveryRequest()).catch((error: unknown) => error);
+      await vi.waitFor(() => expect(mockedCallWithSystem).toHaveBeenCalledTimes(2));
+      expect(mockedCallWithSystem.mock.calls[1][5]?.signal).toBeInstanceOf(AbortSignal);
+      await vi.advanceTimersByTimeAsync(90_000);
+
+      expect.soft(await outcome).toMatchObject({ kind: 'timeout' });
+      expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('恢复任务期间取消后不接受迟到全文，不发第三次也不缓存', async () => {
+    const controller = new AbortController();
+    mockedCallWithSystem.mockRejectedValueOnce(TransportError.outputLimit()).mockImplementationOnce(async () => {
+      controller.abort();
+      return fullTextResponse;
+    });
+
+    await expect.soft(BatchTranslationService.translateBatch(recoveryRequest(), { signal: controller.signal }))
+      .rejects.toThrow(/abort|取消/i);
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(2);
+    expect(enhancedCache.set).not.toHaveBeenCalled();
+  });
+});
+
 describe('批次缓存与响应契约', () => {
   const translated = { words: [], sentences: [], fullText: '已翻译的段落。' };
+
+  describe.each(['bilingual', 'full-translate'] as const)('%s 全文响应契约', mode => {
+    it.each([undefined, '', ' \n\t', null, 42, false, { text: '译文' }, ['译文']].map(fullText => ({ fullText })))('拒绝无效 fullText：$fullText，且不缓存', async ({ fullText }) => {
+      mockedCallWithSystem.mockResolvedValueOnce(JSON.stringify({ paragraphs: [{ id: '0', words: [], sentences: [], fullText }] }));
+
+      await expect(BatchTranslationService.translateBatch(makeRequest({ mode })))
+        .rejects.toThrow('批量翻译响应格式无效');
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    });
+
+    it('不把 translatedText 别名当作完整译文', async () => {
+      mockedCallWithSystem.mockResolvedValueOnce('{"paragraphs":[{"id":"0","words":[],"sentences":[],"translatedText":"合成译文"}]}');
+
+      await expect(BatchTranslationService.translateBatch(makeRequest({ mode })))
+        .rejects.toThrow('批量翻译响应格式无效');
+      expect(enhancedCache.set).not.toHaveBeenCalled();
+    });
+
+    it('缺失全文的旧缓存不算命中，改用模型完整译文', async () => {
+      const request = makeRequest({ mode });
+      const hash = enhancedCache.generateHash(request.paragraphs[0].text, mode);
+      vi.mocked(enhancedCache.getBatch).mockResolvedValueOnce({
+        hits: new Map([[hash, { words: [], sentences: [] }]]), misses: [],
+      });
+      mockedCallWithSystem.mockResolvedValueOnce(JSON.stringify({ paragraphs: [{ id: '0', ...translated }] }));
+
+      const response = await BatchTranslationService.translateBatch(request);
+
+      expect(response.results[0]).toMatchObject({ result: translated, cached: false });
+      expect(response.cacheHitCount).toBe(0);
+      expect(response.apiCallCount).toBe(1);
+      expect(enhancedCache.set).toHaveBeenCalledTimes(1);
+    });
+  });
 
   it('精确缓存命中时不发请求，并保留调用方段落 ID', async () => {
     const request = makeRequest({ mode: 'bilingual' });
@@ -226,14 +583,16 @@ describe('批次缓存与响应契约', () => {
     expect(mockedCallWithSystem).not.toHaveBeenCalled();
   });
 
-  it('模糊缓存命中时不发请求或重复写入', async () => {
+  it('近似缓存不能短路批量 API 请求', async () => {
     vi.mocked(enhancedCache.fuzzyGet).mockResolvedValueOnce({ result: translated, similarity: 0.99 });
+    mockedCallWithSystem.mockResolvedValueOnce('{"paragraphs":[{"id":"0","fullText":"新译文"}]}');
 
     const response = await BatchTranslationService.translateBatch(makeRequest({ mode: 'bilingual' }));
 
-    expect(response.results).toEqual([{ id: 'p1', result: translated, cached: true }]);
-    expect(mockedCallWithSystem).not.toHaveBeenCalled();
-    expect(enhancedCache.set).not.toHaveBeenCalled();
+    expect(response.results[0]).toMatchObject({ id: 'p1', result: { fullText: '新译文' }, cached: false });
+    expect(enhancedCache.fuzzyGet).not.toHaveBeenCalled();
+    expect(mockedCallWithSystem).toHaveBeenCalledTimes(1);
+    expect(enhancedCache.set).toHaveBeenCalledTimes(1);
   });
 
   it('未传等级时从存储读取，中文段落不发送到模型', async () => {
@@ -290,6 +649,7 @@ describe('批次缓存与响应契约', () => {
     }));
     mockedCallWithSystem.mockResolvedValueOnce(JSON.stringify({ paragraphs: [{
       id: '0',
+      fullText: '查阅这本书。读它。',
       words: [
         { original: 'look up', translation: '查阅', isPhrase: true, position: [0, 7], difficulty: 3 },
         { original: 'book', translation: '书' },
@@ -447,7 +807,7 @@ describe('inline-only 段落本地解析', () => {
       userLevel: makeProfile({
         estimatedVocabulary: 3000,
         knownWords: [],
-        unknownWords: [makeEntry('ubiquitous', 'the ubiquitous smartphone', '无处不在的')],
+        unknownWords: [makeEntry('ubiquitous', 'The ubiquitous smartphone is very good.', '无处不在的')],
       }),
     });
 

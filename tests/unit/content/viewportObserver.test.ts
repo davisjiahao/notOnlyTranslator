@@ -7,10 +7,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ViewportObserver } from '@/content/viewportObserver';
 import { isInExcludedArea } from '@/content/pageScanner';
 
-vi.mock('@/content/pageScanner', () => ({
+vi.mock('@/content/pageScanner', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/content/pageScanner')>(),
   isInExcludedArea: vi.fn(() => false),
-  EXCLUDED_SELECTORS: [],
-  SITE_SPECIFIC_SELECTORS: {},
 }));
 
 vi.mock('@/shared/utils', () => ({
@@ -65,10 +64,10 @@ class MockIntersectionObserver {
 
 let currentObserver: MockIntersectionObserver | null = null;
 
-(globalThis as any).IntersectionObserver = function (callback: IntersectionObserverCallback) {
+globalThis.IntersectionObserver = function (callback: IntersectionObserverCallback) {
   currentObserver = new MockIntersectionObserver(callback);
   return currentObserver;
-};
+} as unknown as typeof IntersectionObserver;
 
 function createParagraphElement(text: string, id?: string): HTMLElement {
   const el = document.createElement('p');

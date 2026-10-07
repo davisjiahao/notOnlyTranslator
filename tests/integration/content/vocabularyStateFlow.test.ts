@@ -307,18 +307,22 @@ describe('阅读掌握状态同步集成', () => {
   }, 10000);
 
   it('destroy 解绑 storage 监听，销毁后不再同步', async () => {
-    const before = state.storageListeners.length;
+    const previous = [...state.storageListeners];
     const { t } = await createWithSentence();
-    const mine = state.storageListeners.slice(before);
-    expect(mine.length).toBe(1);
+    const mine = state.storageListeners.filter(listener => !previous.includes(listener));
+    expect(mine.length).toBeGreaterThan(0);
+    expect(new Set(mine).size).toBe(mine.length);
 
-    const profileCountBefore = countMessages('GET_USER_PROFILE');
     t.destroy();
-    expect(state.storageListeners.includes(mine[0])).toBe(false);
+    expect(state.storageListeners).toEqual(previous);
+    const messagesBefore = [...state.sentMessages];
 
-    // 销毁后手动触发监听器，不应再拉取 profile
-    mine[0]({ knownWords: { newValue: [] } }, 'local');
+    // 所有已解绑回调即使迟到执行，也不能重新同步设置、词表或发起翻译。
+    mine.forEach(listener => {
+      listener({ knownWords: { newValue: [] } }, 'local');
+      listener({ settings: { newValue: state.settings }, apiKey: { newValue: '' } }, 'sync');
+    });
     await new Promise((r) => setTimeout(r, 700));
-    expect(countMessages('GET_USER_PROFILE')).toBe(profileCountBefore);
+    expect(state.sentMessages).toEqual(messagesBefore);
   }, 10000);
 });

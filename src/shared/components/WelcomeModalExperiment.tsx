@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getExperimentGroup,
   trackExperimentProgress,
   type ExperimentGroup,
   type ExperimentStep,
 } from './welcomeModalUtils';
-import type { ApiProvider, ApiConfig } from '@/shared/types';
+import type { ApiProvider, ApiConfig, MessageResponse, UserSettings } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants';
 import { useFocusTrap } from '@/shared/hooks';
 
@@ -451,6 +451,8 @@ function ApiStep({
   const [customUrl, setCustomUrl] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | 'save-error' | null>(null);
+  // 操作代际：切换服务商时递增，使进行中的旧连接测试及其保存流程失效
+  const requestGeneration = useRef(0);
 
   const providerConfig = PROVIDER_CONFIGS[selectedProvider as ApiProvider];
   const placeholder = providerConfig?.apiKeyPlaceholder || '输入 API Key';
@@ -467,17 +469,32 @@ function ApiStep({
     setIsTesting(true);
     setTestResult(null);
 
+    // 代际快照：期间切换服务商会递增计数器，旧请求不得继续保存或更新结果
+    const generation = requestGeneration.current;
     const payload = isCustom
       ? { provider: 'openai' as ApiProvider, apiKey: apiKey.trim(), apiUrl: customUrl.trim() }
       : { provider: selectedProvider as ApiProvider, apiKey: apiKey.trim() };
 
+    let settings: UserSettings | null = null;
     let tested = false;
     try {
+      // 操作开始时读取并固定配置快照与版本：测试期间版本被其他窗口推进时，
+      // 本次保存必须被后台版本检查拒绝，不得重新读取最新版本保存旧草稿。
+      const settingsResponse: MessageResponse<UserSettings> = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      if (generation !== requestGeneration.current) return;
+      if (!settingsResponse?.success || !settingsResponse.data) {
+        setTestResult('save-error');
+        return;
+      }
+      // 保留已有配置，数组和版本使用同一次读取的快照。
+      settings = settingsResponse.data;
+
       const response = await chrome.runtime.sendMessage({
         type: 'TEST_API_CONNECTION',
         payload,
       });
 
+      if (generation !== requestGeneration.current) return;
       if (response?.success) {
         tested = true;
         const configId = `${selectedProvider}-${Date.now()}`;
@@ -493,12 +510,14 @@ function ApiStep({
         };
         const saved = await chrome.runtime.sendMessage({
           type: 'UPDATE_SETTINGS',
+          expectedApiConfigsRevision: settings.apiConfigsRevision ?? 0,
           payload: {
-            apiConfigs: [newConfig],
+            apiConfigs: [...(settings.apiConfigs || []), newConfig],
             activeApiConfigId: configId,
             apiProvider: newConfig.provider,
           },
         });
+        if (generation !== requestGeneration.current) return;
         if (!saved?.success) {
           setTestResult('save-error');
           return;
@@ -509,7 +528,10 @@ function ApiStep({
         setTestResult('error');
       }
     } catch {
-      setTestResult(tested ? 'save-error' : 'error');
+      // 快照未加载成功属于保存准备失败；已加载但连接测试未成功属于连接失败；其余为保存失败
+      if (generation === requestGeneration.current) {
+        setTestResult(!settings || tested ? 'save-error' : 'error');
+      }
     } finally {
       setIsTesting(false);
     }
@@ -531,7 +553,7 @@ function ApiStep({
         {providers.map((provider) => (
           <button
             key={provider.id}
-            onClick={() => { onSelect(provider.id); setTestResult(null); }}
+            onClick={() => { onSelect(provider.id); setApiKey(''); setCustomUrl(''); setTestResult(null); requestGeneration.current++; }}
             role="radio"
             aria-checked={selectedProvider === provider.id}
             className={`w-full p-3 rounded-xl border-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${

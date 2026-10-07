@@ -39,9 +39,11 @@ vi.mock('@/shared/performance', () => ({
 
 vi.mock('@/background/enhancedCache', () => ({
   enhancedCache: {
+    getGeneration: vi.fn(() => 0),
     get: vi.fn().mockResolvedValue(null),
     fuzzyGet: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
+    generateHash: vi.fn().mockReturnValue('test-cache-key'),
   },
 }));
 
@@ -72,6 +74,7 @@ import { TranslationService } from '@/background/translation';
 import { setOfflineWordSource, resetOfflineWordSource } from '@/background/localWordLookup';
 import { StorageManager } from '@/background/storage';
 import { TranslationApiService } from '@/background/translationApi';
+import { enhancedCache } from '@/background/enhancedCache';
 import { executeTransportRequest } from '@/background/translationRequest';
 import { DEFAULT_SETTINGS } from '@/shared/constants';
 import type { UserSettings, UserProfile, TranslationRequest, TranslationResult } from '@/shared/types';
@@ -130,10 +133,58 @@ function createMockRequest(overrides: Partial<TranslationRequest> = {}): Transla
 describe('TranslationService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(TranslationApiService.callWithSystem).mockReset();
   });
 
   describe('translate', () => {
     afterEach(() => resetOfflineWordSource());
+
+    describe.each(['bilingual', 'full-translate'] as const)('%s 全文响应契约', mode => {
+      it.each([undefined, '', ' \n\t', null, 42, false, { text: '译文' }, ['译文']].map(fullText => ({ fullText })))('拒绝无效 fullText：$fullText，且不缓存', async ({ fullText }) => {
+        vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(createMockSettings());
+        vi.mocked(StorageManager.getApiKey).mockResolvedValueOnce('test-key');
+        vi.mocked(TranslationApiService.callWithSystem).mockResolvedValueOnce(JSON.stringify({ words: [], sentences: [], fullText }));
+
+        await expect(TranslationService.translate(createMockRequest({ text: 'This paragraph requires a complete translation.', mode })))
+          .rejects.toThrow('Failed to parse translation response');
+        expect(enhancedCache.set).not.toHaveBeenCalled();
+      });
+
+      it('不把 translatedText 别名当作完整译文', async () => {
+        vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(createMockSettings());
+        vi.mocked(StorageManager.getApiKey).mockResolvedValueOnce('test-key');
+        vi.mocked(TranslationApiService.callWithSystem).mockResolvedValueOnce('{"words":[],"sentences":[],"translatedText":"合成译文"}');
+
+        await expect(TranslationService.translate(createMockRequest({ text: 'This paragraph requires a complete translation.', mode })))
+          .rejects.toThrow('Failed to parse translation response');
+        expect(enhancedCache.set).not.toHaveBeenCalled();
+      });
+
+      it('忽略缺失全文的旧缓存并缓存有效的新译文', async () => {
+        vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(createMockSettings());
+        vi.mocked(StorageManager.getApiKey).mockResolvedValueOnce('test-key');
+        vi.mocked(enhancedCache.get).mockResolvedValueOnce({ words: [], sentences: [] });
+        vi.mocked(TranslationApiService.callWithSystem).mockResolvedValueOnce('{"words":[],"sentences":[],"fullText":"完整合成译文。"}');
+
+        const result = await TranslationService.translate(createMockRequest({ text: 'This paragraph requires a complete translation.', mode }));
+
+        expect(result.fullText).toBe('完整合成译文。');
+        expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(1);
+        expect(enhancedCache.set).toHaveBeenCalledWith('test-cache-key', result, mode, expect.any(String), 'llm', 0);
+      });
+    });
+
+    it('请求为 inline-only 时允许空词汇，不受全局双语模式影响', async () => {
+      vi.mocked(StorageManager.getSettings).mockResolvedValueOnce(createMockSettings({ translationMode: 'bilingual' }));
+      vi.mocked(StorageManager.getApiKey).mockResolvedValueOnce('test-key');
+      vi.mocked(TranslationApiService.callWithSystem).mockResolvedValueOnce('{"words":[],"sentences":[]}');
+
+      const result = await TranslationService.translate(createMockRequest({ text: 'This simple paragraph has no difficult words.' }));
+
+      expect(result).toMatchObject({ words: [], sentences: [] });
+      expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(1);
+      expect(enhancedCache.set).toHaveBeenCalledTimes(1);
+    });
 
     it('默认无密钥自动翻译仅返回本地词典释义，不把页面正文发送给 Google 或其他服务', async () => {
       setOfflineWordSource({ lookup: word => word === 'intricate' ? { translation: '错综复杂的' } : undefined });
@@ -457,18 +508,21 @@ describe('TranslationService', () => {
       expect(result.userPrompt).toContain('Hello world');
     });
 
-    it('应该使用指定版本当 promptVersion 存在时', () => {
-      const request = createMockRequest();
-      const settings = createMockSettings({
-        promptVersion: 'v1',
-      });
+    it('真实默认 v1 提示词发送 fullText 字段及必需输出 schema', () => {
+      const result = service.buildPrompt(createMockRequest({ mode: 'bilingual' }), { ...DEFAULT_SETTINGS });
 
-      // promptVersionManager.hasVersion('v1') 可能返回 false，取决于注册的版本
-      // 此测试验证调用流程
-      const result = service.buildPrompt(request, settings);
+      expect(result.userPrompt).toContain('"fullText"');
+      expect(result.userPrompt).toContain('"words"');
+      expect(result.userPrompt).toContain('"required":["fullText","words","sentences"]');
+      expect(result.userPrompt).toContain('Hello world');
+    });
 
-      expect(result).toHaveProperty('systemPrompt');
-      expect(result).toHaveProperty('userPrompt');
+    it.each(['v1.0.0', 'v2.0.0-beta'])('已注册版本 %s 也发送自己的输出 schema', promptVersion => {
+      const result = service.buildPrompt(createMockRequest(), createMockSettings({ promptVersion }));
+
+      expect(result.userPrompt).toContain('"fullText"');
+      expect(result.userPrompt).toContain('"words"');
+      expect(result.userPrompt).toContain('"required"');
     });
   });
 
@@ -519,9 +573,10 @@ describe('TranslationService', () => {
       vi.mocked(DeepLTranslationService.quickTranslate).mockResolvedValue('你好');
       setOfflineWordSource(null);
 
-      const result = await TranslationService.quickTranslate('hello', 'test-key', createMockSettings());
+      const settings = createMockSettings();
+      const result = await TranslationService.quickTranslate('hello', 'test-key', settings);
 
-      expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('hello', undefined);
+      expect(DeepLTranslationService.quickTranslate).toHaveBeenCalledWith('hello', undefined, settings);
       expect(result).toBe('你好');
     });
   });

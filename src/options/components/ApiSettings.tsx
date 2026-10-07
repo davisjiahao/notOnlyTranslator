@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ApiConfig, ApiProvider, ModelInfo } from '@/shared/types';
 import {
   PROVIDER_CONFIGS,
@@ -18,6 +18,7 @@ interface ApiConfigUpdateParams {
   customApiUrl?: string;
   customModelName?: string;
   secondaryApiKey?: string;
+  expectedApiConfigsRevision?: number;
 }
 
 interface ApiSettingsProps {
@@ -27,11 +28,12 @@ interface ApiSettingsProps {
   customModelName?: string;
   secondaryApiKey?: string;
   apiConfigs: ApiConfig[];
+  apiConfigsRevision?: number;
   activeApiConfigId?: string;
   onApiKeyUpdate: (key: string) => Promise<void>;
   onProviderUpdate: (provider: ApiProvider) => void;
   onCustomSettingsUpdate: (url: string, model: string, secondaryKey?: string) => void;
-  onApiConfigsUpdate: (configs: ApiConfig[], activeId?: string) => void;
+  onApiConfigsUpdate: (configs: ApiConfig[], activeId?: string, expectedApiConfigsRevision?: number) => Promise<void> | void;
   /** 一次性保存所有 API 相关配置（避免状态竞争） */
   onFullApiConfigUpdate?: (params: ApiConfigUpdateParams) => Promise<void>;
   isSaving: boolean;
@@ -44,6 +46,7 @@ export default function ApiSettings({
   customModelName = '',
   secondaryApiKey = '',
   apiConfigs = [],
+  apiConfigsRevision,
   activeApiConfigId,
   onApiKeyUpdate,
   onProviderUpdate,
@@ -55,6 +58,7 @@ export default function ApiSettings({
   // 配置编辑模式
   const [editMode, setEditMode] = useState<'list' | 'add' | 'edit'>('list');
   const [editingConfig, setEditingConfig] = useState<ApiConfig | null>(null);
+  const [draftApiConfigsRevision, setDraftApiConfigsRevision] = useState<number | undefined>();
 
   // 新配置的表单
   const [configName, setConfigName] = useState('');
@@ -71,11 +75,14 @@ export default function ApiSettings({
 
   // 删除确认
   const [configToDelete, setConfigToDelete] = useState<string | null>(null);
+  const [deleteApiConfigsRevision, setDeleteApiConfigsRevision] = useState<number | undefined>();
 
   // 模型列表
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [useCustomModel, setUseCustomModel] = useState(false);
+  // 切换服务商后，旧连接测试和模型加载结果不能回写当前表单。
+  const providerRequestScope = useRef({});
 
   // 获取当前供应商配置
   const currentProviderConfig = getProviderConfig(configProvider);
@@ -87,6 +94,7 @@ export default function ApiSettings({
       return;
     }
 
+    const requestScope = providerRequestScope.current;
     setIsLoadingModels(true);
     try {
       const fetchedModels = await getModels(
@@ -95,6 +103,7 @@ export default function ApiSettings({
         configApiUrl || undefined,
         configSecondaryKey || undefined
       );
+      if (requestScope !== providerRequestScope.current) return;
       setModels(fetchedModels);
 
       // 如果当前模型不在列表中且不是自定义模式，设置为推荐模型
@@ -106,10 +115,11 @@ export default function ApiSettings({
         }
       }
     } catch (error) {
+      if (requestScope !== providerRequestScope.current) return;
       logger.error('加载模型列表失败:', error);
       setModels(currentProviderConfig.defaultModels);
     } finally {
-      setIsLoadingModels(false);
+      if (requestScope === providerRequestScope.current) setIsLoadingModels(false);
     }
   }, [configApiKey, configProvider, configApiUrl, configSecondaryKey, currentProviderConfig, configModelName, useCustomModel]);
 
@@ -126,6 +136,7 @@ export default function ApiSettings({
     if (!configApiKey || (configProvider === 'custom' && !configApiUrl)) return;
     if (requiresSecondaryKey(configProvider) && !configSecondaryKey) return;
 
+    const requestScope = providerRequestScope.current;
     setIsTestingConfig(true);
     setConfigTestResult(null);
     setConfigTestError(null);
@@ -138,6 +149,7 @@ export default function ApiSettings({
         configApiUrl || undefined,
         configSecondaryKey || undefined
       );
+      if (requestScope !== providerRequestScope.current) return;
 
       if (result.success) {
         setConfigTestResult('success');
@@ -148,10 +160,11 @@ export default function ApiSettings({
         setConfigTestError(result.error || '连接测试失败');
       }
     } catch (error) {
+      if (requestScope !== providerRequestScope.current) return;
       setConfigTestResult('error');
       setConfigTestError(error instanceof Error ? error.message : '连接测试失败');
     } finally {
-      setIsTestingConfig(false);
+      if (requestScope === providerRequestScope.current) setIsTestingConfig(false);
     }
   };
 
@@ -193,28 +206,38 @@ export default function ApiSettings({
       newActiveId = configId;
     }
 
-    // 使用一次性保存函数避免状态竞争
-    if (onFullApiConfigUpdate) {
-      const shouldUpdateMainSettings = !editingConfig || activeApiConfigId === editingConfig.id;
-      await onFullApiConfigUpdate({
-        configs: newConfigs,
-        activeId: newActiveId,
-        provider: shouldUpdateMainSettings ? configProvider : undefined,
-        apiKey: shouldUpdateMainSettings ? configApiKey : undefined,
-        customApiUrl: shouldUpdateMainSettings ? (configApiUrl || '') : undefined,
-        customModelName: shouldUpdateMainSettings ? (configModelName || '') : undefined,
-        secondaryApiKey: shouldUpdateMainSettings ? (configSecondaryKey || '') : undefined,
-      });
-    } else {
-      // 回退到旧的方式（兼容性）
-      if (!editingConfig || activeApiConfigId === editingConfig.id) {
-        onProviderUpdate(configProvider);
-        await onApiKeyUpdate(configApiKey);
-        if (configApiUrl || configModelName || configSecondaryKey) {
-          onCustomSettingsUpdate(configApiUrl || '', configModelName || '', configSecondaryKey || '');
+    try {
+      // 使用一次性保存函数避免状态竞争
+      if (onFullApiConfigUpdate) {
+        const shouldUpdateMainSettings = !editingConfig || activeApiConfigId === editingConfig.id;
+        await onFullApiConfigUpdate({
+          configs: newConfigs,
+          activeId: newActiveId,
+          provider: shouldUpdateMainSettings ? configProvider : undefined,
+          apiKey: shouldUpdateMainSettings ? configApiKey : undefined,
+          customApiUrl: shouldUpdateMainSettings ? (configApiUrl || '') : undefined,
+          customModelName: shouldUpdateMainSettings ? (configModelName || '') : undefined,
+          secondaryApiKey: shouldUpdateMainSettings ? (configSecondaryKey || '') : undefined,
+          ...(draftApiConfigsRevision !== undefined ? { expectedApiConfigsRevision: draftApiConfigsRevision } : {}),
+        });
+      } else {
+        // 回退到旧的方式（兼容性）
+        if (!editingConfig || activeApiConfigId === editingConfig.id) {
+          onProviderUpdate(configProvider);
+          await onApiKeyUpdate(configApiKey);
+          if (configApiUrl || configModelName || configSecondaryKey) {
+            onCustomSettingsUpdate(configApiUrl || '', configModelName || '', configSecondaryKey || '');
+          }
+        }
+        if (draftApiConfigsRevision === undefined) {
+          await onApiConfigsUpdate(newConfigs, newActiveId);
+        } else {
+          await onApiConfigsUpdate(newConfigs, newActiveId, draftApiConfigsRevision);
         }
       }
-      onApiConfigsUpdate(newConfigs, newActiveId);
+    } catch {
+      // 保存方提示错误，保留当前编辑内容供用户处理。
+      return;
     }
 
     resetConfigForm();
@@ -224,46 +247,66 @@ export default function ApiSettings({
   // 请求删除配置（显示内联确认）
   const requestDeleteConfig = (configId: string) => {
     setConfigToDelete(configId);
+    setDeleteApiConfigsRevision(apiConfigsRevision);
   };
 
   // 确认删除配置
-  const confirmDeleteConfig = () => {
+  const confirmDeleteConfig = async () => {
     if (!configToDelete) return;
     const newConfigs = apiConfigs.filter((c) => c.id !== configToDelete);
     const newActiveId = activeApiConfigId === configToDelete ? undefined : activeApiConfigId;
-    onApiConfigsUpdate(newConfigs, newActiveId);
-    setConfigToDelete(null);
+    try {
+      if (deleteApiConfigsRevision === undefined) {
+        await onApiConfigsUpdate(newConfigs, newActiveId);
+      } else {
+        await onApiConfigsUpdate(newConfigs, newActiveId, deleteApiConfigsRevision);
+      }
+      setConfigToDelete(null);
+      setDeleteApiConfigsRevision(undefined);
+    } catch {
+      // 保存方提示错误，失败时保留删除确认。
+      return;
+    }
   };
 
   // 取消删除配置
   const cancelDeleteConfig = () => {
     setConfigToDelete(null);
+    setDeleteApiConfigsRevision(undefined);
   };
 
   // 选择配置作为当前使用
   const selectConfig = async (config: ApiConfig) => {
-    if (onFullApiConfigUpdate) {
-      await onFullApiConfigUpdate({
-        configs: apiConfigs,
-        activeId: config.id,
-        provider: config.provider,
-        apiKey: config.apiKey,
-        customApiUrl: config.apiUrl || '',
-        customModelName: config.modelName || '',
-        secondaryApiKey: config.secondaryApiKey || '',
-      });
-    } else {
-      await onApiKeyUpdate(config.apiKey);
-      onProviderUpdate(config.provider);
-      if (config.apiUrl || config.modelName || config.secondaryApiKey) {
-        onCustomSettingsUpdate(config.apiUrl || '', config.modelName || '', config.secondaryApiKey || '');
+    try {
+      if (onFullApiConfigUpdate) {
+        await onFullApiConfigUpdate({
+          configs: apiConfigs,
+          activeId: config.id,
+          provider: config.provider,
+          apiKey: config.apiKey,
+          customApiUrl: config.apiUrl || '',
+          customModelName: config.modelName || '',
+          secondaryApiKey: config.secondaryApiKey || '',
+        });
+      } else {
+        await onApiKeyUpdate(config.apiKey);
+        onProviderUpdate(config.provider);
+        if (config.apiUrl || config.modelName || config.secondaryApiKey) {
+          onCustomSettingsUpdate(config.apiUrl || '', config.modelName || '', config.secondaryApiKey || '');
+        }
+        await onApiConfigsUpdate(apiConfigs, config.id);
       }
-      onApiConfigsUpdate(apiConfigs, config.id);
+    } catch {
+      // 保存方提示错误，不能把失败的选择当作成功。
+      return;
     }
   };
 
   // 重置配置表单
   const resetConfigForm = () => {
+    providerRequestScope.current = {};
+    setIsTestingConfig(false);
+    setIsLoadingModels(false);
     setConfigName('');
     setConfigProvider('openai');
     setConfigApiKey('');
@@ -273,6 +316,7 @@ export default function ApiSettings({
     setConfigTestResult(null);
     setConfigTestError(null);
     setEditingConfig(null);
+    setDraftApiConfigsRevision(undefined);
     setShowConfigKey(false);
     setShowSecondaryKey(false);
     setUseCustomModel(false);
@@ -281,8 +325,12 @@ export default function ApiSettings({
 
   // 开始编辑配置
   const startEditConfig = (config: ApiConfig) => {
+    providerRequestScope.current = {};
+    setIsTestingConfig(false);
+    setConfigTestError(null);
     setEditingConfig(config);
-    setConfigName(config.name);
+    setDraftApiConfigsRevision(apiConfigsRevision);
+    setConfigName(config.name ?? getProviderConfig(config.provider).name);
     setConfigProvider(config.provider);
     setConfigApiKey(config.apiKey);
     setConfigSecondaryKey(config.secondaryApiKey || '');
@@ -293,11 +341,20 @@ export default function ApiSettings({
 
     // 加载模型列表
     if (config.tested) {
+      const requestScope = providerRequestScope.current;
       setIsLoadingModels(true);
       getModels(config.provider, config.apiKey, config.apiUrl, config.secondaryApiKey)
-        .then(setModels)
-        .catch(() => setModels(getProviderConfig(config.provider).defaultModels))
-        .finally(() => setIsLoadingModels(false));
+        .then(fetchedModels => {
+          if (requestScope === providerRequestScope.current) setModels(fetchedModels);
+        })
+        .catch(() => {
+          if (requestScope === providerRequestScope.current) {
+            setModels(getProviderConfig(config.provider).defaultModels);
+          }
+        })
+        .finally(() => {
+          if (requestScope === providerRequestScope.current) setIsLoadingModels(false);
+        });
     }
   };
 
@@ -320,6 +377,7 @@ export default function ApiSettings({
             <button
               onClick={() => {
                 resetConfigForm();
+                setDraftApiConfigsRevision(apiConfigsRevision);
                 setEditMode('add');
               }}
               className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
@@ -429,6 +487,7 @@ export default function ApiSettings({
               <button
                 onClick={() => {
                   resetConfigForm();
+                  setDraftApiConfigsRevision(apiConfigsRevision);
                   setEditMode('add');
                 }}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
@@ -473,6 +532,7 @@ export default function ApiSettings({
                 setConfigModelName(customModelName);
                 setConfigSecondaryKey(secondaryApiKey);
                 setConfigTestResult(null);
+                setDraftApiConfigsRevision(apiConfigsRevision);
                 setEditMode('add');
               }}
               className="mt-4 px-4 py-2 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
@@ -554,7 +614,15 @@ export default function ApiSettings({
             id="config-provider"
             value={configProvider}
             onChange={(e) => {
-              setConfigProvider(e.target.value as ApiProvider);
+              const nextProvider = e.target.value as ApiProvider;
+              if (nextProvider === configProvider) return;
+              providerRequestScope.current = {};
+              setConfigProvider(nextProvider);
+              setConfigApiKey('');
+              setConfigSecondaryKey('');
+              setConfigApiUrl('');
+              setIsLoadingModels(false);
+              setIsTestingConfig(false);
               setConfigTestResult(null);
               setConfigTestError(null);
             }}

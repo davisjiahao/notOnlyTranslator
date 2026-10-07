@@ -4,7 +4,7 @@ import { TranslationDisplay } from '@/content/translationDisplay';
 import type { Message, MessageResponse } from '@/shared/types';
 
 vi.mock('@/content/translationDisplay', () => ({ TranslationDisplay: {
-  showLoading: vi.fn(), removeLoading: vi.fn(), saveOriginalText: vi.fn(), applyTranslation: vi.fn(),
+  saveOriginalText: vi.fn(), applyTranslation: vi.fn(),
 } }));
 const sendMessage = vi.fn();
 
@@ -30,12 +30,18 @@ describe('批量阅读过期结果保护', () => {
     expect(manager.getProcessingCount()).toBe(0);
   });
 
-  it('切换模式时取消旧批次', async () => {
+  it('切换模式保留旧批次，响应按新模式呈现且获取mode不变', async () => {
     const manager = new BatchTranslationManager();
     const element = document.querySelector('p')!;
     await manager.handleVisibleParagraphs([{ id: 'p1', text: element.textContent!, element, elementPath: 'p' }]);
     manager.setMode('bilingual');
-    expect(sendMessage.mock.calls.some(([message]: [Message]) => message.type === 'CANCEL_TRANSLATION')).toBe(true);
-    expect(manager.getProcessingCount()).toBe(0);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(manager.getProcessingCount()).toBe(1);
+    const [request, respond] = sendMessage.mock.calls[0];
+    expect(request.payload.mode).toBe('inline-only');
+    respond({ success: true, data: { results: [{ id: 'p1', result: { words: [], sentences: [], fullText: '保留结果' } }] } });
+    await vi.waitFor(() => expect(TranslationDisplay.applyTranslation).toHaveBeenCalledWith(
+      element, expect.objectContaining({ fullText: '保留结果' }), 'bilingual', undefined
+    ));
   });
 });

@@ -1,10 +1,9 @@
 import type { BatchTranslationRequest, Message, MessageResponse, TranslationMode, TranslationRequest } from '@/shared/types';
 import { DEFAULT_BATCH_CONFIG, MAX_TRANSLATION_TEXT_LENGTH } from '@/shared/constants';
 import { TransportError } from '@/shared/utils/translationErrors';
-import { logger } from '@/shared/utils/logger';
 import { StorageManager } from './storage';
 import { TranslationService } from './translation';
-import { BatchTranslationService } from './batchTranslation';
+import { translateBatchWithJoin } from './inflightBatchDedup';
 import { pendingRequestQueue } from './pendingRequestQueue';
 import { TranslationRequestRegistry } from './requestRegistry';
 
@@ -46,6 +45,7 @@ function publicError(error: unknown): string {
   if (error instanceof TransportError) {
     if (error.kind === 'timeout') return '翻译请求超时，请缩短文本或使用更小的本地模型';
     if (error.kind === 'cancelled') return '翻译请求已取消';
+    if (error.kind === 'output_limit') return '模型输出预算耗尽，未返回完整译文，请缩短文本或使用非思考模型';
     if (error.statusCode === 401 || error.statusCode === 403) return '翻译服务凭据无效，请检查密钥配置';
     return '翻译服务暂不可用，请检查服务是否启动或稍后重试';
   }
@@ -81,19 +81,33 @@ export async function handleTranslationMessage(message: Message, sender: chrome.
       queueWrite = pendingRequestQueue.add({ id: queueId, text: '', mode: request.mode, createdAt: Date.now(), retries: 0, tabId: sender.tab?.id, source: 'batch' });
       await queueWrite;
       signal.throwIfAborted();
-      return BatchTranslationService.translateBatch(request, { signal });
+      // 在途批次去重：同键（段落缓存 scope+原文）请求 join 现有 Promise，
+      // 页面刷新后不重发；取消语义沿用 registry signal，路径不变
+      return translateBatchWithJoin(request, {
+        signal,
+        onParagraph: payload => {
+          if (signal.aborted || sender.tab?.id === undefined || !message.requestId) return;
+          const target = sender.documentId
+            ? { documentId: sender.documentId }
+            : { frameId: sender.frameId ?? 0 };
+          try {
+            void chrome.tabs.sendMessage(sender.tab.id, {
+              type: 'BATCH_TRANSLATION_PROGRESS', requestId: message.requestId, payload,
+            }, target).catch(() => {});
+          } catch {
+            // 原文档卸载或不可达时，后台仍继续完成翻译与缓存写入。
+          }
+        },
+      });
     });
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: publicError(error) };
   } finally {
     if (queueId) {
-      const completedId = queueId;
-      // 清理必须晚于写入，但不能延长已取消请求的响应时间。
-      void Promise.resolve(queueWrite)
-        .catch(() => undefined)
-        .then(() => pendingRequestQueue.complete(completedId))
-        .catch(() => logger.warn('翻译队列清理失败，将在过期清理时重试'));
+      // 清理必须晚于写入，但不能延长已取消请求的响应时间；
+      // 整条链交给队列登记为在途写入，清空数据时由 settleWrites 等待落盘。
+      pendingRequestQueue.trackCleanup(queueWrite, queueId);
     }
   }
 }

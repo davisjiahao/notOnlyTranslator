@@ -4,7 +4,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-一个面向英语学习者的 Chrome / Edge 扩展：根据阅读水平和已标记词汇突出难词，点击查看释义，也可以按需翻译句子或整页。**常用单词优先查内置词典；未命中或需要语境翻译时才使用所选服务。**
+一个面向英语学习者的 Chrome / Edge 扩展：根据阅读水平和已标记词汇突出难词，在保留英文阅读体验的同时提供中文释义。可切换行内、双语对照和全文翻译；支持流式响应的服务会在每段结果完整到达后立即展示，不必等整批结束。
+
+**常用单词优先查内置词典；未命中或需要语境翻译时才使用所选服务。**
 
 > 当前请从源码构建安装；尚未提供 Chrome 应用商店下载。词典命中不代表网页阅读完全离线，云端翻译会发送相应文本到所选服务。
 
@@ -23,7 +25,8 @@
 | 功能 | 当前实现 |
 | --- | --- |
 | 分级阅读 | 按考试分数或测评估算词汇水平，结合已知／生词标记筛选和高亮候选词；自动判断不保证覆盖每个陌生词。 |
-| 释义与翻译 | 内置词典、本地缓存、所选翻译服务；提供行内、双语及全文模式。语境消歧和整页翻译需要可用的服务连接。 |
+| 释义与翻译 | 内置词典、本地缓存、所选翻译服务；提供行内、双语及全文模式，可按设置补充短语和语法说明。 |
+| 逐段显示与复用 | 支持 SSE 的批次按完整段落提前显示；仅切换展示模式时复用已有结果；页面刷新可复用有效缓存或仍在运行的后台批次。 |
 | 学习记录 | 生词本、复习提醒、掌握度和翻译历史；可在设置中导出或导入数据。 |
 | 服务配置 | 支持云端提供商与 OpenAI 兼容服务，也可连接本机 Ollama。云端请求可能计费；请自行保管 API 密钥。 |
 
@@ -35,7 +38,7 @@
 
 ### 从源码安装
 
-需要 Node.js、npm，以及 Chrome 或 Edge；目前仅提供源码安装。
+需要 Node.js **20.19.0 或更新版本**（建议使用仍在维护的 LTS 版本）、npm，以及 Chrome 或 Edge；目前仅提供源码安装。
 
 ```bash
 # 克隆仓库
@@ -43,13 +46,17 @@ git clone https://github.com/davisjiahao/notOnlyTranslator.git
 cd notOnlyTranslator
 
 # 安装依赖并构建
-npm install && npm run build
-
-# 在 Chrome 打开 chrome://extensions/（Edge 打开 edge://extensions/）
-# 启用开发者模式 → 加载已解压的扩展程序 → 选择 dist 文件夹
+npm install
+npm run build
 ```
 
-### 配置（2 分钟）
+1. 打开 `chrome://extensions/`；Edge 使用 `edge://extensions/`。
+2. 开启**开发者模式**，点击**加载已解压的扩展程序**，选择生成的 `dist` 文件夹。
+3. 将扩展固定到工具栏，便于打开设置和切换阅读方式。
+
+**更新已有安装：**更新源码后重新运行 `npm run build`，在扩展管理页点击**重新加载**，再刷新已经打开的阅读页面。仅替换磁盘文件不会自动让现有页面使用新版本。
+
+### 首次配置（约 2 分钟）
 
 1. **选择翻译方式**
    - 基础单词查询优先使用本地词典，命中时无需 API 密钥或网络
@@ -66,6 +73,27 @@ npm install && npm run build
 
 ---
 
+## 选择阅读模式
+
+| 模式 | 阅读效果 |
+| --- | --- |
+| 行内 | 保留英文，在识别出的难词后直接展示中文释义，适合连续阅读。 |
+| 双语对照 | 保留英文段落，在其下方展示完整中文译文，便于逐段核对。 |
+| 全文翻译 | 以中文译文为主，同时保留难词的英文原词，兼顾理解和词汇学习。 |
+
+仅切换展示模式时，已完成段落使用已有结果在本地重新排版，不因切换展示方式再次请求翻译。翻译过程中切换模式，后续结果按当前模式展示。更换服务、调整翻译任务设置或网页正文变化，可能需要重新翻译。
+
+如果已有结果只有词义、没有完整段落译文，双语和全文模式会保留原文及已有释义，并提示暂无全文；仅切换展示模式不会自动补发全文翻译请求。
+
+### 逐段流式展示与刷新
+
+- **按批请求，按段显示。**一批可以包含多个段落；每段的全文、词义和已启用的语法分析完整到达并通过校验后立即展示，不等待整批结束，也不逐字刷新半截 JSON。
+- **服务必须真正返回流式内容。**目前支持 OpenAI 兼容接口（含使用该接口的 Ollama）、Anthropic 和 Gemini 的 SSE 响应。服务忽略流式参数、只返回普通 JSON 时，仍兼容完整响应，但无法提前展示；百度原生接口保留普通 JSON 路径。
+- **刷新优先复用。**有效缓存可以直接使用；同一翻译任务仍在后台运行时，新页面可加入该任务，重放已完成段落并继续接收后续结果，不重复发出相同请求。
+- **复用有边界。**正文、服务或影响结果的配置变化，缓存过期／被清理，或浏览器重启、后台 Service Worker 被回收，都可能需要重新请求。刷新不会主动取消后台批次；主动停用翻译或使请求失效的配置变更仍会取消相关任务。
+
+---
+
 ## 本地优先与 Ollama
 
 - **基础查询**：优先复用匹配语境的生词本释义与缓存，再查询随扩展提供的 17,404 条常用及考试词条。包含常见屈折变化；词典返回通用义项，不保证消除一词多义。
@@ -78,7 +106,7 @@ npm install && npm run build
 2. 默认地址可留空（使用 `http://localhost:11434/v1/chat/completions`）；若填写自定义地址，必须填**完整聊天端点**，不会自动补路径。本机默认服务无需 API 密钥。
 3. 选择已安装的模型并测试连接。CPU 机器可从 `qwen3:4b` 开始实测速度和效果；基础查词不需要安装模型。
 
-翻译调用走 OpenAI 兼容接口，请求会尝试关闭思考并在适用时要求 JSON 输出，实际支持程度取决于模型。Ollama **单次翻译请求**默认限时 90 秒，后台翻译消息整体预算 120 秒；连接测试不受前述单次翻译超时约束。关闭翻译或切换模式时会取消相关请求。
+翻译调用走 OpenAI 兼容接口，请求会尝试关闭思考并在适用时要求 JSON 输出，实际支持程度取决于模型。Ollama **单次翻译请求**默认限时 90 秒，后台翻译消息整体预算 120 秒；连接测试不受前述单次翻译超时约束。主动停用翻译或更换影响请求的配置时会取消相关任务；仅切换展示模式则复用已有结果。
 
 ### 离线词典来源与更新
 
@@ -111,7 +139,21 @@ npm run build        # 构建扩展
 npx vitest run --coverage --coverage.include='src/**/*.{ts,tsx}'
 ```
 
-端到端测试需事先安装 Playwright 浏览器。`npm run test:e2e` 使用默认配置，可能访问外部网站；本地优先阅读的隔离用例可运行 `npx playwright test --config=e2e/local-first.config.ts`，不调用付费模型服务。
+端到端测试需事先安装 Playwright 浏览器：
+
+```bash
+npx playwright install chromium
+
+# 本地优先阅读的隔离用例，不调用付费模型服务
+npx playwright test --config=e2e/local-first.config.ts
+
+# 流式显示、刷新复用、模式切换及翻译展示的定向回归
+npx playwright test --config=e2e/local-first.config.ts \
+  batch-streaming.spec.ts mode-switching.spec.ts \
+  llm-translation-display.spec.ts github-like-reading.spec.ts
+```
+
+隔离测试使用真实扩展链路与受控 HTTP 响应，核对段落可见性、刷新后的文档身份和后台请求次数；不能替代真实提供商、个人浏览器配置及任意网站的验收。`npm run test:e2e` 使用另一套默认配置，可能访问外部网站，运行前请核对配置。
 
 ---
 
@@ -176,7 +218,9 @@ npx vitest run --coverage --coverage.include='src/**/*.{ts,tsx}'
 - **Adaptive Translation**: Based on your proficiency level (CET-4/6, TOEFL, IELTS, GRE)
 - **Selective Highlighting**: Highlights candidate difficult words using your level and known/unknown word marks
 - **Local-first Lookup**: Uses bundled dictionary entries and cached meanings before a translation service where applicable
-- **Translation Modes**: Inline, bilingual, and full-page; sentence-level and context-sensitive translations require a configured service
+- **Translation Modes**: Inline meanings, bilingual paragraphs, and full translation with difficult English words retained; display-only changes reuse existing results
+- **Progressive Paragraphs**: A complete paragraph appears as soon as it arrives over SSE, without waiting for the rest of the batch; JSON-only responses still wait for completion
+- **Refresh Reuse**: Reuses valid cache entries or joins an active background batch; worker restarts, cache expiry, and relevant configuration changes may require a new request
 - **Learning Tools**: Vocabulary list, review reminders, mastery tracking, and history
 - **Provider Options**: Cloud services and local Ollama; cloud requests may incur charges
 
@@ -185,6 +229,12 @@ npx vitest run --coverage --coverage.include='src/**/*.{ts,tsx}'
 1. Clone `https://github.com/davisjiahao/notOnlyTranslator.git`, run `npm install && npm run build`, then load `dist` as an unpacked Chrome/Edge extension
 2. Set your English level; configure a provider if you need context-aware translation (local Ollama needs no API key by default)
 3. Read an English page and mark known or unknown words; offline lookup only works when local data covers the request
+
+If a cached result contains only word meanings, bilingual and full-translation modes keep the original text and indicate that a full translation is unavailable. Switching display modes alone does not request the missing full translation.
+
+After updating the source, rebuild, reload the extension on its management page, and refresh existing reading tabs. Replacing build files alone does not update content scripts already loaded in a page.
+
+Cloud translation sends the relevant text to the selected provider. Do not enable it on sensitive pages or share backups containing credentials. SSE support depends on the provider; isolated tests do not certify your live provider or every website.
 
 ### Tech Stack
 

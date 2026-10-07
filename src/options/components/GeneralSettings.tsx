@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { UserSettings, TranslationMode, ThemeMode } from '@/shared/types';
 import CacheStats from './CacheStats';
+import { clearAllData } from '@/shared/utils/dataExport';
 
 interface GeneralSettingsProps {
   settings: UserSettings;
@@ -637,10 +638,13 @@ export default function GeneralSettings({
                 <button
                   onClick={async () => {
                     if (deleteInput === 'DELETE') {
-                      await chrome.storage.local.clear();
-                      await chrome.storage.sync.clear();
-                      showToast('所有数据已清除，页面即将刷新', 'success');
-                      setTimeout(() => window.location.reload(), 1500);
+                      try {
+                        await clearAllData();
+                        showToast('所有数据已清除，页面即将刷新', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                      } catch {
+                        showToast('清除失败，请稍后重试', 'warning');
+                      }
                     } else {
                       setClearDataStep(0);
                       setDeleteInput('');

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CSS_CLASSES } from '@/shared/constants';
+import { getTranslatableText } from '@/content/pageScanner';
 
 const sendTranslationMessage = vi.fn();
 vi.mock('@/content/translationMessaging', () => ({
@@ -36,9 +37,11 @@ describe('整页翻译的行内词汇结果', () => {
     await instance.handleTranslatePage();
 
     const paragraph = document.querySelector('p')!;
-    expect(paragraph.textContent).toBe('The ubiquitous word appears here in context, and this sentence is long enough to be translated.');
+    expect(getTranslatableText(paragraph)).toBe('The ubiquitous word appears here in context, and this sentence is long enough to be translated.');
     const mark = paragraph.querySelector(`mark.${CSS_CLASSES.HIGHLIGHT}`);
-    expect(mark?.textContent).toBe('ubiquitous');
+    expect(mark?.firstChild?.textContent).toBe('ubiquitous');
+    expect(mark?.querySelector('.not-translator-inline-translation')?.textContent).toBe('无处不在的');
+    expect(mark?.textContent).toBe('ubiquitous无处不在的');
     expect(mark?.getAttribute('data-translation')).toBe('无处不在的');
   });
 });

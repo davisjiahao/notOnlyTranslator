@@ -193,6 +193,10 @@ export interface UserSettings {
   blacklist: string[];
   /** 多个 API 配置 */
   apiConfigs: ApiConfig[];
+  /** 后台维护的配置版本；旧设置缺失时按 0 处理 */
+  apiConfigsRevision?: number;
+  /** 后台维护的传统服务商与密钥版本；旧设置缺失时按 0 处理 */
+  hybridCredentialsRevision?: number;
   /** 当前激活的 API 配置 ID */
   activeApiConfigId?: string;
   /** 悬停触发 Tooltip 延迟时间（毫秒），0 表示关闭悬停触发 */
@@ -259,6 +263,7 @@ export interface SyncStorageData {
 export type MessageType =
   | 'TRANSLATE_TEXT'
   | 'BATCH_TRANSLATE_TEXT'  // 批量翻译请求
+  | 'BATCH_TRANSLATION_PROGRESS'
   | 'CANCEL_TRANSLATION'
   | 'MARK_WORD_KNOWN'
   | 'MARK_WORD_UNKNOWN'
@@ -268,6 +273,7 @@ export type MessageType =
   | 'GET_SETTINGS'
   | 'UPDATE_SETTINGS'
   | 'REPLACE_SETTINGS'
+  | 'CLEAR_ALL_DATA'
   | 'GET_VOCABULARY'
   | 'ADD_TO_VOCABULARY'
   | 'IMPORT_VOCABULARY'
@@ -329,6 +335,10 @@ export interface Message<T = unknown> {
   type: MessageType;
   payload?: T;
   requestId?: string;
+  /** UPDATE_SETTINGS 提交配置数组时必须携带读取快照的版本 */
+  expectedApiConfigsRevision?: number;
+  /** UPDATE_SETTINGS 修改传统服务商或密钥时必须携带读取快照的版本 */
+  expectedHybridCredentialsRevision?: number;
 }
 
 export interface MessageResponse<T = unknown> {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  getUnlockedAchievements,
+  loadAchievementState,
   getAchievementProgress,
   markAchievementAsViewed,
 } from '@/shared/analytics/achievements';
@@ -29,14 +29,14 @@ export function AchievementGallery({ onClose }: AchievementGalleryProps) {
   const loadAchievements = useCallback(async () => {
     try {
       setLoading(true);
-      const [unlocked, progressData] = await Promise.all([
-        getUnlockedAchievements(),
+      const [state, progressData] = await Promise.all([
+        loadAchievementState(),
         getAchievementProgress(),
       ]);
 
-      setAchievements(unlocked);
+      setAchievements(state.achievements);
       setProgress(progressData);
-      setTotalPoints(unlocked.reduce((sum, a) => sum + a.points, 0));
+      setTotalPoints(state.achievements.filter(a => a.unlockedAt).reduce((sum, a) => sum + a.points, 0));
     } catch (error) {
       console.error('Failed to load achievements:', error);
     } finally {

@@ -8,7 +8,7 @@
  * - 候选词本地筛选、位置计算与验证
  * - 已知词（knownWords）手动查词不被拒绝
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { UserProfile, UnknownWordEntry } from '@/shared/types';
 import {
   normalizeWord,
@@ -80,7 +80,7 @@ describe('normalizeWord / getWordVariants', () => {
 describe('lookupWord 查词链', () => {
   it('生词本命中：返回条目释义并保留原文原样', async () => {
     const profile = makeProfile({
-      unknownWords: [makeEntry('ubiquitous', 'the ubiquitous smartphone', '无处不在的')],
+      unknownWords: [makeEntry('ubiquitous', 'the ubiquitous smartphone era', '无处不在的')],
     });
 
     const hit = await lookupWord('Ubiquitous,', { userProfile: profile, context: 'the ubiquitous smartphone era' });
@@ -93,10 +93,10 @@ describe('lookupWord 查词链', () => {
     expect(hit!.inUserVocab).toBe(true);
   });
 
-  it('生词本同词多条目时按语境重叠度选择', async () => {
+  it('生词本同词多条目时按完整语境选择', async () => {
     const profile = makeProfile({
       unknownWords: [
-        makeEntry('bank', 'sat by the river bank', '河岸'),
+        makeEntry('bank', 'he sat by the river bank', '河岸'),
         makeEntry('bank', 'opened a bank account', '银行'),
       ],
     });
@@ -104,8 +104,175 @@ describe('lookupWord 查词链', () => {
     const riverHit = await lookupWord('bank', { userProfile: profile, context: 'he sat by the river bank' });
     expect(riverHit!.translation).toBe('河岸');
 
-    const moneyHit = await lookupWord('bank', { userProfile: profile, context: 'a new bank account' });
+    const moneyHit = await lookupWord('bank', { userProfile: profile, context: 'opened a bank account' });
     expect(moneyHit!.translation).toBe('银行');
+  });
+
+  it('生词本仅目标词重叠时不冒充语境匹配，回退词典通用义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'sat by the river bank', '河岸')],
+    });
+
+    const hit = await lookupWord('bank', {
+      userProfile: profile,
+      context: 'opened a bank account',
+    });
+
+    expect(hit).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('仅共享 city 等背景词时不沿用相反的多义词释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'She sat on the river bank in the city', '河岸')],
+    });
+    const context = 'She opened an account at the city bank';
+
+    expect(await lookupWord('bank', { userProfile: profile, context }))
+      .toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+    const candidate = resolveLocalCandidates(context, profile, { context }).candidates
+      .find((item) => item.lemma === 'bank');
+    expect(candidate).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('相同的邻近背景词不能证明多义词义项一致', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'She walked beside the river bank yesterday.', '河岸')],
+    });
+    expect(await lookupWord('bank', {
+      userProfile: profile, context: 'She visited the city bank yesterday.',
+    })).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('完整语境完全一致时保留用户保存的义项，即使关键词不在邻近窗口', async () => {
+    const context = 'The bank of the river';
+    const profile = makeProfile({ unknownWords: [makeEntry('bank', context, '河岸')] });
+    expect(await lookupWord('bank', { userProfile: profile, context }))
+      .toMatchObject({ source: 'user_vocab', translation: '河岸' });
+  });
+
+  it('多处目标词不同义时不把后一次的旧义赋给首次出现的词', () => {
+    const profile = makeProfile({ unknownWords: [makeEntry('bank', 'sat by the river bank', '河岸')] });
+    const text = 'The bank approved a loan. We later walked by the river bank.';
+    expect(resolveLocalCandidates(text, profile, { context: text }).candidates.find((item) => item.lemma === 'bank'))
+      .toMatchObject({ position: [4, 8], source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('重复的远处背景词不能充当两个语境证据', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'The river bank is beyond the city city', '河岸')],
+    });
+
+    expect(await lookupWord('bank', {
+      userProfile: profile,
+      context: 'She opened an account at the city bank',
+    })).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('手动查词只提供目标词时不复用旧句子的消歧释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'sat by the river bank', '河岸')],
+    });
+
+    const hit = await lookupWord('bank', { userProfile: profile, context: 'bank' });
+
+    expect(hit).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('仅有冠词与目标词重叠时不复用生词本释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'the bank of the river', '河岸')],
+    });
+
+    const hit = await lookupWord('bank', {
+      userProfile: profile,
+      context: 'the bank approved a loan',
+    });
+
+    expect(hit).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('共享代词也不足以复用多义词的旧释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'His house is on the river bank', '河岸')],
+    });
+
+    const hit = await lookupWord('bank', {
+      userProfile: profile,
+      context: 'His bank account was closed',
+    });
+
+    expect(hit).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('目标词的复数词形重叠也不足以复用旧释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'The banks lined the river bank', '河岸')],
+    });
+
+    const hit = await lookupWord('bank', {
+      userProfile: profile,
+      context: 'The banks approved a bank loan',
+    });
+
+    expect(hit).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('连字符目标词分词重叠也不足以复用旧释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('run-down', 'The run-down old shed', '破败')],
+    });
+
+    const hit = await lookupWord('run-down', {
+      userProfile: profile,
+      context: 'A run-down new house',
+    });
+
+    expect(hit).toBeNull();
+  });
+
+  it('跨语境且词典未收录时返回未命中，不伪装成已有通用释义', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('quasar', 'the distant quasar', '遥远的类星体')],
+    });
+
+    const hit = await lookupWord('quasar', {
+      userProfile: profile,
+      context: 'quasar appeared in the document',
+    });
+
+    expect(hit).toBeNull();
+  });
+
+  it('缺少语境时仍能按词查询生词本', async () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'sat by the river bank', '河岸')],
+    });
+
+    const hit = await lookupWord('bank', { userProfile: profile });
+    const blankContext = await lookupWord('bank', { userProfile: profile, context: '  ' });
+
+    expect(hit).toMatchObject({ source: 'user_vocab', translation: '河岸' });
+    expect(blankContext).toMatchObject({ source: 'user_vocab', translation: '河岸' });
+  });
+
+  it('语境释义缓存键不保存页面语境明文', () => {
+    const set = vi.spyOn(Map.prototype, 'set');
+    try {
+      storeWordSense('bank', 'sensitive memo from the page', '银行');
+      expect(JSON.stringify(set.mock.calls)).not.toContain('sensitive memo');
+    } finally {
+      set.mockRestore();
+    }
+  });
+
+  it('语境释义缓存键不保存传入的作用域明文', () => {
+    const set = vi.spyOn(Map.prototype, 'set');
+    try {
+      storeWordSense('bank', 'The bank approved a loan.', '银行', 'sensitive-profile-token');
+      expect(JSON.stringify(set.mock.calls)).not.toContain('sensitive-profile-token');
+    } finally {
+      set.mockRestore();
+    }
   });
 
   it('语境释义缓存：同语境命中、跨语境不命中（不得只按词混用）', async () => {
@@ -121,6 +288,31 @@ describe('lookupWord 查词链', () => {
     expect(otherCtx).not.toBeNull();
     expect(otherCtx!.source).toBe('dictionary');
     expect(otherCtx!.translation).toBe(FIXTURE_DICT.bank.translation);
+  });
+
+  it('中文语境不同的同词不共享模型消歧释义', async () => {
+    storeWordSense('bank', 'bank 河边', '河岸', 'same-user');
+
+    expect(await lookupWord('bank', { context: 'bank 河边', cacheScope: 'same-user' }))
+      .toMatchObject({ source: 'sense_cache', translation: '河岸' });
+    expect(await lookupWord('bank', { context: 'bank 银行', cacheScope: 'same-user' }))
+      .toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('同一语境的模型释义不跨配置或用户作用域复用', async () => {
+    storeWordSense('bank', 'The bank approved a loan.', '银行', 'profile-a/provider-a');
+
+    expect(await lookupWord('bank', {
+      context: 'The bank approved a loan.', cacheScope: 'profile-a/provider-a',
+    })).toMatchObject({ source: 'sense_cache', translation: '银行' });
+    expect(await lookupWord('bank', {
+      context: 'The bank approved a loan.', cacheScope: 'profile-b/provider-a',
+    })).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+    expect(await lookupWord('bank', {
+      context: 'The bank approved a loan.', cacheScope: 'profile-a/provider-b',
+    })).toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+    expect(await lookupWord('bank', { context: 'The bank approved a loan.' }))
+      .toMatchObject({ source: 'dictionary', translation: '银行；岸' });
   });
 
   it('已知词（knownWords）手动查词不被拒绝，落到离线词典', async () => {
@@ -180,6 +372,41 @@ describe('resolveLocalCandidates 候选筛选与位置验证', () => {
     }
     expect(resolution.needsContext).toHaveLength(0);
     expect(resolution.result.words.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('跨语境时未知词仍强制入选，但不沿用旧生词本义项', () => {
+    const profile = makeProfile({
+      unknownWords: [makeEntry('bank', 'sat by the river bank', '河岸')],
+    });
+    const text = 'The bank approved a loan.';
+
+    const resolution = resolveLocalCandidates(text, profile, { context: text });
+    const bank = resolution.candidates.find((candidate) => candidate.lemma === 'bank');
+
+    expect(bank).toMatchObject({ translation: '银行；岸', source: 'dictionary' });
+  });
+
+  it('本地候选词只采纳相同配置及用户作用域的模型释义', () => {
+    const text = 'The bank approved a loan.';
+    const profile = makeProfile({ unknownWords: [makeEntry('bank', 'river bank', '河岸')] });
+    storeWordSense('bank', text, '银行', 'profile-a/provider-a');
+
+    const matching = resolveLocalCandidates(text, profile, { context: text, cacheScope: 'profile-a/provider-a' });
+    expect(matching.candidates.find((candidate) => candidate.lemma === 'bank'))
+      .toMatchObject({ source: 'sense_cache', translation: '银行' });
+
+    const other = resolveLocalCandidates(text, profile, { context: text, cacheScope: 'profile-b/provider-a' });
+    expect(other.candidates.find((candidate) => candidate.lemma === 'bank'))
+      .toMatchObject({ source: 'dictionary', translation: '银行；岸' });
+  });
+
+  it('标记复数未知词后，单数词仍入选但不借用不匹配的旧释义', () => {
+    const profile = makeProfile({ unknownWords: [makeEntry('banks', 'sat by the river banks', '河岸')] });
+    const text = 'The bank approved a loan.';
+    const result = resolveLocalCandidates(text, profile, { context: text });
+
+    expect(result.candidates.find((candidate) => candidate.lemma === 'bank'))
+      .toMatchObject({ source: 'dictionary', translation: '银行；岸' });
   });
 
   it('knownWords 优先级最高：即使难度超纲也排除', () => {

@@ -122,6 +122,8 @@ import { StorageManager } from '@/background/storage';
 import {
   EXPORT_VERSION,
   validateImportData,
+  validateImportedSettings,
+  importAllData,
   exportAllData,
   exportToJSON,
   importFromJSON,
@@ -141,7 +143,108 @@ describe('DataExport', () => {
     mockStorage.local = {};
   });
 
+  describe('validateImportedSettings', () => {
+    it.each(['deep1', '', 42, null])('拒绝非法传统服务商 %j，不能让备份污染密钥归属', traditionalProvider => {
+      expect(validateImportedSettings({ enabled: true, hybridTranslation: {
+        traditionalProvider, traditionalApiKey: 'TEST_ONLY_KEY',
+      } })).toContain('用户设置的传统翻译服务商无效');
+    });
+
+    it.each([null, 42, {}, []])('拒绝格式错误的传统密钥 %j', traditionalApiKey => {
+      expect(validateImportedSettings({ enabled: true, hybridTranslation: {
+        traditionalProvider: 'deepl', traditionalApiKey,
+      } })).toContain('用户设置的传统翻译密钥无效');
+    });
+
+    it('数组服务商不可凭字符串转换通过，预校验失败前不能先写入用户档案', async () => {
+      const backup = await exportAllData();
+      const malformed = {
+        ...backup,
+        settings: { ...backup.settings, hybridTranslation: {
+          ...backup.settings.hybridTranslation!, traditionalProvider: ['deepl'] as unknown as 'deepl',
+          traditionalApiKey: 'TEST_ONLY_KEY',
+        } },
+      };
+      vi.mocked(chrome.runtime.sendMessage).mockClear();
+
+      const result = await importAllData(malformed, DEFAULT_IMPORT_OPTIONS);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toContain('用户设置的传统翻译服务商无效');
+      expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { enabled: 'yes' }, { defaultEngine: 'other' }, { simpleTextThreshold: { invalid: true } },
+      { enableSmartRouting: 1 }, { priority: 'unknown' },
+    ])('混合设置非法字段 %j 不可进入页面渲染', invalid => {
+      expect(validateImportedSettings({ enabled: true, hybridTranslation: {
+        traditionalProvider: 'deepl', ...invalid,
+      } })).toContain('用户设置的混合翻译配置无效');
+    });
+
+    it.each(['example.com', ['example.com', null], {}])('黑名单格式 %j 不得导入', blacklist => {
+      expect(validateImportedSettings({ enabled: true, blacklist })).toContain('用户设置的网站黑名单格式无效');
+    });
+
+    it('非法黑名单备份须在用户档案写入前被拒绝', async () => {
+      const backup = await exportAllData();
+      vi.mocked(chrome.runtime.sendMessage).mockClear();
+      const result = await importAllData({ ...backup, settings: {
+        ...backup.settings, blacklist: 'example.com' as unknown as string[],
+      } }, DEFAULT_IMPORT_OPTIONS);
+      expect(result.success).toBe(false);
+      expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('配置名称是对象时拒绝导入，避免设置页面渲染崩溃', () => {
+      expect(validateImportedSettings({ enabled: true, apiConfigs: [{
+        id: 'a', name: { unexpected: true }, provider: 'openai', apiKey: 'TEST_ONLY_KEY', tested: true,
+      }] })).toContain('用户设置的 API 配置格式无效');
+    });
+
+    it('接受已支持的传统翻译服务商和字符串密钥', () => {
+      expect(validateImportedSettings({ enabled: true, hybridTranslation: {
+        traditionalProvider: 'deepl', traditionalApiKey: 'TEST_ONLY_KEY',
+      } })).toEqual([]);
+    });
+  });
+
   describe('validateImportData', () => {
+    it.each([
+      { word: '', translation: '译文' },
+      { word: 'x'.repeat(201), translation: '译文' },
+      { word: 1, translation: '译文' },
+      { word: 'bank', translation: null },
+      { word: 'bank', translation: 'x'.repeat(10001) },
+      { word: 'bank', translation: '银行', context: 1 },
+      { word: 'bank', translation: '银行', context: 'x'.repeat(10001) },
+      { word: 'bank', translation: '银行', markedAt: Infinity },
+      { word: 'bank', translation: '银行', lastReviewAt: 'yesterday' },
+      { word: 'bank', translation: '银行', reviewCount: -1 },
+      { word: 'bank', translation: '银行', reviewCount: 1.5 },
+      null,
+    ])('在写入前拒绝损坏的生词记录 %j', async entry => {
+      const backup = await exportAllData();
+      const result = validateImportData({ ...backup, profile: { ...backup.profile, unknownWords: [entry] } });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('生词记录格式无效');
+    });
+
+    it.each([
+      { examType: ['cet4'] }, { examType: 'unknown' },
+      { estimatedVocabulary: Infinity }, { estimatedVocabulary: -1 }, { estimatedVocabulary: 1000001 },
+      { levelConfidence: -0.1 }, { levelConfidence: 1.1 }, { levelConfidence: 'high' },
+      { createdAt: Infinity }, { updatedAt: 'yesterday' },
+      { examScore: 1001 }, { examScore: NaN },
+      { knownWords: ['   '] }, { knownWords: [2] }, { knownWords: ['x'.repeat(201)] },
+    ])('在写入前拒绝损坏的用户档案字段 %j', async patch => {
+      const backup = await exportAllData();
+      const result = validateImportData({ ...backup, profile: { ...backup.profile, ...patch } });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('用户配置字段无效');
+    });
+
     it('should reject null/undefined data', () => {
       const result = validateImportData(null);
       expect(result.valid).toBe(false);
@@ -437,15 +540,16 @@ describe('DataExport', () => {
   });
 
   describe('clearAllData', () => {
-    it('应该清除所有存储数据', async () => {
+    it('应委托后台清空，页面不直接绕过版本墓碑', async () => {
       mockStorage.sync = { testKey: 'testValue' };
       mockStorage.local = { testLocalKey: 'testLocalValue' };
+      vi.mocked(chrome.runtime.sendMessage).mockClear();
 
       await clearAllData();
 
-      // 清除后存储应该为空
-      expect(Object.keys(mockStorage.sync).length).toBe(0);
-      expect(Object.keys(mockStorage.local).length).toBe(0);
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledExactlyOnceWith({ type: 'CLEAR_ALL_DATA' });
+      expect(chrome.storage.sync.clear).not.toHaveBeenCalled();
+      expect(chrome.storage.local.clear).not.toHaveBeenCalled();
     });
   });
 

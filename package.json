@@ -28,6 +28,7 @@
     "screenshots:legacy": "npx tsx scripts/generate-screenshots.ts"
   },
   "dependencies": {
+    "@noble/hashes": "^2.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^3.7.0",

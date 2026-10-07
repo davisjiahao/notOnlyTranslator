@@ -203,6 +203,42 @@ describe('FloatingButton', () => {
     });
   });
 
+  describe('面板视口定位', () => {
+    it.each([
+      { name: '滚动后仍显示在按钮上方', viewport: [1024, 768], button: [500, 600], expected: [500, 290] },
+      { name: '上方空间不足时显示在下方', viewport: [1024, 768], button: [500, 30], expected: [500, 80] },
+      { name: '靠右时保留视口边距', viewport: [1024, 768], button: [950, 600], expected: [794, 290] },
+      { name: '按钮超出左边界时面板不出现负坐标', viewport: [1024, 768], button: [-20, 600], expected: [10, 290] },
+      { name: '上下空间均不足时限制在视口内', viewport: [320, 400], button: [250, 160], expected: [90, 90] },
+      { name: '视口小于面板时保持左上方可见', viewport: [180, 200], button: [80, 100], expected: [10, 10] },
+    ])('$name', ({ viewport, button, expected }) => {
+      vi.stubGlobal('innerWidth', viewport[0]);
+      vi.stubGlobal('innerHeight', viewport[1]);
+      vi.stubGlobal('scrollX', 120);
+      vi.stubGlobal('scrollY', 1600);
+      const fb = new FloatingButton(onModeChange);
+      const btn = document.getElementById('not-translator-floating-btn')!;
+      const panel = document.querySelector('.not-translator-floating-panel') as HTMLElement;
+      const buttonRect = vi.spyOn(btn, 'getBoundingClientRect')
+        .mockReturnValue(new DOMRect(button[0], button[1], 80, 40));
+      const panelRect = vi.spyOn(panel, 'getBoundingClientRect')
+        .mockReturnValue(new DOMRect(0, 0, 220, 300));
+
+      try {
+        (btn.querySelector('.not-translator-floating-btn-inner') as HTMLElement).click();
+
+        expect(panel.style.display).toBe('block');
+        expect(btn.getAttribute('aria-expanded')).toBe('true');
+        expect(panel.style.top).toBe(`${expected[1]}px`);
+        expect(panel.style.left).toBe(`${expected[0]}px`);
+      } finally {
+        buttonRect.mockRestore();
+        panelRect.mockRestore();
+        fb.destroy();
+      }
+    });
+  });
+
   describe('键盘操作', () => {
     it('Enter 键展开面板', () => {
       new FloatingButton(onModeChange);
@@ -334,6 +370,47 @@ describe('FloatingButton', () => {
 
       const activeItem = document.querySelector('.not-translator-floating-mode-item.active') as HTMLElement;
       expect(activeItem.dataset.mode).toBe('full-translate');
+    });
+  });
+
+  describe('setBusy（翻译进行中状态，替代段落加载圈）', () => {
+    const btnText = () => document.querySelector('.not-translator-floating-btn-text')!;
+    const btn = () => document.getElementById('not-translator-floating-btn') as HTMLElement;
+
+    it('初始状态不忙碌', () => {
+      new FloatingButton(onModeChange);
+      expect(btn().getAttribute('aria-busy')).toBe('false');
+      expect(btnText().textContent).toBe('翻译'); // 构造时通用标签，updateMode 后才显示模式名
+    });
+
+    it('忙碌时显示翻译中并标记 aria-busy', () => {
+      const fb = new FloatingButton(onModeChange);
+      fb.updateMode('bilingual'); // 从默认模式切到对照，再进入忙碌
+      fb.setBusy(true);
+      expect(btnText().textContent).toBe('翻译中…');
+      expect(btn().getAttribute('aria-busy')).toBe('true');
+    });
+
+    it('全部结束后恢复模式标签并清除 aria-busy', () => {
+      const fb = new FloatingButton(onModeChange);
+      fb.updateMode('bilingual');
+      fb.setBusy(true);
+      fb.setBusy(false);
+      expect(btnText().textContent).toBe('对照');
+      expect(btn().getAttribute('aria-busy')).toBe('false');
+    });
+
+    it('忙碌期间 updateMode 不覆盖进度文案，结束后恢复为最新模式', () => {
+      const fb = new FloatingButton(onModeChange);
+      fb.setBusy(true);
+      fb.updateMode('full-translate'); // 忙碌中切换模式：面板状态更新，按钮文案保持进度
+      expect(btnText().textContent).toBe('翻译中…');
+      const activeItem = document.querySelector('.not-translator-floating-mode-item.active') as HTMLElement;
+      expect(activeItem.dataset.mode).toBe('full-translate');
+
+      fb.setBusy(false); // 取消/失败/完成统一收尾：恢复为最新模式标签
+      expect(btnText().textContent).toBe('全文');
+      expect(btn().getAttribute('aria-busy')).toBe('false');
     });
   });
 

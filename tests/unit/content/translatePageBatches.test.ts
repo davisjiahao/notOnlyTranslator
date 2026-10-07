@@ -14,6 +14,11 @@ vi.mock('@/content/translationDisplay', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 清除未被消费的一次性响应，避免前一用例提前失败后留下挂起请求。
+  sendTranslationMessage.mockReset();
+  applyTranslation.mockReset().mockImplementation((paragraph: HTMLElement) => {
+    paragraph.classList.add('not-translator-processed');
+  });
   vi.stubGlobal('chrome', undefined);
   document.body.innerHTML = Array.from({ length: 15 }, (_, index) =>
     `<p>${String(index).padStart(2, '0')}${'a'.repeat(699)}</p>`
@@ -141,7 +146,7 @@ describe('右键整页翻译', () => {
     expect(applyTranslation).toHaveBeenCalledTimes(1);
   });
 
-  it('超批次长度单段无候选词时不计入失败', async () => {
+  it('超批次长度单段合法空结果经统一展示入口交付并计入成功', async () => {
     document.body.innerHTML = `<p>${'a'.repeat(10001)}</p>`;
     sendTranslationMessage.mockResolvedValue({ success: true, data: { words: [], sentences: [] } });
     const { NotOnlyTranslator } = await import('@/content/index');
@@ -153,8 +158,12 @@ describe('右键整页翻译', () => {
       settings: { enabled: true, translationMode: 'inline-only' },
     }) as { handleTranslatePage(): Promise<{ translated: number; failed: number }> };
 
-    expect(await instance.handleTranslatePage()).toEqual({ translated: 0, failed: 0 });
-    expect(applyTranslation).not.toHaveBeenCalled();
+    expect(await instance.handleTranslatePage()).toEqual({ translated: 1, failed: 0 });
+    expect(applyTranslation).toHaveBeenCalledExactlyOnceWith(
+      document.querySelector('p'), { words: [], sentences: [] }, 'inline-only',
+      expect.objectContaining({ enabled: true, translationMode: 'inline-only' })
+    );
+    expect(document.querySelector('p')?.classList.contains('not-translator-processed')).toBe(true);
   });
 
   it('渲染第二段异常时只把第二段计入失败', async () => {
@@ -212,8 +221,11 @@ describe('右键整页翻译', () => {
   it('消息监听器等待翻译结束并报告部分失败', async () => {
     sendTranslationMessage.mockResolvedValueOnce({ success: false, error: '服务暂不可用' });
     const addListener = vi.fn();
-    vi.stubGlobal('chrome', { runtime: { onMessage: { addListener } } });
     const { NotOnlyTranslator } = await import('@/content/index');
+    vi.stubGlobal('chrome', {
+      runtime: { onMessage: { addListener, removeListener: vi.fn() } },
+      storage: { onChanged: { addListener: vi.fn(), removeListener: vi.fn() } },
+    });
     const instance = Object.assign(Object.create(NotOnlyTranslator.prototype), {
       translationGeneration: 0,
       destroyed: false,
@@ -236,8 +248,11 @@ describe('右键整页翻译', () => {
     let resolveBatch!: (response: unknown) => void;
     sendTranslationMessage.mockImplementationOnce(() => new Promise(resolve => { resolveBatch = resolve; }));
     const addListener = vi.fn();
-    vi.stubGlobal('chrome', { runtime: { onMessage: { addListener } } });
     const { NotOnlyTranslator } = await import('@/content/index');
+    vi.stubGlobal('chrome', {
+      runtime: { onMessage: { addListener, removeListener: vi.fn() } },
+      storage: { onChanged: { addListener: vi.fn(), removeListener: vi.fn() } },
+    });
     const instance = Object.assign(Object.create(NotOnlyTranslator.prototype), {
       translationGeneration: 0,
       destroyed: false,
@@ -255,7 +270,7 @@ describe('右键整页翻译', () => {
     expect(applyTranslation).not.toHaveBeenCalled();
   });
 
-  it('批次无候选词时不计入失败，发送地址不含查询参数或片段', async () => {
+  it('批次合法空结果仍交付全部段落，发送地址不含路径令牌、查询参数或片段', async () => {
     window.history.replaceState(null, '', '/reset/SECRET_PATH_TOKEN?token=SECRET_SENTINEL#fragment');
     sendTranslationMessage.mockResolvedValue({ success: true, data: { results: Array.from({ length: 15 }, () => ({
       result: { words: [], sentences: [] },
@@ -269,10 +284,15 @@ describe('右键整页翻译', () => {
       settings: { enabled: true, translationMode: 'inline-only' },
     }) as { handleTranslatePage(): Promise<{ translated: number; failed: number }> };
 
-    expect(await instance.handleTranslatePage()).toEqual({ translated: 0, failed: 0 });
-    const message = sendTranslationMessage.mock.calls[0][0] as Message;
-    const pageUrl = (message.payload as { pageUrl: string }).pageUrl;
-    expect(pageUrl).toBe(window.location.origin);
+    expect(await instance.handleTranslatePage()).toEqual({ translated: 15, failed: 0 });
+    expect(applyTranslation).toHaveBeenCalledTimes(15);
+    expect(document.querySelectorAll('.not-translator-processed')).toHaveLength(15);
+    expect(sendTranslationMessage).toHaveBeenCalledTimes(2);
+    for (const [message] of sendTranslationMessage.mock.calls as [Message][]) {
+      const pageUrl = (message.payload as { pageUrl: string }).pageUrl;
+      expect(pageUrl).toBe(window.location.origin);
+    }
+    expect(JSON.stringify(sendTranslationMessage.mock.calls)).not.toMatch(/SECRET_PATH_TOKEN|SECRET_SENTINEL|fragment/);
   });
 
   it('后台返回失败时记录受控告警，不泄露错误正文', async () => {

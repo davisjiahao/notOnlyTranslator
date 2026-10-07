@@ -2,6 +2,7 @@ import type { UserSettings } from '@/shared/types';
 import { getProviderConfig, getChatEndpoint } from '@/shared/constants/providers';
 import { ApiError, logger, type RetryOptions } from '@/shared/utils';
 import { TransportError } from '@/shared/utils/translationErrors';
+import { readTranslationStream, validateJsonTranslationCompletion, type TranslationStreamFormat } from './translationStream';
 import {
   executeTransportRequest,
   resolveResponseFormat,
@@ -539,11 +540,28 @@ export class TranslationApiService {
     options?: TranslationApiRequestOptions,
     defaultTimeoutMs: number = TRANSPORT_DEFAULTS.llmTimeoutMs
   ): Promise<string> {
-    const url = providerConfig.buildUrl(endpoint, apiKey);
+    const stream = useJsonFormat && Boolean(options?.onTextDelta);
+    const streamFormat: TranslationStreamFormat = providerConfig.responseExtractor === anthropicExtractor
+      ? 'anthropic' : providerConfig.responseExtractor === geminiExtractor ? 'gemini' : 'openai';
+    const requestEndpoint = stream && streamFormat === 'gemini'
+      ? endpoint.replace(':generateContent', ':streamGenerateContent') : endpoint;
+    const url = providerConfig.buildUrl(requestEndpoint, apiKey) + (stream && streamFormat === 'gemini' ? '&alt=sse' : '');
     const headers = providerConfig.buildHeaders(apiKey);
-    const body = providerConfig.buildBody(model, messages, useJsonFormat, options);
+    const originalBody = providerConfig.buildBody(model, messages, useJsonFormat, options);
+    const body = stream && streamFormat !== 'gemini' ? { ...originalBody as object, stream: true } : originalBody;
     // 服务端错误可能回显请求原文，把用户提示词加入脱敏列表
     const lastUserContent = messages[messages.length - 1]?.content;
+    const onSuccess = (data: unknown): string => {
+      validateJsonTranslationCompletion(data, streamFormat);
+      if (!providerConfig.responseExtractor.isValid(data)) {
+        throw TransportError.unavailable(`${providerName} API 返回格式无效`);
+      }
+      const content = providerConfig.responseExtractor.extractContent(data);
+      if (typeof content !== 'string' || !content.trim()) {
+        throw TransportError.unavailable(`${providerName} API 返回空响应`);
+      }
+      return content;
+    };
 
     return executeTransportRequest(
       url,
@@ -555,18 +573,14 @@ export class TranslationApiService {
         redactTexts: lastUserContent ? [lastUserContent] : undefined,
         retry: TranslationApiService.toTransportRetry(retryOptions),
         extractErrorMessage: providerConfig.responseExtractor.extractError,
-        onSuccess: (data) => {
-          if (!providerConfig.responseExtractor.isValid(data)) {
-            throw TransportError.unavailable(`${providerName} API 返回格式无效`);
+        onAttemptStart: stream ? options?.onStreamStart : undefined,
+        readResponse: stream ? async (response, signal) => {
+          if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
+            return onSuccess(await response.json());
           }
-
-          const content = providerConfig.responseExtractor.extractContent(data);
-          if (!content) {
-            throw TransportError.unavailable(`${providerName} API 返回空响应`);
-          }
-
-          return content;
-        },
+          return readTranslationStream(response, signal, streamFormat, options!.onTextDelta!);
+        } : undefined,
+        onSuccess,
       }
     );
   }

@@ -15,6 +15,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
+      // 未被测试加载的源码也纳入报告，避免覆盖率仅反映已导入模块。
+      include: ['src/**'],
       exclude: [
         'node_modules/',
         'dist/',

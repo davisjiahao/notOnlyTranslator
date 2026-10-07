@@ -3,7 +3,12 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   testDir: './specs',
-  testMatch: ['local-first-reading.spec.ts', 'vocabulary-import.spec.ts'],
+  testMatch: [
+    'local-first-reading.spec.ts', 'vocabulary-import.spec.ts', 'api-configs-revision.spec.ts',
+    'hybrid-key-ownership.spec.ts', 'welcome-settings-revision.spec.ts', 'llm-translation-display.spec.ts',
+    'mode-switching.spec.ts', 'mode-presentation-only.spec.ts', 'github-like-reading.spec.ts',
+    'batch-streaming.spec.ts',
+  ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

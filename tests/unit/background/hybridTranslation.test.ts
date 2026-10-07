@@ -21,6 +21,8 @@ vi.mock('@/background/translationApi', () => ({
 vi.mock('@/background/enhancedCache', () => ({
   enhancedCache: {
     initialize: vi.fn(),
+    getGeneration: vi.fn().mockReturnValue(0),
+    generateHash: vi.fn().mockReturnValue('test-cache-key'),
     get: vi.fn(),
     set: vi.fn(),
   },
@@ -176,6 +178,7 @@ describe('HybridTranslationService', () => {
       const settingsWithTraditionalKey: UserSettings = {
         ...mockSettings,
         hybridTranslation: {
+          traditionalProvider: 'youdao',
           traditionalApiKey: 'traditional-key',
         },
       };
@@ -228,7 +231,7 @@ describe('HybridTranslationService', () => {
       });
       const settingsWithTraditionalKey: UserSettings = {
         ...mockSettings,
-        hybridTranslation: { traditionalApiKey: 'traditional-key' },
+        hybridTranslation: { traditionalProvider: 'youdao', traditionalApiKey: 'traditional-key' },
       };
       const options = { signal: new AbortController().signal, timeoutMs: 1234 };
       const request: TranslationRequest = {

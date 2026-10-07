@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   FEEDBACK_CATEGORIES,
   type FeedbackCategory,
@@ -55,6 +55,13 @@ export default function FeedbackModal({
     }
   }, [isSubmitting, initialCategory, onClose]);
 
+  useEffect(() => {
+    if (!isOpen || !submitResult?.success || isSubmitting) return;
+    // 成功提示消失、弹窗关闭或卸载时取消计时，避免清空重新打开后的草稿。
+    const timer = setTimeout(handleClose, 3000);
+    return () => clearTimeout(timer);
+  }, [isOpen, submitResult?.success, isSubmitting, handleClose]);
+
   const handleInputChange = useCallback(
     (field: keyof FeedbackFormData, value: string | number) => {
       setFormData(prev => ({
@@ -92,10 +99,6 @@ export default function FeedbackModal({
           success: true,
           message: '感谢您的反馈！我们会认真阅读每一条建议。'
         });
-        // 3秒后自动关闭
-        setTimeout(() => {
-          handleClose();
-        }, 3000);
       } else {
         setSubmitResult({
           success: false,
@@ -110,7 +113,7 @@ export default function FeedbackModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, handleClose]);
+  }, [formData]);
 
   // 获取当前类别的提示
   const hints = getFeedbackHints(formData.category);

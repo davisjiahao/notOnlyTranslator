@@ -4,7 +4,7 @@ import type {
   UserSettings,
   TranslatedWord,
 } from '@/shared/types';
-import { logger, generateCacheKey } from '@/shared/utils';
+import { logger } from '@/shared/utils';
 import { StorageManager } from './storage';
 import { TranslationApiService, type TranslationApiRequestOptions } from './translationApi';
 import { TransportError } from '@/shared/utils/translationErrors';
@@ -242,19 +242,13 @@ export class HybridTranslationService {
     const startTime = performance.now();
     const { text, userLevel } = request;
 
-    // 获取传统API配置
-    const traditionalSettings: UserSettings = {
-      ...settings,
-      apiProvider: this.config.traditionalProvider,
-    };
-
-    // 从storage获取传统API的API Key
-    const traditionalApiKey = await this.getTraditionalApiKey(options);
+    const traditional = await this.getTraditionalConfig(settings, options);
     throwIfRequestAborted(options);
-    if (!traditionalApiKey) {
+    if (!traditional) {
       logger.warn('Traditional API key not configured, falling back to LLM');
       return this.translateWithLLM(request, settings, options);
     }
+    const { apiKey: traditionalApiKey, settings: traditionalSettings } = traditional;
 
     try {
       // 调用传统API进行翻译
@@ -272,7 +266,7 @@ export class HybridTranslationService {
 
       const apiDuration = performance.now() - startTime;
       recordMetric(MetricType.API_RESPONSE_TIME, 'traditional_translate', apiDuration, true, {
-        provider: this.config.traditionalProvider,
+        provider: traditionalSettings.apiProvider,
         textLength: text.length,
       });
 
@@ -323,7 +317,9 @@ export class HybridTranslationService {
     throwIfRequestAborted(options);
 
     // 生成缓存键
-    const cacheKey = generateCacheKey(text, mode);
+    const cacheKey = enhancedCache.generateHash(text, mode, {
+      settings, userLevel: request.userLevel, context: request.context, engine: 'hybrid',
+    });
 
     // 检查缓存
     const cached = await enhancedCache.get(cacheKey);
@@ -335,7 +331,8 @@ export class HybridTranslationService {
     }
 
     // 获取API配置
-    const apiKey = await StorageManager.getApiKey();
+    const cacheGeneration = enhancedCache.getGeneration();
+    const apiKey = await StorageManager.getApiKey(settings);
     throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       throw new Error('API key not configured');
@@ -363,7 +360,7 @@ export class HybridTranslationService {
     // 缓存结果
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
     throwIfRequestAborted(options);
-    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm');
+    await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm', cacheGeneration);
     throwIfRequestAborted(options);
 
     // 记录指标
@@ -407,7 +404,7 @@ export class HybridTranslationService {
 
       // 步骤3: 执行增强分析（如启用）
       if (needsEnhancedAnalysis) {
-        const apiKey = await StorageManager.getApiKey();
+        const apiKey = await StorageManager.getApiKey(settings);
         throwIfRequestAborted(options);
         if (apiKey || settings.apiProvider === 'ollama') {
           try {
@@ -449,7 +446,7 @@ export class HybridTranslationService {
         const wordsToAnalyze = traditionalResult.words.filter(w => w.difficulty >= 7);
 
         if (wordsToAnalyze.length > 0) {
-          const apiKey = await StorageManager.getApiKey();
+          const apiKey = await StorageManager.getApiKey(settings);
           throwIfRequestAborted(options);
           if (apiKey || settings.apiProvider === 'ollama') {
             try {
@@ -597,7 +594,7 @@ export class HybridTranslationService {
     options?: TranslationApiRequestOptions
   ): Promise<TranslatedWord[]> {
     throwIfRequestAborted(options);
-    const apiKey = await StorageManager.getApiKey();
+    const apiKey = await StorageManager.getApiKey(settings);
     throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return [];
@@ -659,7 +656,7 @@ Only include words that would be challenging for a learner with ~${userLevel.est
     options?: TranslationApiRequestOptions
   ): Promise<TranslatedWord[]> {
     throwIfRequestAborted(options);
-    const apiKey = await StorageManager.getApiKey();
+    const apiKey = await StorageManager.getApiKey(settings);
     throwIfRequestAborted(options);
     if (!apiKey && settings.apiProvider !== 'ollama') {
       return words;
@@ -783,29 +780,42 @@ Return JSON:
   }
 
   /**
-   * 获取传统API的API Key
+   * 以用户选择的传统提供商为准；未设置时才使用服务默认值
    */
-  private static async getTraditionalApiKey(options?: TranslationApiRequestOptions): Promise<string | null> {
+  private static getTraditionalProvider(settings: UserSettings): TraditionalProvider | null {
+    const provider = settings.hybridTranslation?.traditionalProvider ?? this.config.traditionalProvider;
+    return provider === 'deepl' || provider === 'youdao' || provider === 'google_translate' ? provider : null;
+  }
+
+  /**
+   * 端点和凭据必须来自同一配置，不能继承当前 LLM 的连接设置。
+   */
+  private static async getTraditionalConfig(
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
+  ): Promise<{ apiKey: string; settings: UserSettings } | null> {
     throwIfRequestAborted(options);
-    // 从storage获取传统API的API Key
-    const settings = await StorageManager.getSettings();
-    throwIfRequestAborted(options);
-    const hybridSettings = settings as UserSettings & { hybridTranslation?: HybridTranslationConfig };
+    const provider = this.getTraditionalProvider(settings);
+    if (!provider) return null;
+    const independentKey = settings.hybridTranslation?.traditionalProvider === provider
+      ? settings.hybridTranslation.traditionalApiKey
+      : undefined;
+    // 独立密钥没有绑定自定义端点，只能使用提供商默认端点。
+    const config = independentKey ? undefined : settings.apiConfigs?.find(config => config.provider === provider);
+    const apiKey = independentKey || config?.apiKey;
+    if (!apiKey) return null;
 
-    if (hybridSettings.hybridTranslation?.traditionalApiKey) {
-      return hybridSettings.hybridTranslation.traditionalApiKey;
-    }
-
-    // 尝试从apiConfigs中查找传统API的配置
-    const traditionalConfig = settings.apiConfigs?.find(
-      config => config.provider === this.config.traditionalProvider
-    );
-
-    if (traditionalConfig?.apiKey) {
-      return traditionalConfig.apiKey;
-    }
-
-    return null;
+    return {
+      apiKey,
+      settings: {
+        ...settings,
+        apiProvider: provider,
+        customApiUrl: config?.apiUrl || '',
+        customModelName: config?.modelName || '',
+        secondaryApiKey: config?.secondaryApiKey || '',
+        activeApiConfigId: config?.id,
+      },
+    };
   }
 
   /**
@@ -1113,20 +1123,16 @@ Return JSON:
     throwIfRequestAborted(options);
     const settings = await StorageManager.getSettings();
     throwIfRequestAborted(options);
-    const apiKey = await this.getTraditionalApiKey(options);
+    const traditional = await this.getTraditionalConfig(settings, options);
     throwIfRequestAborted(options);
 
-    if (apiKey) {
-      // 优先使用传统API
-      const traditionalSettings: UserSettings = {
-        ...settings,
-        apiProvider: this.config.traditionalProvider,
-      };
-      return TranslationApiService.quickTranslate(text, apiKey, traditionalSettings, options);
+    if (traditional) {
+      // 优先使用传统API，沿用与密钥同源的端点配置。
+      return TranslationApiService.quickTranslate(text, traditional.apiKey, traditional.settings, options);
     }
 
     // 回退到LLM快速翻译
-    const llmApiKey = await StorageManager.getApiKey();
+    const llmApiKey = await StorageManager.getApiKey(settings);
     throwIfRequestAborted(options);
     if (!llmApiKey && settings.apiProvider !== 'ollama') {
       throw new Error('No API key configured');

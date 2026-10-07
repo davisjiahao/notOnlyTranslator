@@ -9,6 +9,8 @@ import {
 } from '@/shared/utils/vocabularyService';
 import { CSS_CLASSES } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { createTranslatableTextWalker, getTranslatableText } from './pageScanner';
+import { TranslationDisplay } from './translationDisplay';
 
 /**
  * 词汇高亮配置
@@ -112,17 +114,13 @@ export class VocabularyHighlighter {
    * @returns 识别并高亮的单词列表
    */
   highlightElement(element: HTMLElement): HighlightedVocabularyWord[] {
-    if (this.destroyed) {
-      return [];
-    }
+    if (this.destroyed || this.processedElements.has(element)) return [];
+    return TranslationDisplay.updateVocabularyHighlights([element], () => this.highlightOriginalElement(element));
+  }
 
+  private highlightOriginalElement(element: HTMLElement): HighlightedVocabularyWord[] {
     // 记录扫描根元素，供词表/等级变化后的重扫使用
     this.scannedRoots.add(element);
-
-    // 检查是否已处理过
-    if (this.processedElements.has(element)) {
-      return [];
-    }
 
     // 检查是否应该跳过此元素
     if (!this.shouldProcessElement(element)) {
@@ -131,7 +129,7 @@ export class VocabularyHighlighter {
     }
 
     // 获取元素文本
-    const text = element.textContent || '';
+    const text = getTranslatableText(element);
     if (text.length < 10) {
       this.processedElements.add(element);
       return [];
@@ -165,17 +163,17 @@ export class VocabularyHighlighter {
    * 批量高亮多个元素
    */
   highlightElements(elements: HTMLElement[]): HighlightedVocabularyWord[] {
-    if (!this.config.enabled) {
-      return [];
-    }
+    if (!this.config.enabled || this.destroyed) return [];
+    return TranslationDisplay.updateVocabularyHighlights(elements, () => this.highlightOriginalElements(elements));
+  }
 
+  private highlightOriginalElements(elements: HTMLElement[]): HighlightedVocabularyWord[] {
+    if (!this.config.enabled) return [];
     const allHighlighted: HighlightedVocabularyWord[] = [];
-
     for (const element of elements) {
-      const highlighted = this.highlightElement(element);
-      allHighlighted.push(...highlighted);
+      if (this.processedElements.has(element)) continue;
+      allHighlighted.push(...this.highlightOriginalElement(element));
     }
-
     return allHighlighted;
   }
 
@@ -224,7 +222,7 @@ export class VocabularyHighlighter {
     }
 
     // 使用 TreeWalker 遍历文本节点
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    const walker = createTranslatableTextWalker(container, {
       acceptNode: (node) => {
         const parent = node.parentElement;
         if (!parent) return NodeFilter.FILTER_REJECT;
@@ -431,7 +429,11 @@ export class VocabularyHighlighter {
    * 清除所有高亮
    */
   clearAllHighlights(): void {
-    // 合并内部记录与当前 DOM：翻译清理可能基于 originalHtml 重建词汇 mark。
+    TranslationDisplay.updateVocabularyHighlights([document.body], () => this.clearOriginalHighlights());
+  }
+
+  private clearOriginalHighlights(): void {
+    // 合并内部记录与当前 DOM，只解除真实词汇包装，不拍平内部结构。
     const marksToUnwrap = new Set<HTMLElement>();
     for (const [, data] of this.highlightedWords) {
       data.elements.forEach((element) => marksToUnwrap.add(element));
@@ -462,6 +464,10 @@ export class VocabularyHighlighter {
    * 清除指定元素的高亮
    */
   clearElementHighlights(element: HTMLElement): void {
+    TranslationDisplay.updateVocabularyHighlights([element], () => this.clearOriginalElementHighlights(element));
+  }
+
+  private clearOriginalElementHighlights(element: HTMLElement): void {
     // 查找并恢复此元素内的高亮
     const highlights = element.querySelectorAll<HTMLElement>('.not-translator-vocab-highlight');
     highlights.forEach((highlight) => {
@@ -580,8 +586,10 @@ export class VocabularyHighlighter {
   rescan(): void {
     if (this.destroyed) return;
     const roots = this.getLiveRoots();
-    this.clearAllHighlights();
-    this.highlightElements(roots);
+    TranslationDisplay.updateVocabularyHighlights([document.body], () => {
+      this.clearOriginalHighlights();
+      this.highlightOriginalElements(roots);
+    });
   }
 
   /**
@@ -614,6 +622,10 @@ export class VocabularyHighlighter {
    */
   private refreshWord(word: string): void {
     if (this.destroyed) return;
+    TranslationDisplay.updateVocabularyHighlights([document.body], () => this.refreshOriginalWord(word));
+  }
+
+  private refreshOriginalWord(word: string): void {
     const normalized = word.toLowerCase().trim();
     if (!normalized) return;
 
@@ -628,7 +640,7 @@ export class VocabularyHighlighter {
       el.classList.remove('not-translator-vocab-processed');
       this.processedElements.delete(el);
     }
-    this.highlightElements(containers);
+    this.highlightOriginalElements(containers);
   }
 
   /**

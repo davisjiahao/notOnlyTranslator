@@ -141,6 +141,10 @@ export function validateImportedSettings(raw: unknown): string[] {
   const settings = raw as Record<string, unknown>;
   const errors: string[] = [];
   if (typeof settings.enabled !== 'boolean') errors.push('用户设置缺少启用状态');
+  if (settings.blacklist !== undefined && (!Array.isArray(settings.blacklist)
+    || settings.blacklist.some(domain => typeof domain !== 'string'))) {
+    errors.push('用户设置的网站黑名单格式无效');
+  }
   if (settings.apiProvider !== undefined
     && (typeof settings.apiProvider !== 'string'
       || !Object.prototype.hasOwnProperty.call(PROVIDER_CONFIGS, settings.apiProvider))) {
@@ -151,12 +155,39 @@ export function validateImportedSettings(raw: unknown): string[] {
   }
   if (settings.apiConfigs !== undefined && (!Array.isArray(settings.apiConfigs)
     || settings.apiConfigs.some(config => !config || typeof config !== 'object'
-      || typeof config.id !== 'string' || typeof config.provider !== 'string'
+      || typeof config.id !== 'string' || (config.name !== undefined && typeof config.name !== 'string')
+      || typeof config.provider !== 'string'
       || !Object.prototype.hasOwnProperty.call(PROVIDER_CONFIGS, config.provider)
       || typeof config.apiKey !== 'string'))) errors.push('用户设置的 API 配置格式无效');
   if (Array.isArray(settings.apiConfigs) && settings.apiConfigs.some(config => config
     && typeof config === 'object' && config.apiUrl !== undefined && config.apiUrl !== '')) {
     errors.push('备份中的自定义 API 端点不可导入，请在设置页手动配置');
+  }
+  if (settings.hybridTranslation !== undefined) {
+    if (!settings.hybridTranslation || typeof settings.hybridTranslation !== 'object'
+      || Array.isArray(settings.hybridTranslation)) {
+      errors.push('用户设置的混合翻译配置无效');
+    } else {
+      const hybrid = settings.hybridTranslation as Record<string, unknown>;
+      if (typeof hybrid.traditionalProvider !== 'string'
+        || !['deepl', 'google_translate', 'youdao'].includes(hybrid.traditionalProvider)) {
+        errors.push('用户设置的传统翻译服务商无效');
+      }
+      if (hybrid.traditionalApiKey !== undefined && typeof hybrid.traditionalApiKey !== 'string') {
+        errors.push('用户设置的传统翻译密钥无效');
+      }
+      const validators: Record<string, (value: unknown) => boolean> = {
+        enabled: value => typeof value === 'boolean',
+        defaultEngine: value => ['llm', 'traditional', 'hybrid'].includes(value as string),
+        simpleTextThreshold: value => typeof value === 'number' && Number.isFinite(value) && value >= 0,
+        enableSmartRouting: value => typeof value === 'boolean',
+        priority: value => ['quality', 'speed', 'balanced'].includes(value as string),
+      };
+      if (Object.entries(hybrid).some(([key, value]) =>
+        Object.prototype.hasOwnProperty.call(validators, key) && !validators[key](value))) {
+        errors.push('用户设置的混合翻译配置无效');
+      }
+    }
   }
   return errors;
 }
@@ -244,7 +275,8 @@ export function validateImportData(data: unknown, options?: ImportOptions): Vali
         || (entry.reviewCount !== undefined && (typeof entry.reviewCount !== 'number'
           || !Number.isSafeInteger(entry.reviewCount) || entry.reviewCount < 0));
     })) errors.push('生词记录格式无效');
-    if (!['cet4', 'cet6', 'toefl', 'ielts', 'gre', 'custom'].includes(String(profile.examType))
+    if (typeof profile.examType !== 'string'
+      || !['cet4', 'cet6', 'toefl', 'ielts', 'gre', 'custom'].includes(profile.examType)
       || typeof profile.estimatedVocabulary !== 'number'
       || !Number.isFinite(profile.estimatedVocabulary) || profile.estimatedVocabulary < 0
       || profile.estimatedVocabulary > 1000000
@@ -510,8 +542,8 @@ export async function exportVocabularyToCSV(): Promise<string> {
  * 清除所有数据
  */
 export async function clearAllData(): Promise<void> {
-  await chrome.storage.sync.clear();
-  await chrome.storage.local.clear();
+  const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DATA' });
+  if (!response?.success) throw new Error(response?.error || '清除数据失败，请稍后重试');
   logger.info('DataExport: 所有数据已清除');
 }
 

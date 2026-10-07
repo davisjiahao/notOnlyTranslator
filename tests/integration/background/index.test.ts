@@ -137,7 +137,9 @@ describe('后台注册的消息监听器', () => {
       ...DEFAULT_IMPORT_OPTIONS, importProfile: false, importMastery: false, importCache: false,
     });
     try {
-      expect(sync.get).toHaveBeenCalledTimes(1);
+      // 首个操作读取合并基准并复核旧密钥归属；后一个操作此时仍不能读取或写入。
+      expect(sync.get.mock.calls).toEqual([['settings'], ['settings']]);
+      expect(sync.set).toHaveBeenCalledTimes(1);
       release();
       expect(await delta).toEqual({ success: true });
       expect((await restored).details.settingsImported).toBe(true);
@@ -176,7 +178,9 @@ describe('后台注册的消息监听器', () => {
     await firstWriteStarted;
     const second = dispatch({ type: 'UPDATE_SETTINGS', payload: { translationMode: 'bilingual' } });
     try {
-      expect(sync.get).toHaveBeenCalledTimes(1);
+      // 首个操作读取合并基准并复核旧密钥归属；后一个操作此时仍不能读取或写入。
+      expect(sync.get.mock.calls).toEqual([['settings'], ['settings']]);
+      expect(sync.set).toHaveBeenCalledTimes(1);
       releaseFirstWrite();
       expect(await Promise.all([first, second])).toEqual([{ success: true }, { success: true }]);
       expect(syncData.settings).toEqual(expect.objectContaining({ enabled: false, translationMode: 'bilingual' }));
@@ -417,6 +421,20 @@ describe('后台生命周期、菜单和快捷键', () => {
     }
   });
 
+  it('加入生词菜单在获取密钥时沿用同一次设置快照', async () => {
+    const { StorageManager } = await import('@/background/storage');
+    const { TranslationService } = await import('@/background/translation');
+    const key = vi.spyOn(StorageManager, 'getApiKey');
+    const quick = vi.spyOn(TranslationService, 'quickTranslate').mockResolvedValue('你好');
+    try {
+      await onClicked({ menuItemId: CONTEXT_MENU_IDS.ADD_TO_VOCABULARY, selectionText: 'Hello' }, { id: 3 } as chrome.tabs.Tab);
+      expect(key).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+    } finally {
+      key.mockRestore();
+      quick.mockRestore();
+    }
+  });
+
   it('加入生词菜单翻译失败不保存不通知', async () => {
     const { TranslationService } = await import('@/background/translation');
     const quick = vi.spyOn(TranslationService, 'quickTranslate').mockRejectedValue(new Error('服务不可用'));
@@ -585,6 +603,28 @@ describe('掌握度、语境和缓存监听分支', () => {
     local.get.mockRejectedValueOnce(new Error('掌握度不可用'));
     expect(await dispatch({ type: 'GET_MASTERY_OVERVIEW' }))
       .toEqual({ success: false, error: '掌握度不可用' });
+  });
+
+  it('主动清空翻译缓存也清除内存中的模型语境释义', async () => {
+    const { storeWordSense, lookupWord, clearWordSenseCache } = await import('@/background/localWordLookup');
+    clearWordSenseCache();
+    storeWordSense('bank', 'The bank approved a loan.', '账户侧释义');
+    expect(await lookupWord('bank', { context: 'The bank approved a loan.' }))
+      .toMatchObject({ source: 'sense_cache', translation: '账户侧释义' });
+
+    expect(await dispatch({ type: 'CLEAR_TRANSLATION_CACHE' })).toEqual({ success: true });
+    expect(await lookupWord('bank', { context: 'The bank approved a loan.' }))
+      .not.toMatchObject({ source: 'sense_cache' });
+  });
+
+  it('主动清空翻译缓存也删除旧版独立翻译缓存中的正文', async () => {
+    localData = {
+      ...localData,
+      translationCache: { old: { words: [], sentences: [], translatedText: '旧译文' } },
+    };
+
+    expect(await dispatch({ type: 'CLEAR_TRANSLATION_CACHE' })).toEqual({ success: true });
+    expect(localData.translationCache).toEqual({});
   });
 
   it('缓存读取、指标重置和清除执行真实缓存操作', async () => {

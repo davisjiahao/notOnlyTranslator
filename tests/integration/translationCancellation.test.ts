@@ -7,11 +7,22 @@ import { BatchTranslationService } from '@/background/batchTranslation';
 import { pendingRequestQueue } from '@/background/pendingRequestQueue';
 import type { Message, MessageResponse } from '@/shared/types';
 import { TransportError } from '@/shared/utils/translationErrors';
+import { logger } from '@/shared/utils/logger';
 
 vi.mock('@/background/storage', () => ({ StorageManager: { getUserProfile: vi.fn() } }));
 vi.mock('@/background/translation', () => ({ TranslationService: { translate: vi.fn() } }));
 vi.mock('@/background/batchTranslation', () => ({ BatchTranslationService: { translateBatch: vi.fn() } }));
-vi.mock('@/background/pendingRequestQueue', () => ({ pendingRequestQueue: { add: vi.fn(), complete: vi.fn() } }));
+// trackCleanup 复刻真实实现：前置写入完成后才调用 complete，且不阻塞取消响应。
+vi.mock('@/background/pendingRequestQueue', () => {
+  const complete = vi.fn(async () => undefined);
+  return { pendingRequestQueue: {
+    add: vi.fn(),
+    complete,
+    trackCleanup: vi.fn((prerequisite: Promise<void> | undefined, id: string) => {
+      void (prerequisite ?? Promise.resolve()).catch(() => undefined).then(() => { void complete(id); });
+    }),
+  } };
+});
 
 const sender = { tab: { id: 7 }, documentId: 'document-1' } as chrome.runtime.MessageSender;
 const request: Message = { type: 'TRANSLATE_TEXT', payload: { text: 'apple', mode: 'inline-only', context: '' } };
@@ -106,6 +117,34 @@ describe('内容脚本到翻译服务的取消链', () => {
     const response = await handleTranslationMessage(request, sender);
     expect(response.error).toContain(expected);
     expect(response.error).not.toContain('private');
+  });
+
+  it.each(['TRANSLATE_TEXT', 'BATCH_TRANSLATE_TEXT'] as const)('%s 输出耗尽返回固定提示，响应与日志不回显上游正文', async type => {
+    const privateText = 'SYNTHETIC-PRIVATE-PROVIDER-RESPONSE';
+    const error = new TransportError('output_limit', privateText, { retryable: false, detail: privateText });
+    const logs = (['debug', 'info', 'warn', 'error'] as const)
+      .map(level => vi.spyOn(logger, level).mockImplementation(() => undefined));
+    vi.mocked(TranslationService.translate).mockRejectedValue(error);
+    vi.mocked(BatchTranslationService.translateBatch).mockRejectedValue(error);
+    const message: Message = type === 'TRANSLATE_TEXT' ? request : {
+      type, payload: {
+        paragraphs: [{ id: 'p1', text: 'A reading paragraph.', elementPath: 'p' }],
+        mode: 'bilingual', pageUrl: 'https://example.test',
+      },
+    };
+
+    try {
+      const result = await handleTranslationMessage(message, sender);
+      expect(result).toEqual({
+        success: false,
+        error: '模型输出预算耗尽，未返回完整译文，请缩短文本或使用非思考模型',
+      });
+      const logged = JSON.stringify(logs.flatMap(log => log.mock.calls), (_key, value: unknown) =>
+        value instanceof Error ? { ...value, message: value.message } : value);
+      expect(logged).not.toContain(privateText);
+    } finally {
+      logs.forEach(log => log.mockRestore());
+    }
   });
 
   it.each([
