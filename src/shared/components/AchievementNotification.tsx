@@ -45,47 +45,34 @@ export function AchievementNotification({
       setItems(prev => {
         const firstNonExiting = prev.findIndex(i => !i.isExiting);
         if (firstNonExiting >= 0) {
-          const updated = [...prev];
-          updated[firstNonExiting] = { ...updated[firstNonExiting], isExiting: true };
-          return updated;
+          return prev.map((item, index) => index === firstNonExiting
+            ? { ...item, isExiting: true }
+            : item);
         }
         return prev;
       });
 
-      // 动画完成后真正移除
-      setTimeout(() => {
-        setItems(prev => {
-          const firstExiting = prev.findIndex(i => i.isExiting);
-          if (firstExiting >= 0) {
-            const achievement = prev[firstExiting].achievement;
-            onDismiss(achievement.id);
-            return prev.filter((_, i) => i !== firstExiting);
-          }
-          return prev;
-        });
-      }, 300);
     }, autoHideDelay);
 
     return () => clearTimeout(timer);
   }, [items, autoHideDelay, onDismiss]);
 
-  const handleDismiss = useCallback((index: number) => {
-    setItems(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], isExiting: true };
-      return updated;
-    });
+  // 按稳定身份完成退出动画；列表变化或卸载时清理旧计时器。
+  useEffect(() => {
+    const timers = items.filter(item => item.isExiting).map(({ achievement }) =>
+      setTimeout(() => {
+        setItems(prev => prev.filter(item => item.achievement.id !== achievement.id));
+        onDismiss(achievement.id);
+      }, 300)
+    );
+    return () => timers.forEach(timer => clearTimeout(timer));
+  }, [items, onDismiss]);
 
-    setTimeout(() => {
-      setItems(prev => {
-        const achievement = prev[index]?.achievement;
-        if (achievement) {
-          onDismiss(achievement.id);
-        }
-        return prev.filter((_, i) => i !== index);
-      });
-    }, 300);
-  }, [onDismiss]);
+  const handleDismiss = useCallback((achievementId: string) => {
+    setItems(prev => prev.map(item => item.achievement.id === achievementId
+      ? { ...item, isExiting: true }
+      : item));
+  }, []);
 
   if (items.length === 0) return null;
 
@@ -97,7 +84,7 @@ export function AchievementNotification({
           item={item}
           index={index}
           totalCount={items.length}
-          onDismiss={() => handleDismiss(index)}
+          onDismiss={() => handleDismiss(item.achievement.id)}
           onViewAll={onViewAll}
         />
       ))}

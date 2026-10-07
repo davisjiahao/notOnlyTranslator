@@ -28,8 +28,7 @@ export class UserLevelManager {
       updatedAt: Date.now(),
     };
 
-    await StorageManager.saveUserProfile(profile);
-    return profile;
+    return StorageManager.updateUserProfile(profile);
   }
 
   /**
@@ -40,21 +39,15 @@ export class UserLevelManager {
     isKnown: boolean,
     wordDifficulty: number
   ): Promise<UserProfile> {
-    const profile = await StorageManager.getUserProfile();
-
-    // Update vocabulary estimate using Bayesian update
-    const { newEstimate, newConfidence } = updateVocabularyEstimate(
-      profile.estimatedVocabulary,
-      wordDifficulty,
-      isKnown,
-      profile.levelConfidence
-    );
-
-    profile.estimatedVocabulary = newEstimate;
-    profile.levelConfidence = newConfidence;
-
-    await StorageManager.saveUserProfile(profile);
-    return profile;
+    return StorageManager.updateUserProfile((profile) => {
+      const { newEstimate, newConfidence } = updateVocabularyEstimate(
+        profile.estimatedVocabulary,
+        wordDifficulty,
+        isKnown,
+        profile.levelConfidence
+      );
+      return { estimatedVocabulary: newEstimate, levelConfidence: newConfidence };
+    });
   }
 
   /**
@@ -65,8 +58,6 @@ export class UserLevelManager {
     totalQuestions: number,
     questionDifficulties: number[]
   ): Promise<UserProfile> {
-    const profile = await StorageManager.getUserProfile();
-
     // Calculate weighted score based on question difficulties
     let weightedCorrect = 0;
     let totalWeight = 0;
@@ -85,14 +76,11 @@ export class UserLevelManager {
     // Map to vocabulary range (2000 - 15000)
     const estimatedVocabulary = Math.round(2000 + weightedAccuracy * 13000);
 
-    // Increase confidence after test
-    const newConfidence = Math.min(1, profile.levelConfidence + 0.2);
-
-    profile.estimatedVocabulary = estimatedVocabulary;
-    profile.levelConfidence = newConfidence;
-    profile.updatedAt = Date.now();
-
-    await StorageManager.saveUserProfile(profile);
+    const profile = await StorageManager.updateUserProfile((current) => ({
+      estimatedVocabulary,
+      levelConfidence: Math.min(1, current.levelConfidence + 0.2),
+      updatedAt: Date.now(),
+    }));
 
     // 同步到掌握度系统
     await MasteryManager.syncUserVocabulary();

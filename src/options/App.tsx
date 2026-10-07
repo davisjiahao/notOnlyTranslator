@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '@/shared/constants';
 import { getCEFRLevelByVocabulary } from '@/shared/constants/mastery';
 import { logger, useTheme } from '@/shared/utils';
 import { shouldShowWelcomeModal } from '@/shared/components/welcomeModalUtils';
+import { StorageManager } from '@/background/storage';
 
 // 核心组件 - 同步加载（首屏必需）
 import LevelSelector from './components/LevelSelector';
@@ -200,6 +201,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [apiConfigConflict, setApiConfigConflict] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // WCAG 2.1.1 / 2.4.3: Tab 列表 ref，用于键盘导航后恢复焦点
@@ -293,12 +295,12 @@ export default function App() {
 
     setIsSaving(true);
     try {
-      const newProfile = { ...profile, ...updates };
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_USER_PROFILE',
-        payload: newProfile,
+        payload: updates,
       });
-      setProfile(newProfile);
+      if (!response?.success || !response.data) throw new Error('档案保存失败');
+      setProfile(response.data);
       showSaveMessage('设置已保存');
     } catch (error) {
       logger.error('Failed to update profile:', error);
@@ -308,19 +310,39 @@ export default function App() {
     }
   };
 
-  const handleSettingsUpdate = async (updates: Partial<UserSettings>) => {
+  const handleSettingsUpdate = async (
+    updates: Partial<UserSettings> & { hybridTranslationPatch?: Partial<NonNullable<UserSettings['hybridTranslation']>> },
+    expectedHybridCredentialsRevision?: number,
+    expectedApiConfigsRevision?: number,
+  ) => {
+    const changesConfigs = Object.prototype.hasOwnProperty.call(updates, 'apiConfigs');
+    const hybridPatch = updates.hybridTranslationPatch;
+    const changesHybridCredentials = hybridPatch && (
+      Object.prototype.hasOwnProperty.call(hybridPatch, 'traditionalProvider') ||
+      Object.prototype.hasOwnProperty.call(hybridPatch, 'traditionalApiKey')
+    );
+    setSaveMessage(null);
     setIsSaving(true);
     try {
-      const newSettings = { ...settings, ...updates };
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
-        payload: newSettings,
+        payload: updates,
+        ...(changesConfigs ? { expectedApiConfigsRevision: expectedApiConfigsRevision ?? settings.apiConfigsRevision ?? 0 } : {}),
+        ...(expectedHybridCredentialsRevision !== undefined ? { expectedHybridCredentialsRevision } : {}),
       });
-      setSettings(newSettings);
+      if (!response?.success) throw new Error(response?.error || '设置保存失败');
+      const settingsRes = response.data ? response : await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      if (!settingsRes?.success || !settingsRes.data) throw new Error('读取最新设置失败');
+      setSettings(settingsRes.data);
       showSaveMessage('设置已保存');
     } catch (error) {
       logger.error('Failed to update settings:', error);
-      showSaveMessage('保存失败');
+      if (changesConfigs && error instanceof Error && error.message.includes('API 配置已变更')) {
+        setApiConfigConflict(true);
+      } else {
+        showSaveMessage('保存失败');
+      }
+      if (changesConfigs || changesHybridCredentials) throw error;
     } finally {
       setIsSaving(false);
     }
@@ -329,7 +351,7 @@ export default function App() {
   const handleApiKeyUpdate = async (key: string) => {
     setIsSaving(true);
     try {
-      await chrome.storage.sync.set({ apiKey: key });
+      await StorageManager.saveApiKey(key);
       setApiKey(key);
       showSaveMessage('API 密钥已保存');
     } catch (error) {
@@ -348,40 +370,44 @@ export default function App() {
     apiKey?: string;
     customApiUrl?: string;
     customModelName?: string;
+    expectedApiConfigsRevision?: number;
   }) => {
+    setSaveMessage(null);
     setIsSaving(true);
     try {
       const settingsUpdates: Partial<UserSettings> = {
-        apiConfigs: params.configs,
-        activeApiConfigId: params.activeId,
+        ...(params.configs !== settings.apiConfigs ? { apiConfigs: params.configs } : {}),
+        ...(params.activeId !== settings.activeApiConfigId ? { activeApiConfigId: params.activeId } : {}),
+        ...(params.provider !== undefined && params.provider !== settings.apiProvider ? { apiProvider: params.provider } : {}),
+        ...(params.customApiUrl !== undefined && params.customApiUrl !== settings.customApiUrl ? { customApiUrl: params.customApiUrl } : {}),
+        ...(params.customModelName !== undefined && params.customModelName !== settings.customModelName ? { customModelName: params.customModelName } : {}),
       };
 
-      if (params.provider !== undefined) {
-        settingsUpdates.apiProvider = params.provider;
-      }
-      if (params.customApiUrl !== undefined) {
-        settingsUpdates.customApiUrl = params.customApiUrl;
-      }
-      if (params.customModelName !== undefined) {
-        settingsUpdates.customModelName = params.customModelName;
-      }
-
-      const newSettings = { ...settings, ...settingsUpdates };
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
-        payload: newSettings,
+        payload: settingsUpdates,
+        ...(Object.prototype.hasOwnProperty.call(settingsUpdates, 'apiConfigs')
+          ? { expectedApiConfigsRevision: params.expectedApiConfigsRevision ?? settings.apiConfigsRevision ?? 0 } : {}),
       });
-      setSettings(newSettings);
+      if (!response?.success) throw new Error(response?.error || 'API 配置保存失败');
+      const settingsRes = response.data ? response : await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      if (!settingsRes?.success || !settingsRes.data) throw new Error('读取最新设置失败');
+      setSettings(settingsRes.data);
 
       if (params.apiKey !== undefined) {
-        await chrome.storage.sync.set({ apiKey: params.apiKey });
+        // 密钥已随显式配置保存，不再镜像到可能被旧请求误用的无归属字段。
         setApiKey(params.apiKey);
       }
 
       showSaveMessage('API 配置已保存');
     } catch (error) {
       logger.error('Failed to save API config:', error);
-      showSaveMessage('保存失败');
+      if (error instanceof Error && error.message.includes('API 配置已变更')) {
+        setApiConfigConflict(true);
+      } else {
+        showSaveMessage('保存失败');
+      }
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -428,6 +454,14 @@ export default function App() {
           className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in"
         >
           {saveMessage}
+        </div>
+      )}
+      {apiConfigConflict && (
+        <div role="alert" className="mx-auto mt-4 max-w-4xl rounded-lg bg-red-100 px-4 py-3 text-red-900 dark:bg-red-900 dark:text-white">
+          API 配置已在其他窗口中更改，本次修改未保存。重新加载会丢弃未保存内容。
+          <button type="button" onClick={() => window.location.reload()} className="ml-3 underline focus-visible:ring-2 focus-visible:ring-primary-500">
+            重新加载设置
+          </button>
         </div>
       )}
 
@@ -512,14 +546,15 @@ export default function App() {
                   customApiUrl={settings.customApiUrl}
                   customModelName={settings.customModelName}
                   apiConfigs={settings.apiConfigs || []}
+                  apiConfigsRevision={settings.apiConfigsRevision ?? 0}
                   activeApiConfigId={settings.activeApiConfigId}
                   onApiKeyUpdate={handleApiKeyUpdate}
                   onProviderUpdate={(provider) => handleSettingsUpdate({ apiProvider: provider })}
                   onCustomSettingsUpdate={(url, model) =>
                     handleSettingsUpdate({ customApiUrl: url, customModelName: model })
                   }
-                  onApiConfigsUpdate={(configs, activeId) =>
-                    handleSettingsUpdate({ apiConfigs: configs, activeApiConfigId: activeId })
+                  onApiConfigsUpdate={(configs, activeId, expectedRevision) =>
+                    handleSettingsUpdate({ apiConfigs: configs, activeApiConfigId: activeId }, undefined, expectedRevision)
                   }
                   onFullApiConfigUpdate={handleFullApiConfigUpdate}
                   isSaving={isSaving}

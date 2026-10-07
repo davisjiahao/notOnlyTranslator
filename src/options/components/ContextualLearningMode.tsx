@@ -72,7 +72,7 @@ export default function ContextualLearningMode() {
     const currentWord = words[currentIndex];
 
     try {
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'MARK_WORD_KNOWN',
         payload: {
           word: currentWord.word,
@@ -80,6 +80,9 @@ export default function ContextualLearningMode() {
           wordDifficulty: 6 - rating,
         },
       });
+      if (response?.success !== true) {
+        throw new Error(response?.error || '评分保存失败，请重试');
+      }
 
       // 更新统计
       setStats(prev => {
@@ -295,6 +298,16 @@ export default function ContextualLearningMode() {
             )}
           </div>
         </div>
+      )}
+
+      {mode === 'contextual' && !showAnswer && (
+        <button
+          type="button"
+          onClick={handleFlip}
+          className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        >
+          显示答案
+        </button>
       )}
 
       {/* 提示 */}

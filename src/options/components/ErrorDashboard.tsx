@@ -1,6 +1,6 @@
 // 错误追踪仪表板组件
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   ErrorEntry,
   ErrorStats,
@@ -43,7 +43,7 @@ const ErrorDetailModal: React.FC<{
   error: ErrorEntry | null;
   isOpen: boolean;
   onClose: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<boolean>;
 }> = ({ error, isOpen, onClose, onDelete }) => {
   if (!isOpen || !error) return null;
 
@@ -151,9 +151,9 @@ const ErrorDetailModal: React.FC<{
 
           <div className="mt-6 flex justify-end gap-3">
             <button
-              onClick={() => {
-                onDelete(error.id);
-                onClose();
+              onClick={async () => {
+                // 删除成功后才关闭弹窗，失败时保留现场供用户重试
+                if (await onDelete(error.id)) onClose();
               }}
               className="px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded"
             >
@@ -180,6 +180,9 @@ export const ErrorDashboard: React.FC = () => {
   const [selectedError, setSelectedError] = useState<ErrorEntry | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingClear, setPendingClear] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const errorsRequestId = useRef(0);
+  const statsRequestId = useRef(0);
 
   // 过滤状态
   const [filters, setFilters] = useState<{
@@ -194,20 +197,22 @@ export const ErrorDashboard: React.FC = () => {
 
   // 加载错误统计数据
   const loadStats = useCallback(async () => {
+    const requestId = ++statsRequestId.current;
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'GET_ERROR_STATS'
       });
-      if (response.success) {
-        setStats(response.data);
-      }
+      if (!response?.success) throw new Error('加载错误统计失败');
+      if (requestId === statsRequestId.current) setStats(response.data);
     } catch (error) {
       console.error('加载错误统计失败:', error);
+      if (requestId === statsRequestId.current) setLoadError('加载错误数据失败，请点击刷新重试');
     }
   }, []);
 
   // 加载错误列表
   const loadErrors = useCallback(async () => {
+    const requestId = ++errorsRequestId.current;
     try {
       const params: ErrorQueryParams = {
         limit: 100
@@ -218,13 +223,13 @@ export const ErrorDashboard: React.FC = () => {
 
       const response = await chrome.runtime.sendMessage({
         type: 'QUERY_ERRORS',
-        params
+        payload: { params }
       });
-      if (response.success) {
-        setErrors(response.data.errors);
-      }
+      if (!response?.success) throw new Error('加载错误列表失败');
+      if (requestId === errorsRequestId.current) setErrors(response.data.errors);
     } catch (error) {
       console.error('加载错误列表失败:', error);
+      if (requestId === errorsRequestId.current) setLoadError('加载错误数据失败，请点击刷新重试');
     }
   }, [filters]);
 
@@ -232,6 +237,7 @@ export const ErrorDashboard: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
+      setLoadError(null);
       await Promise.all([loadStats(), loadErrors()]);
       setLoading(false);
     };
@@ -258,14 +264,14 @@ export const ErrorDashboard: React.FC = () => {
       const response = await chrome.runtime.sendMessage({
         type: 'CLEAR_ALL_ERRORS'
       });
-      if (response.success) {
-        await loadStats();
-        await loadErrors();
-      }
+      if (!response?.success) throw new Error('清除错误失败');
+      await loadStats();
+      await loadErrors();
+      setPendingClear(false);
     } catch (error) {
       console.error('清除错误失败:', error);
-    } finally {
-      setPendingClear(false);
+      // 失败时保留确认框，便于用户重试
+      setLoadError('清除错误失败，请稍后重试');
     }
   };
 
@@ -273,19 +279,21 @@ export const ErrorDashboard: React.FC = () => {
     setPendingClear(false);
   };
 
-  // 删除单个错误
-  const handleDeleteError = async (id: string) => {
+  // 删除单个错误，返回是否删除成功
+  const handleDeleteError = async (id: string): Promise<boolean> => {
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'DELETE_ERROR',
-        id
+        payload: { id }
       });
-      if (response.success) {
-        await loadStats();
-        await loadErrors();
-      }
+      if (!response?.success) throw new Error('删除错误失败');
+      await loadStats();
+      await loadErrors();
+      return true;
     } catch (error) {
       console.error('删除错误失败:', error);
+      setLoadError('删除错误失败，请稍后重试');
+      return false;
     }
   };
 
@@ -294,7 +302,7 @@ export const ErrorDashboard: React.FC = () => {
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'MARK_ERRORS_AS_REPORTED',
-        ids
+        payload: { ids }
       });
       if (response.success) {
         await loadStats();
@@ -309,14 +317,15 @@ export const ErrorDashboard: React.FC = () => {
   const handleReportAll = async () => {
     try {
       const response = await chrome.runtime.sendMessage({
-        type: 'REPORT_ERRORS'
+        type: 'REPORT_ERRORS',
+        payload: {}
       });
-      if (response.success) {
-        await loadStats();
-        await loadErrors();
-      }
+      if (!response?.success) throw new Error('上报错误失败');
+      await loadStats();
+      await loadErrors();
     } catch (error) {
       console.error('上报错误失败:', error);
+      setLoadError('上报未完成，请稍后重试');
     }
   };
 
@@ -336,6 +345,7 @@ export const ErrorDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {loadError && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{loadError}</p>}
       {/* 统计概览 */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -439,6 +449,7 @@ export const ErrorDashboard: React.FC = () => {
         </button>
         <button
           onClick={() => {
+            setLoadError(null);
             loadStats();
             loadErrors();
           }}
@@ -507,7 +518,7 @@ export const ErrorDashboard: React.FC = () => {
           </h3>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {errors.length === 0 ? (
+          {errors.length === 0 && !loadError ? (
             <EmptyState
               icon="check"
               title="暂无错误记录"

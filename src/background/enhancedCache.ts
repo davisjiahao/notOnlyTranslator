@@ -12,7 +12,12 @@ import {
   LLM_CACHE_EXPIRE_TIME,
 } from '@/shared/constants';
 import { logger } from '@/shared/utils';
-import { generateCacheKey } from '@/shared/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { paragraphCacheScope, type ParagraphCacheScope } from './paragraphCacheScope';
+
+// 不申请 unlimitedStorage，避免扩展更新时权限重提示导致禁用；为其他本地数据预留空间。
+const PERSISTENCE_BYTE_BUDGET = 8 * 1024 * 1024;
 
 /**
  * 双向链表节点 - 用于O(1) LRU淘汰
@@ -47,15 +52,38 @@ export class EnhancedCacheManager {
 
   /** 是否已从存储加载 */
   private initialized: boolean = false;
+  private initializing: Promise<void> | null = null;
+  private cacheGeneration = 0;
+  private storageWrites: Promise<void> = Promise.resolve();
+  /** 会话累计计数，不依赖可能已满的存储来报告失败。 */
+  private persistenceFailures = 0;
+  private evictedEntries = 0;
 
-  /**
-   * 初始化缓存管理器，从存储加载缓存
-   */
+  private queueStorageWrite(write: () => Promise<void>): Promise<void> {
+    const task = this.storageWrites.then(write);
+    this.storageWrites = task.catch(() => undefined);
+    return task;
+  }
+
+  getGeneration(): number {
+    return this.cacheGeneration;
+  }
+
+  /** 初始化只执行一次，避免并发迁移重复清除新写入的条目。 */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+    if (!this.initializing) this.initializing = this.loadFromStorage();
+    return this.initializing;
+  }
 
+  private async loadFromStorage(): Promise<void> {
+    const generation = this.cacheGeneration;
     try {
       const data = await chrome.storage.local.get(PARAGRAPH_CACHE_KEY);
+      if (generation !== this.cacheGeneration) {
+        this.initialized = true;
+        return;
+      }
       const storage: EnhancedCacheStorage = data[PARAGRAPH_CACHE_KEY] || {
         paragraphCache: {},
         version: CACHE_VERSION,
@@ -73,7 +101,7 @@ export class EnhancedCacheManager {
       const now = Date.now();
       for (const [hash, entry] of Object.entries(storage.paragraphCache)) {
         // 跳过过期条目
-        if (now - entry.createdAt > DEFAULT_BATCH_CONFIG.cacheExpireTime) {
+        if (now - entry.createdAt > this.getCacheExpireTime(entry.source)) {
           continue;
         }
         this.memoryCache.set(hash, entry);
@@ -89,12 +117,10 @@ export class EnhancedCacheManager {
     }
   }
 
-  /**
-   * 生成文本内容的哈希值
-   * 使用共享工具函数 generateCacheKey
-   */
-  generateHash(text: string, mode: TranslationMode): string {
-    return generateCacheKey(text, mode);
+  /** 仅保存正文、模式和作用域的 SHA-256 摘要，不在键中暴露原文。 */
+  generateHash(text: string, mode: TranslationMode, scope?: ParagraphCacheScope): string {
+    const identity = JSON.stringify([mode, text, scope ? paragraphCacheScope(scope) : null]);
+    return `v3_${bytesToHex(sha256(utf8ToBytes(identity)))}`;
   }
 
   /**
@@ -127,7 +153,7 @@ export class EnhancedCacheManager {
     // 更新链表位置（O(1) LRU）
     this.moveToTail(textHash);
 
-    logger.info(`EnhancedCacheManager: 缓存命中 (${entry.source || 'unknown'}) ${textHash}`);
+    logger.info(`EnhancedCacheManager: 缓存命中 (${entry.source || 'unknown'})`);
     return { ...entry.result, cached: true, _source: entry.source };
   }
 
@@ -200,17 +226,20 @@ export class EnhancedCacheManager {
     textHash: string,
     result: TranslationResult,
     mode: TranslationMode,
-    pageUrl: string,
-    source?: 'deepl' | 'llm' | 'hybrid' | 'free_google'
+    _pageUrl: string,
+    source?: 'deepl' | 'llm' | 'hybrid' | 'free_google',
+    expectedGeneration = this.cacheGeneration
   ): Promise<void> {
     await this.initialize();
+    if (expectedGeneration !== this.cacheGeneration) return;
 
     const now = Date.now();
     const entry: ParagraphCacheEntry = {
       textHash,
       result,
       mode,
-      pageUrl,
+      // 页面 URL 对缓存身份无影响，不在持久化条目中保留。
+      pageUrl: 'background',
       createdAt: now,
       lastAccessedAt: now,
       source,
@@ -230,10 +259,7 @@ export class EnhancedCacheManager {
     this.persistToStorage();
 
     // 记录缓存来源统计
-    logger.info(`EnhancedCacheManager: 缓存已设置 (${source || 'unknown'})`, {
-      textHash,
-      expireTime: this.getCacheExpireTime(source),
-    });
+    logger.info(`EnhancedCacheManager: 缓存已设置 (${source || 'unknown'})`);
   }
 
   /**
@@ -247,18 +273,20 @@ export class EnhancedCacheManager {
       mode: TranslationMode;
       pageUrl: string;
     }>,
-    source?: 'deepl' | 'llm' | 'hybrid' | 'free_google'
+    source?: 'deepl' | 'llm' | 'hybrid' | 'free_google',
+    expectedGeneration = this.cacheGeneration
   ): Promise<void> {
     await this.initialize();
+    if (expectedGeneration !== this.cacheGeneration) return;
 
     const now = Date.now();
 
-    for (const { textHash, result, mode, pageUrl } of entries) {
+    for (const { textHash, result, mode } of entries) {
       const entry: ParagraphCacheEntry = {
         textHash,
         result,
         mode,
-        pageUrl,
+        pageUrl: 'background',
         createdAt: now,
         lastAccessedAt: now,
         source,
@@ -301,31 +329,10 @@ export class EnhancedCacheManager {
 
     if (evictCount <= 0 || !this.head) return;
 
-    // 从头节点（最旧）开始删除 - O(1) 操作
-    let node: CacheListNode | null = this.head;
     let deletedCount = 0;
-
-    while (node && deletedCount < evictCount) {
-      const key = node.key;
-      const nextNode: CacheListNode | null = node.next;
-
-      // 从 memoryCache 和 nodeMap 中删除
-      this.memoryCache.delete(key);
-      this.nodeMap.delete(key);
-
-      // 移动头指针
-      this.head = nextNode;
-      if (this.head) {
-        this.head.prev = null;
-      }
-
+    while (this.head && deletedCount < evictCount) {
+      this.evictOldest();
       deletedCount++;
-      node = nextNode;
-    }
-
-    // 如果删空了，重置尾指针
-    if (deletedCount === currentSize) {
-      this.tail = null;
     }
 
     logger.info(
@@ -349,30 +356,59 @@ export class EnhancedCacheManager {
   private persistTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private persistToStorage(): void {
-    // 清除之前的定时器
-    if (this.persistTimeout) {
-      clearTimeout(this.persistTimeout);
-    }
+    if (this.persistTimeout) clearTimeout(this.persistTimeout);
 
-    // 延迟1秒后持久化
-    this.persistTimeout = setTimeout(async () => {
-      try {
-        const paragraphCache: Record<string, ParagraphCacheEntry> = {};
-        for (const [key, entry] of this.memoryCache) {
-          paragraphCache[key] = entry;
-        }
-
-        const storage: EnhancedCacheStorage = {
-          paragraphCache,
-          version: CACHE_VERSION,
-        };
-
-        await chrome.storage.local.set({ [PARAGRAPH_CACHE_KEY]: storage });
-        logger.info(`EnhancedCacheManager: 持久化 ${this.memoryCache.size} 条缓存`);
-      } catch (error) {
-        logger.error('EnhancedCacheManager: 持久化失败', error);
-      }
+    // 延迟1秒后持久化；清空与写入串行，避免旧快照在清空后复活。
+    this.persistTimeout = setTimeout(() => {
+      this.persistTimeout = null;
+      const generation = this.cacheGeneration;
+      void this.queueStorageWrite(() => this.writeSnapshot(generation));
     }, 1000);
+  }
+
+  private evictOldest(): void {
+    if (!this.head) return;
+    const node = this.head;
+    this.removeNode(node);
+    this.memoryCache.delete(node.key);
+    this.nodeMap.delete(node.key);
+    this.evictedEntries += 1;
+  }
+
+  /** 每条仅序列化一次计算 UTF-8 字节，逐项减去尺寸，避免裁剪时反复全量序列化。 */
+  private prepareSnapshot(budget: number): { storage: EnhancedCacheStorage; bytes: number } {
+    const empty: EnhancedCacheStorage = { paragraphCache: {}, version: CACHE_VERSION };
+    const sizes = new Map(Array.from(this.memoryCache, ([key, entry]) => [
+      key, utf8ToBytes(JSON.stringify({ [key]: entry })).byteLength - 2,
+    ]));
+    let bytes = utf8ToBytes(JSON.stringify({ [PARAGRAPH_CACHE_KEY]: empty })).byteLength
+      + Array.from(sizes.values()).reduce((sum, size) => sum + size, 0)
+      + Math.max(0, sizes.size - 1);
+    while (bytes > budget && this.head) {
+      bytes -= sizes.get(this.head.key)! + (this.memoryCache.size > 1 ? 1 : 0);
+      this.evictOldest();
+    }
+    return { storage: { ...empty, paragraphCache: Object.fromEntries(this.memoryCache) }, bytes };
+  }
+
+  private async writeSnapshot(generation: number): Promise<void> {
+    let budget = PERSISTENCE_BYTE_BUDGET;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (generation !== this.cacheGeneration) return;
+      try {
+        const { storage, bytes } = this.prepareSnapshot(budget);
+        // ponytail: 配额拒绝时只减半重试一次；其他数据长期占满时需独立清理策略。
+        budget = Math.floor(bytes / 2);
+        await chrome.storage.local.set({ [PARAGRAPH_CACHE_KEY]: storage });
+        logger.info(`EnhancedCacheManager: 持久化 ${Object.keys(storage.paragraphCache).length} 条缓存`);
+        return;
+      } catch (error) {
+        this.persistenceFailures += 1;
+        logger.error('EnhancedCacheManager: 持久化失败', error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/quota/i.test(message)) return;
+      }
+    }
   }
 
   /**
@@ -418,6 +454,10 @@ export class EnhancedCacheManager {
    * 添加新节点到链表尾部
    */
   private addToTail(key: string): void {
+    if (this.nodeMap.has(key)) {
+      this.moveToTail(key);
+      return;
+    }
     const node: CacheListNode = {
       key,
       prev: null,
@@ -448,11 +488,16 @@ export class EnhancedCacheManager {
    * 清空所有缓存
    */
   async clearAll(): Promise<void> {
+    this.cacheGeneration += 1;
+    if (this.persistTimeout) {
+      clearTimeout(this.persistTimeout);
+      this.persistTimeout = null;
+    }
     this.memoryCache.clear();
     this.nodeMap.clear();
     this.head = null;
     this.tail = null;
-    await chrome.storage.local.remove(PARAGRAPH_CACHE_KEY);
+    await this.queueStorageWrite(() => chrome.storage.local.remove(PARAGRAPH_CACHE_KEY));
     logger.info('EnhancedCacheManager: 已清空所有缓存');
   }
 
@@ -491,80 +536,15 @@ export class EnhancedCacheManager {
     return cleanedCount;
   }
 
-  /**
-   * 字符 n-gram 相似度（Jaccard 系数）
-   * 用于模糊匹配近似文本，提升缓存命中率
-   */
-  private textSimilarity(a: string, b: string): number {
-    const n = 3; // trigram
-    if (a.length < n || b.length < n) return 0;
-
-    const getTrigrams = (s: string): Set<string> => {
-      const trigrams = new Set<string>();
-      for (let i = 0; i <= s.length - n; i++) {
-        trigrams.add(s.substring(i, i + n));
-      }
-      return trigrams;
-    };
-
-    const setA = getTrigrams(a.toLowerCase().trim());
-    const setB = getTrigrams(b.toLowerCase().trim());
-
-    let intersection = 0;
-    for (const t of setA) {
-      if (setB.has(t)) intersection++;
-    }
-
-    const union = setA.size + setB.size - intersection;
-    return union === 0 ? 0 : intersection / union;
-  }
-
-  /**
-   * 模糊匹配缓存查找
-   * 精确匹配未命中时，尝试找到相似度 > 85% 的近似缓存
-   * 对于近似文本返回翻译结果，并标记为模糊匹配
-   */
+  /** 无原文和位置映射时不得近似复用；保留精确匹配接口兼容旧调用方。 */
   async fuzzyGet(
     text: string,
     mode: TranslationMode,
-    threshold: number = 0.85
+    _threshold: number = 0.85,
+    scope?: ParagraphCacheScope
   ): Promise<{ result: TranslationResult; similarity: number } | null> {
-    await this.initialize();
-
-    const hash = this.generateHash(text, mode);
-    // 先尝试精确匹配
-    const exact = await this.get(hash);
-    if (exact) return { result: exact, similarity: 1.0 };
-
-    // 精确未命中，模糊匹配
-    const normalizedText = text.toLowerCase().trim();
-    let bestMatch: { result: TranslationResult; similarity: number } | null = null;
-
-    for (const [cachedHash, entry] of this.memoryCache) {
-      // 跳过过期条目
-      const now = Date.now();
-      if (now - entry.createdAt > this.getCacheExpireTime(entry.source)) continue;
-      // 只匹配相同模式
-      if (entry.mode !== mode) continue;
-
-      // 从缓存 entry 中获取原始文本（textHash 包含模式前缀）
-      const cachedText = cachedHash.replace(`${mode}_`, '');
-
-      const sim = this.textSimilarity(normalizedText, cachedText.toLowerCase().trim());
-      if (sim >= threshold && (!bestMatch || sim > bestMatch.similarity)) {
-        const result = { ...entry.result, cached: true, _fuzzyMatch: true };
-        bestMatch = { result, similarity: sim };
-        // 更新 LRU
-        entry.lastAccessedAt = now;
-        this.moveToTail(cachedHash);
-      }
-    }
-
-    if (bestMatch) {
-      logger.info(`EnhancedCacheManager: 模糊匹配命中 (相似度 ${(bestMatch.similarity * 100).toFixed(1)}%)`);
-    }
-
-    return bestMatch;
+    const exact = await this.get(this.generateHash(text, mode, scope));
+    return exact ? { result: exact, similarity: 1 } : null;
   }
 
   /**
@@ -575,6 +555,8 @@ export class EnhancedCacheManager {
     memoryUsage: number;
     oldestEntry: number | null;
     newestEntry: number | null;
+    persistenceFailures: number;
+    evictedEntries: number;
   }> {
     await this.initialize();
 
@@ -599,6 +581,8 @@ export class EnhancedCacheManager {
       memoryUsage,
       oldestEntry,
       newestEntry,
+      persistenceFailures: this.persistenceFailures,
+      evictedEntries: this.evictedEntries,
     };
   }
 }

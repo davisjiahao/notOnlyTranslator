@@ -1,6 +1,19 @@
 import type { UserSettings } from '@/shared/types';
 import { getProviderConfig, getChatEndpoint } from '@/shared/constants/providers';
-import { retryWithBackoff, ApiError, logger, type RetryOptions } from '@/shared/utils';
+import { ApiError, logger, type RetryOptions } from '@/shared/utils';
+import { TransportError } from '@/shared/utils/translationErrors';
+import { readTranslationStream, validateJsonTranslationCompletion, type TranslationStreamFormat } from './translationStream';
+import {
+  executeTransportRequest,
+  resolveResponseFormat,
+  boundedMaxTokens,
+  TRANSPORT_DEFAULTS,
+  type TranslationApiRequestOptions,
+  type TransportRetryConfig,
+} from '@/background/translationRequest';
+
+// 对外透出传输层请求选项类型，方便调用方引用
+export type { TranslationApiRequestOptions, ResponseFormatOption } from '@/background/translationRequest';
 
 /**
  * 默认重试配置
@@ -11,10 +24,9 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   backoffMultiplier: 2,
   maxDelay: 15000,
   onRetry: (error, attempt, delay) => {
-    logger.warn(
-      `TranslationApiService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`,
-      error.message
-    );
+    // 公共日志不输出错误详情（可能含 provider 回显内容），仅记录类别
+    const kind = error instanceof TransportError ? error.kind : 'unknown';
+    logger.warn(`TranslationApiService: API 调用失败，第 ${attempt} 次重试，等待 ${Math.round(delay)}ms`, { kind });
   },
 };
 
@@ -57,8 +69,13 @@ interface ProviderCallConfig {
   buildUrl: (endpoint: string, apiKey: string) => string;
   /** 构建请求 headers */
   buildHeaders: (apiKey: string) => Record<string, string>;
-  /** 构建请求 body */
-  buildBody: (model: string, messages: Array<{ role: string; content: string }>, useJsonFormat: boolean) => unknown;
+  /** 构建请求 body（options 提供超时/取消/响应格式/maxTokens 覆盖） */
+  buildBody: (
+    model: string,
+    messages: Array<{ role: string; content: string }>,
+    useJsonFormat: boolean,
+    options?: TranslationApiRequestOptions
+  ) => unknown;
   /** 响应提取器 */
   responseExtractor: ProviderResponseExtractor;
 }
@@ -259,6 +276,9 @@ interface BaiduTokenCache {
 /**
  * 统一 API 调用服务
  * 支持多种 API 格式：OpenAI、Anthropic、Gemini、DashScope、百度
+ *
+ * 传输能力（超时/取消/重试/脱敏）由 background/translationRequest 提供，
+ * 通过各方法末尾的可选 options 参数透传。
  */
 export class TranslationApiService {
   /** 百度 access token 缓存（类静态成员，避免模块级别可变状态） */
@@ -274,12 +294,12 @@ export class TranslationApiService {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       }),
-      buildBody: (model, messages, useJsonFormat) => ({
+      buildBody: (model, messages, useJsonFormat, options) => ({
         model,
         messages,
         temperature: 0.1,
-        max_tokens: 2000,
-        ...(useJsonFormat ? { response_format: { type: 'json_object' } } : {}),
+        max_tokens: boundedMaxTokens(options?.maxTokens, 2000),
+        ...(useJsonFormat ? { response_format: resolveResponseFormat(options, useJsonFormat) } : {}),
       }),
       responseExtractor: openAIExtractor,
     },
@@ -290,9 +310,9 @@ export class TranslationApiService {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       }),
-      buildBody: (model, messages) => ({
+      buildBody: (model, messages, _useJsonFormat, options) => ({
         model,
-        max_tokens: 2000,
+        max_tokens: boundedMaxTokens(options?.maxTokens, 2000),
         messages,
       }),
       responseExtractor: anthropicExtractor,
@@ -302,13 +322,16 @@ export class TranslationApiService {
       buildHeaders: () => ({
         'Content-Type': 'application/json',
       }),
-      buildBody: (_model, messages, useJsonFormat) => ({
+      buildBody: (_model, messages, useJsonFormat, options) => ({
         contents: messages.map(m => ({
           parts: [{ text: m.content }],
         })),
         generationConfig: {
           temperature: 0.1,
-          ...(useJsonFormat ? { responseMimeType: 'application/json' } : { maxOutputTokens: 100 }),
+          // 纯文本请求使用有界 maxOutputTokens（旧固定 100 会截断长句）
+          ...(useJsonFormat
+            ? { responseMimeType: 'application/json' }
+            : { maxOutputTokens: boundedMaxTokens(options?.maxTokens) }),
         },
       }),
       responseExtractor: geminiExtractor,
@@ -319,15 +342,57 @@ export class TranslationApiService {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ollama',
       }),
-      buildBody: (model, messages, useJsonFormat) => ({
+      buildBody: (model, messages, useJsonFormat, options) => ({
         model,
         messages,
         temperature: 0.1,
-        ...(useJsonFormat ? {} : { max_tokens: 100 }),
+        // OpenAI 兼容端点参数：关闭 Qwen3 等思考型模型的思考阶段以降低延迟；
+        // 非思考模型会忽略该参数。原生 think/format/keep_alive 属于 /api/chat，不能用于兼容端点。
+        reasoning_effort: 'none',
+        // OpenAI 兼容端点始终消费有界 max_tokens，JSON 请求同样受调用方预算约束。
+        max_tokens: boundedMaxTokens(options?.maxTokens),
+        ...(useJsonFormat ? { response_format: resolveResponseFormat(options, useJsonFormat) } : {}),
       }),
       responseExtractor: openAIExtractor,
     },
   };
+
+  /**
+   * 将共享 RetryOptions 适配为传输层重试配置
+   */
+  private static toTransportRetry(retryOptions: RetryOptions): TransportRetryConfig {
+    return {
+      maxRetries: retryOptions.maxRetries,
+      initialDelay: retryOptions.initialDelay,
+      backoffMultiplier: retryOptions.backoffMultiplier,
+      maxDelay: retryOptions.maxDelay,
+      onRetry: retryOptions.onRetry,
+      shouldRetry: retryOptions.shouldRetry,
+    };
+  }
+
+  /**
+   * 按引擎类型取默认超时：本地 Ollama 冷加载（模型未驻留时）放宽；
+   * Ollama 模型默认驻留约 5 分钟，并非每次请求都触发冷加载
+   */
+  private static resolveDefaultTimeoutMs(apiFormat: string): number {
+    return apiFormat === 'ollama' ? TRANSPORT_DEFAULTS.localLlmTimeoutMs : TRANSPORT_DEFAULTS.llmTimeoutMs;
+  }
+
+  /** 快速翻译保留旧的空串降级，但取消与超时必须交给上层停止调用链。 */
+  private static handleQuickTranslateFailure(error: unknown): string {
+    if (error instanceof TransportError && (error.kind === 'cancelled' || error.kind === 'timeout')) {
+      throw error;
+    }
+    return '';
+  }
+
+  /** 百度令牌读取缓存前也遵循调用方已取消的信号。 */
+  private static throwIfAborted(options?: TranslationApiRequestOptions): void {
+    if (options?.signal?.aborted) {
+      throw TransportError.cancelled();
+    }
+  }
 
   /**
    * 调用 LLM API 进行翻译（使用内置系统提示词）
@@ -337,11 +402,12 @@ export class TranslationApiService {
     prompt: string,
     apiKey: string,
     settings: UserSettings,
-    retryOptions: RetryOptions = DEFAULT_RETRY_OPTIONS
+    retryOptions: RetryOptions = DEFAULT_RETRY_OPTIONS,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
     // 构建默认的系统提示词
     const defaultSystemPrompt = 'You are an English learning assistant. Always respond with valid JSON.';
-    return this.callWithSystem(defaultSystemPrompt, prompt, apiKey, settings, retryOptions);
+    return this.callWithSystem(defaultSystemPrompt, prompt, apiKey, settings, retryOptions, options);
   }
 
   /**
@@ -353,7 +419,8 @@ export class TranslationApiService {
     userPrompt: string,
     apiKey: string,
     settings: UserSettings,
-    retryOptions: RetryOptions = DEFAULT_RETRY_OPTIONS
+    retryOptions: RetryOptions = DEFAULT_RETRY_OPTIONS,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
     const provider = settings.apiProvider;
     const config = getProviderConfig(provider);
@@ -365,33 +432,35 @@ export class TranslationApiService {
     logger.info(`TranslationApiService: 调用 ${config.name} API`, {
       provider,
       model,
-      endpoint: endpoint.substring(0, 50) + '...',
       apiFormat,
+      hasCustomApiUrl: Boolean(settings.customApiUrl),
     });
+
+    const defaultTimeoutMs = TranslationApiService.resolveDefaultTimeoutMs(apiFormat);
 
     // 百度格式特殊处理（需要 access token）
     if (apiFormat === 'baidu') {
-      return this.callBaiduFormatWithSystem(systemPrompt, userPrompt, apiKey, settings.secondaryApiKey || '', model, retryOptions);
+      return this.callBaiduFormatWithSystem(systemPrompt, userPrompt, apiKey, settings.secondaryApiKey || '', model, retryOptions, options);
     }
 
     // DeepL 格式特殊处理
     if (apiFormat === 'deepl') {
-      return this.callDeepLFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+      return this.callDeepLFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name, options);
     }
 
     // Google Translate 格式特殊处理（付费 Cloud API）
     if (apiFormat === 'google_translate') {
-      return this.callGoogleTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+      return this.callGoogleTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name, options);
     }
 
     // Google 翻译免费 Web 端点（无需 API Key）
     if (apiFormat === 'free_google_translate') {
-      return this.callFreeGoogleTranslateFormat(systemPrompt, userPrompt, endpoint, retryOptions);
+      return this.callFreeGoogleTranslateFormat(systemPrompt, userPrompt, endpoint, retryOptions, options);
     }
 
     // 有道翻译 格式特殊处理
     if (apiFormat === 'youdao_translate') {
-      return this.callYoudaoTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name);
+      return this.callYoudaoTranslateFormat(systemPrompt, userPrompt, apiKey, endpoint, retryOptions, config.name, options);
     }
 
     // DashScope 直接使用 OpenAI 兼容格式
@@ -415,7 +484,9 @@ export class TranslationApiService {
       messages,
       true,
       retryOptions,
-      config.name
+      config.name,
+      options,
+      defaultTimeoutMs
     );
   }
 
@@ -455,6 +526,7 @@ export class TranslationApiService {
 
   /**
    * 执行统一的 API 调用
+   * 传输层负责超时、取消、重试与错误脱敏；本方法只负责请求构建与响应提取
    */
   private static async executeApiCall(
     providerConfig: ProviderCallConfig,
@@ -464,40 +536,53 @@ export class TranslationApiService {
     messages: Array<{ role: string; content: string }>,
     useJsonFormat: boolean,
     retryOptions: RetryOptions,
-    providerName: string
+    providerName: string,
+    options?: TranslationApiRequestOptions,
+    defaultTimeoutMs: number = TRANSPORT_DEFAULTS.llmTimeoutMs
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const url = providerConfig.buildUrl(endpoint, apiKey);
-      const headers = providerConfig.buildHeaders(apiKey);
-      const body = providerConfig.buildBody(model, messages, useJsonFormat);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          providerConfig.responseExtractor.extractError?.(errorData) ||
-          `${providerName} API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
-      }
-
-      const data = await response.json();
-
+    const stream = useJsonFormat && Boolean(options?.onTextDelta);
+    const streamFormat: TranslationStreamFormat = providerConfig.responseExtractor === anthropicExtractor
+      ? 'anthropic' : providerConfig.responseExtractor === geminiExtractor ? 'gemini' : 'openai';
+    const requestEndpoint = stream && streamFormat === 'gemini'
+      ? endpoint.replace(':generateContent', ':streamGenerateContent') : endpoint;
+    const url = providerConfig.buildUrl(requestEndpoint, apiKey) + (stream && streamFormat === 'gemini' ? '&alt=sse' : '');
+    const headers = providerConfig.buildHeaders(apiKey);
+    const originalBody = providerConfig.buildBody(model, messages, useJsonFormat, options);
+    const body = stream && streamFormat !== 'gemini' ? { ...originalBody as object, stream: true } : originalBody;
+    // 服务端错误可能回显请求原文，把用户提示词加入脱敏列表
+    const lastUserContent = messages[messages.length - 1]?.content;
+    const onSuccess = (data: unknown): string => {
+      validateJsonTranslationCompletion(data, streamFormat);
       if (!providerConfig.responseExtractor.isValid(data)) {
-        throw new ApiError(`${providerName} API 返回格式无效`, undefined, true);
+        throw TransportError.unavailable(`${providerName} API 返回格式无效`);
       }
-
       const content = providerConfig.responseExtractor.extractContent(data);
-      if (!content) {
-        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
+      if (typeof content !== 'string' || !content.trim()) {
+        throw TransportError.unavailable(`${providerName} API 返回空响应`);
       }
-
       return content;
-    }, retryOptions);
+    };
+
+    return executeTransportRequest(
+      url,
+      { method: 'POST', headers, body: JSON.stringify(body) },
+      {
+        timeoutMs: options?.timeoutMs ?? defaultTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey],
+        redactTexts: lastUserContent ? [lastUserContent] : undefined,
+        retry: TranslationApiService.toTransportRetry(retryOptions),
+        extractErrorMessage: providerConfig.responseExtractor.extractError,
+        onAttemptStart: stream ? options?.onStreamStart : undefined,
+        readResponse: stream ? async (response, signal) => {
+          if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
+            return onSuccess(await response.json());
+          }
+          return readTranslationStream(response, signal, streamFormat, options!.onTextDelta!);
+        } : undefined,
+        onSuccess,
+      }
+    );
   }
 
   /**
@@ -510,44 +595,46 @@ export class TranslationApiService {
     apiKey: string,
     endpoint: string,
     retryOptions: RetryOptions,
-    providerName: string
+    providerName: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      // DeepL 使用 POST 请求，格式为 x-www-form-urlencoded
-      const params = new URLSearchParams();
-      params.append('text', userPrompt);
-      params.append('target_lang', 'ZH');
-      params.append('source_lang', 'EN');
+    // DeepL 使用 POST 请求，格式为 x-www-form-urlencoded
+    const params = new URLSearchParams();
+    params.append('text', userPrompt);
+    params.append('target_lang', 'ZH');
+    params.append('source_lang', 'EN');
 
-      const response = await fetch(endpoint, {
+    return executeTransportRequest(
+      endpoint,
+      {
         method: 'POST',
         headers: {
           'Authorization': `DeepL-Auth-Key ${apiKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params.toString(),
-      });
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey],
+        redactTexts: [userPrompt],
+        retry: TranslationApiService.toTransportRetry(retryOptions),
+        extractErrorMessage: deeplExtractor.extractError,
+        onSuccess: (data) => {
+          if (!deeplExtractor.isValid(data)) {
+            throw TransportError.unavailable(`${providerName} API 返回格式无效`);
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = deeplExtractor.extractError?.(errorData) ||
-          `${providerName} API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+          const content = deeplExtractor.extractContent(data);
+          if (!content) {
+            throw TransportError.unavailable(`${providerName} API 返回空响应`);
+          }
+
+          return content;
+        },
       }
-
-      const data = await response.json();
-
-      if (!deeplExtractor.isValid(data)) {
-        throw new ApiError(`${providerName} API 返回格式无效`, undefined, true);
-      }
-
-      const content = deeplExtractor.extractContent(data);
-      if (!content) {
-        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
+    );
   }
 
   /**
@@ -560,14 +647,16 @@ export class TranslationApiService {
     apiKey: string,
     endpoint: string,
     retryOptions: RetryOptions,
-    providerName: string
+    providerName: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      // Google Translate API 需要在 URL 中传递 key
-      const url = new URL(endpoint);
-      url.searchParams.append('key', apiKey);
+    // Google Translate API 需要在 URL 中传递 key
+    const url = new URL(endpoint);
+    url.searchParams.append('key', apiKey);
 
-      const response = await fetch(url.toString(), {
+    return executeTransportRequest(
+      url.toString(),
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -578,28 +667,28 @@ export class TranslationApiService {
           target: 'zh',
           format: 'text',
         }),
-      });
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey],
+        redactTexts: [userPrompt],
+        retry: TranslationApiService.toTransportRetry(retryOptions),
+        extractErrorMessage: googleTranslateExtractor.extractError,
+        onSuccess: (data) => {
+          if (!googleTranslateExtractor.isValid(data)) {
+            throw TransportError.unavailable(`${providerName} API 返回格式无效`);
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = googleTranslateExtractor.extractError?.(errorData) ||
-          `${providerName} API 请求失败 (${response.status})`;
-        throw new ApiError(errorMessage, response.status, response.status >= 500 || response.status === 429);
+          const content = googleTranslateExtractor.extractContent(data);
+          if (!content) {
+            throw TransportError.unavailable(`${providerName} API 返回空响应`);
+          }
+
+          return content;
+        },
       }
-
-      const data = await response.json();
-
-      if (!googleTranslateExtractor.isValid(data)) {
-        throw new ApiError(`${providerName} API 返回格式无效`, undefined, true);
-      }
-
-      const content = googleTranslateExtractor.extractContent(data);
-      if (!content) {
-        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
+    );
   }
 
   /**
@@ -610,49 +699,47 @@ export class TranslationApiService {
     _systemPrompt: string,
     userPrompt: string,
     endpoint: string,
-    retryOptions: RetryOptions
+    retryOptions: RetryOptions,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const url = new URL(endpoint);
-      url.searchParams.append('client', 'gtx');
-      url.searchParams.append('sl', 'en');
-      url.searchParams.append('tl', 'zh-CN');
-      url.searchParams.append('dt', 't');
-      url.searchParams.append('q', userPrompt);
+    const url = new URL(endpoint);
+    url.searchParams.append('client', 'gtx');
+    url.searchParams.append('sl', 'en');
+    url.searchParams.append('tl', 'zh-CN');
+    url.searchParams.append('dt', 't');
+    url.searchParams.append('q', userPrompt);
 
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+    return executeTransportRequest(
+      url.toString(),
+      { method: 'GET' },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        redactTexts: [userPrompt],
+        retry: TranslationApiService.toTransportRetry(retryOptions),
+        onSuccess: (data) => {
+          // 响应格式: [[[["译文","原文",null,null,3]],null,"en",...]
+          if (!Array.isArray(data) || !Array.isArray(data[0])) {
+            throw TransportError.unavailable('Google 翻译免费端点返回格式无效');
+          }
+
+          // 从嵌套数组中提取翻译结果
+          const sentences: string[] = [];
+          for (const sentenceGroup of data[0]) {
+            if (Array.isArray(sentenceGroup) && typeof sentenceGroup[0] === 'string') {
+              sentences.push(sentenceGroup[0]);
+            }
+          }
+
+          const content = sentences.join('');
+          if (!content) {
+            throw TransportError.unavailable('Google 翻译免费端点返回空响应');
+          }
+
+          return content;
         },
-      });
-
-      if (!response.ok) {
-        throw new ApiError(`Google 翻译免费端点请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
       }
-
-      const data = await response.json();
-
-      // 响应格式: [[[["译文","原文",null,null,3]],null,"en",null,null,[["en"],[0],[12]],null,null,null,null,[0],null,null,0]
-      if (!Array.isArray(data) || !Array.isArray(data[0])) {
-        throw new ApiError('Google 翻译免费端点返回格式无效', undefined, true);
-      }
-
-      // 从嵌套数组中提取翻译结果
-      const sentences: string[] = [];
-      for (const sentenceGroup of data[0]) {
-        if (Array.isArray(sentenceGroup) && sentenceGroup[0] && sentenceGroup[0][0]) {
-          sentences.push(sentenceGroup[0][0]);
-        }
-      }
-
-      const content = sentences.join('');
-      if (!content) {
-        throw new ApiError('Google 翻译免费端点返回空响应', undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
+    );
   }
 
   /**
@@ -665,57 +752,61 @@ export class TranslationApiService {
     apiKey: string,
     endpoint: string,
     retryOptions: RetryOptions,
-    providerName: string
+    providerName: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      // 有道API使用 appKey + appSecret 签名机制
-      // 注意：settings中存储的 apiKey 格式为 "appKey:appSecret"
-      const [appKey, appSecret] = apiKey.split(':');
+    // 有道API使用 appKey + appSecret 签名机制
+    // 注意：settings中存储的 apiKey 格式为 "appKey:appSecret"
+    const [appKey, appSecret] = apiKey.split(':');
 
-      if (!appKey || !appSecret) {
-        throw new ApiError('有道翻译需要 appKey:appSecret 格式的API密钥', undefined, false);
-      }
+    if (!appKey || !appSecret) {
+      throw new ApiError('有道翻译需要 appKey:appSecret 格式的API密钥', undefined, false);
+    }
 
-      const salt = Date.now().toString();
-      const curtime = Math.round(Date.now() / 1000).toString();
-      const sign = await this.generateYoudaoSign(appKey, appSecret, userPrompt, salt, curtime);
+    const salt = Date.now().toString();
+    const curtime = Math.round(Date.now() / 1000).toString();
+    const sign = await this.generateYoudaoSign(appKey, appSecret, userPrompt, salt, curtime);
 
-      const params = new URLSearchParams();
-      params.append('q', userPrompt);
-      params.append('from', 'en');
-      params.append('to', 'zh-CHS');
-      params.append('appKey', appKey);
-      params.append('salt', salt);
-      params.append('sign', sign);
-      params.append('signType', 'v3');
-      params.append('curtime', curtime);
+    const params = new URLSearchParams();
+    params.append('q', userPrompt);
+    params.append('from', 'en');
+    params.append('to', 'zh-CHS');
+    params.append('appKey', appKey);
+    params.append('salt', salt);
+    params.append('sign', sign);
+    params.append('signType', 'v3');
+    params.append('curtime', curtime);
 
-      const response = await fetch(endpoint, {
+    return executeTransportRequest(
+      endpoint,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params.toString(),
-      });
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        secrets: [appSecret],
+        redactTexts: [userPrompt],
+        retry: TranslationApiService.toTransportRetry(retryOptions),
+        onSuccess: (data) => {
+          if (!youdaoExtractor.isValid(data)) {
+            const errorMsg = youdaoExtractor.extractError?.(data);
+            throw TransportError.unavailable(errorMsg || `${providerName} API 返回格式无效`);
+          }
 
-      if (!response.ok) {
-        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+          const content = youdaoExtractor.extractContent(data);
+          if (!content) {
+            throw TransportError.unavailable(`${providerName} API 返回空响应`);
+          }
+
+          return content;
+        },
       }
-
-      const data = await response.json();
-
-      if (!youdaoExtractor.isValid(data)) {
-        const errorMsg = youdaoExtractor.extractError?.(data);
-        throw new ApiError(errorMsg || `${providerName} API 返回格式无效`, undefined, true);
-      }
-
-      const content = youdaoExtractor.extractContent(data);
-      if (!content) {
-        throw new ApiError(`${providerName} API 返回空响应`, undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
+    );
   }
 
   /**
@@ -728,20 +819,22 @@ export class TranslationApiService {
     apiKey: string,
     secretKey: string,
     model: string,
-    retryOptions: RetryOptions
+    retryOptions: RetryOptions,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
     if (!secretKey) {
       throw new Error('百度文心需要 Secret Key');
     }
 
-    const accessToken = await this.getBaiduAccessToken(apiKey, secretKey);
+    const accessToken = await this.getBaiduAccessToken(apiKey, secretKey, options);
     const chatUrl = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
 
     // 百度格式：将系统提示词与用户提示词合并
     const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
-    return retryWithBackoff(async () => {
-      const response = await fetch(chatUrl, {
+    return executeTransportRequest(
+      chatUrl,
+      {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -753,69 +846,82 @@ export class TranslationApiService {
           ],
           temperature: 0.1,
         }),
-      });
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.llmTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey, secretKey, accessToken],
+        redactTexts: [combinedPrompt],
+        retry: TranslationApiService.toTransportRetry(retryOptions),
+        extractErrorMessage: (data) => (data as BaiduResponse).error_msg,
+        onSuccess: (data) => {
+          const d = data as BaiduResponse;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMsg = (errorData as BaiduResponse).error_msg;
-        throw new ApiError(errorMsg || `百度 API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+          // 检查百度 API 错误
+          if (d.error_code) {
+            // token 过期，清除缓存后重试
+            if (d.error_code === 110 || d.error_code === 111) {
+              TranslationApiService.baiduTokenCache = null;
+            }
+            // message 由传输层重建为固定 public 文案；error_code 与 error_msg 原文降级为 detail，由传输层统一脱敏
+            throw new TransportError('unavailable', `百度 API 错误 (code ${d.error_code})`, {
+              detail: `error_code ${d.error_code}: ${d.error_msg}`,
+            });
+          }
+
+          if (!d.result) {
+            throw TransportError.unavailable('百度 API 返回空响应');
+          }
+
+          return d.result;
+        },
       }
-
-      const data = await response.json() as BaiduResponse;
-
-      // 检查百度 API 错误
-      if (data.error_code) {
-        // token 过期，清除缓存后重试
-        if (data.error_code === 110 || data.error_code === 111) {
-          TranslationApiService.baiduTokenCache = null;
-        }
-        throw new ApiError(data.error_msg || `百度 API 错误 (${data.error_code})`, undefined, true);
-      }
-
-      const content = data.result;
-      if (!content) {
-        throw new ApiError('百度 API 返回空响应', undefined, true);
-      }
-
-      return content;
-    }, retryOptions);
+    );
   }
 
   /**
    * 获取百度 access token（带缓存）
    */
-  private static async getBaiduAccessToken(apiKey: string, secretKey: string): Promise<string> {
+  private static async getBaiduAccessToken(
+    apiKey: string,
+    secretKey: string,
+    options?: TranslationApiRequestOptions
+  ): Promise<string> {
+    TranslationApiService.throwIfAborted(options);
+
     // 检查缓存是否有效（提前 5 分钟过期）
     if (TranslationApiService.baiduTokenCache && TranslationApiService.baiduTokenCache.expiresAt > Date.now() + 5 * 60 * 1000) {
       return TranslationApiService.baiduTokenCache.token;
     }
 
     const tokenUrl = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${apiKey}&client_secret=${secretKey}`;
+    const requestedTimeoutMs = options?.timeoutMs;
+    const timeoutMs = Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs && requestedTimeoutMs > 0
+      ? Math.min(requestedTimeoutMs, TRANSPORT_DEFAULTS.legacyEngineTimeoutMs)
+      : TRANSPORT_DEFAULTS.legacyEngineTimeoutMs;
 
-    const response = await fetch(tokenUrl, { method: 'POST' });
+    return executeTransportRequest(
+      tokenUrl,
+      { method: 'POST' },
+      {
+        timeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey, secretKey],
+        onSuccess: (data) => {
+          const tokenData = data as BaiduTokenResponse;
+          if (!tokenData?.access_token) {
+            throw TransportError.unavailable('获取百度 access token 失败');
+          }
 
-    if (!response.ok) {
-      throw new Error('获取百度 access token 失败');
-    }
+          TranslationApiService.baiduTokenCache = {
+            token: tokenData.access_token,
+            expiresAt: Date.now() + (tokenData.expires_in || 2592000) * 1000,
+          };
 
-    const data = await response.json();
-
-    if (!data || typeof data !== 'object' || !('access_token' in data)) {
-      throw new Error('获取百度 access token 失败：响应格式无效');
-    }
-
-    const tokenData = data as BaiduTokenResponse;
-    if (!tokenData.access_token) {
-      throw new Error(tokenData.error || '获取百度 access token 失败');
-    }
-
-    // 缓存 token
-    TranslationApiService.baiduTokenCache = {
-      token: tokenData.access_token,
-      expiresAt: Date.now() + (tokenData.expires_in || 2592000) * 1000,
-    };
-
-    return tokenData.access_token;
+          return tokenData.access_token;
+        },
+      }
+    );
   }
 
   /**
@@ -824,7 +930,8 @@ export class TranslationApiService {
   static async quickTranslate(
     text: string,
     apiKey: string,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
     const provider = settings.apiProvider;
     const config = getProviderConfig(provider);
@@ -834,29 +941,29 @@ export class TranslationApiService {
 
     // DeepL 快速翻译
     if (apiFormat === 'deepl') {
-      return this.quickTranslateDeepL(text, apiKey, endpoint, config.name);
+      return this.quickTranslateDeepL(text, apiKey, endpoint, config.name, options);
     }
 
     // Google Translate 快速翻译
     if (apiFormat === 'google_translate') {
-      return this.quickTranslateGoogle(text, apiKey, endpoint, config.name);
+      return this.quickTranslateGoogle(text, apiKey, endpoint, config.name, options);
     }
 
     // Google 翻译免费端点 快速翻译
     if (apiFormat === 'free_google_translate') {
-      return this.quickTranslateFreeGoogle(text, endpoint);
+      return this.quickTranslateFreeGoogle(text, endpoint, options);
     }
 
     // 有道翻译 快速翻译
     if (apiFormat === 'youdao_translate') {
-      return this.quickTranslateYoudao(text, apiKey, endpoint, config.name);
+      return this.quickTranslateYoudao(text, apiKey, endpoint, config.name, options);
     }
 
     const prompt = `Translate the following English word or phrase to Chinese. Only respond with the translation, nothing else.\n\n${text}`;
 
     // 百度格式特殊处理
     if (apiFormat === 'baidu') {
-      return this.quickTranslateBaidu(prompt, apiKey, settings.secondaryApiKey || '', model);
+      return this.quickTranslateBaidu(prompt, apiKey, settings.secondaryApiKey || '', model, options);
     }
 
     // DashScope 使用 OpenAI 兼容格式
@@ -878,8 +985,10 @@ export class TranslationApiService {
       messages,
       false, // 不使用 JSON 格式
       QUICK_RETRY_OPTIONS,
-      config.name
-    ).catch(() => ''); // 快速翻译失败时返回空字符串
+      config.name,
+      options,
+      TranslationApiService.resolveDefaultTimeoutMs(apiFormat)
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error)); // 快速翻译失败时返回空字符串
   }
 
   /**
@@ -890,7 +999,8 @@ export class TranslationApiService {
     systemPrompt: string,
     userPrompt: string,
     apiKey: string,
-    settings: UserSettings
+    settings: UserSettings,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
     const provider = settings.apiProvider;
     const config = getProviderConfig(provider);
@@ -904,7 +1014,8 @@ export class TranslationApiService {
         `${systemPrompt}\n\n${userPrompt}`,
         apiKey,
         settings.secondaryApiKey || '',
-        model
+        model,
+        options
       );
     }
 
@@ -929,8 +1040,10 @@ export class TranslationApiService {
       messages,
       false, // 快速翻译不使用 JSON 格式
       QUICK_RETRY_OPTIONS,
-      config.name
-    ).catch(() => ''); // 快速翻译失败时返回空字符串
+      config.name,
+      options,
+      TranslationApiService.resolveDefaultTimeoutMs(apiFormat)
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error)); // 快速翻译失败时返回空字符串
   }
 
   /**
@@ -940,30 +1053,33 @@ export class TranslationApiService {
     text: string,
     apiKey: string,
     endpoint: string,
-    providerName: string
+    _providerName: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const params = new URLSearchParams();
-      params.append('text', text);
-      params.append('target_lang', 'ZH');
-      params.append('source_lang', 'EN');
+    const params = new URLSearchParams();
+    params.append('text', text);
+    params.append('target_lang', 'ZH');
+    params.append('source_lang', 'EN');
 
-      const response = await fetch(endpoint, {
+    return executeTransportRequest(
+      endpoint,
+      {
         method: 'POST',
         headers: {
           'Authorization': `DeepL-Auth-Key ${apiKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params.toString(),
-      });
-
-      if (!response.ok) {
-        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey],
+        redactTexts: [text],
+        retry: TranslationApiService.toTransportRetry(QUICK_RETRY_OPTIONS),
+        onSuccess: (data) => deeplExtractor.extractContent(data) || '',
       }
-
-      const data = await response.json() as DeepLResponse;
-      return data.translations?.[0]?.text || '';
-    }, QUICK_RETRY_OPTIONS).catch(() => '');
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error));
   }
 
   /**
@@ -973,13 +1089,15 @@ export class TranslationApiService {
     text: string,
     apiKey: string,
     endpoint: string,
-    providerName: string
+    _providerName: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const url = new URL(endpoint);
-      url.searchParams.append('key', apiKey);
+    const url = new URL(endpoint);
+    url.searchParams.append('key', apiKey);
 
-      const response = await fetch(url.toString(), {
+    return executeTransportRequest(
+      url.toString(),
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -990,15 +1108,16 @@ export class TranslationApiService {
           target: 'zh',
           format: 'text',
         }),
-      });
-
-      if (!response.ok) {
-        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey],
+        redactTexts: [text],
+        retry: TranslationApiService.toTransportRetry(QUICK_RETRY_OPTIONS),
+        onSuccess: (data) => googleTranslateExtractor.extractContent(data) || '',
       }
-
-      const data = await response.json() as GoogleTranslateResponse;
-      return data.data?.translations?.[0]?.translatedText || '';
-    }, QUICK_RETRY_OPTIONS).catch(() => '');
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error));
   }
 
   /**
@@ -1006,39 +1125,41 @@ export class TranslationApiService {
    */
   private static async quickTranslateFreeGoogle(
     text: string,
-    endpoint: string
+    endpoint: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      const url = new URL(endpoint);
-      url.searchParams.append('client', 'gtx');
-      url.searchParams.append('sl', 'en');
-      url.searchParams.append('tl', 'zh-CN');
-      url.searchParams.append('dt', 't');
-      url.searchParams.append('q', text);
+    const url = new URL(endpoint);
+    url.searchParams.append('client', 'gtx');
+    url.searchParams.append('sl', 'en');
+    url.searchParams.append('tl', 'zh-CN');
+    url.searchParams.append('dt', 't');
+    url.searchParams.append('q', text);
 
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-      });
+    return executeTransportRequest(
+      url.toString(),
+      { method: 'GET' },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        redactTexts: [text],
+        retry: TranslationApiService.toTransportRetry(QUICK_RETRY_OPTIONS),
+        onSuccess: (data) => {
+          if (!Array.isArray(data) || !Array.isArray(data[0])) {
+            // 快速翻译路径容错：格式无效直接返回空串
+            return '';
+          }
 
-      if (!response.ok) {
-        return '';
+          const sentences: string[] = [];
+          for (const sentenceGroup of data[0]) {
+            if (Array.isArray(sentenceGroup) && typeof sentenceGroup[0] === 'string') {
+              sentences.push(sentenceGroup[0]);
+            }
+          }
+
+          return sentences.join('');
+        },
       }
-
-      const data = await response.json();
-
-      if (!Array.isArray(data) || !Array.isArray(data[0])) {
-        return '';
-      }
-
-      const sentences: string[] = [];
-      for (const sentenceGroup of data[0]) {
-        if (Array.isArray(sentenceGroup) && sentenceGroup[0] && sentenceGroup[0][0]) {
-          sentences.push(sentenceGroup[0][0]);
-        }
-      }
-
-      return sentences.join('');
-    }, QUICK_RETRY_OPTIONS).catch(() => '');
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error));
   }
 
   /**
@@ -1048,27 +1169,30 @@ export class TranslationApiService {
     prompt: string,
     apiKey: string,
     secretKey: string,
-    model: string
+    model: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    const accessToken = await this.getBaiduAccessToken(apiKey, secretKey);
+    const accessToken = await this.getBaiduAccessToken(apiKey, secretKey, options);
     const chatUrl = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
 
-    return retryWithBackoff(async () => {
-      const response = await fetch(chatUrl, {
+    return executeTransportRequest(
+      chatUrl,
+      {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: prompt }],
         }),
-      });
-
-      if (!response.ok) {
-        throw new ApiError('翻译请求失败', response.status, response.status >= 500 || response.status === 429);
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.llmTimeoutMs,
+        signal: options?.signal,
+        secrets: [apiKey, secretKey, accessToken],
+        redactTexts: [prompt],
+        retry: TranslationApiService.toTransportRetry(QUICK_RETRY_OPTIONS),
+        onSuccess: (data) => (data as BaiduResponse).result || '',
       }
-
-      const data = await response.json() as BaiduResponse;
-      return data.result || '';
-    }, QUICK_RETRY_OPTIONS).catch(() => '');
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error));
   }
 
   /**
@@ -1079,51 +1203,58 @@ export class TranslationApiService {
     text: string,
     appKey: string,
     endpoint: string,
-    providerName: string
+    _providerName: string,
+    options?: TranslationApiRequestOptions
   ): Promise<string> {
-    return retryWithBackoff(async () => {
-      // 有道API使用 appKey + appSecret 签名机制
-      // 注意：settings中存储的 apiKey 格式为 "appKey:appSecret"
-      const [actualAppKey, appSecret] = appKey.split(':');
+    // 有道API使用 appKey + appSecret 签名机制
+    // 注意：settings中存储的 apiKey 格式为 "appKey:appSecret"
+    const [actualAppKey, appSecret] = appKey.split(':');
 
-      if (!actualAppKey || !appSecret) {
-        throw new ApiError('有道翻译需要 appKey:appSecret 格式的API密钥', undefined, false);
-      }
+    if (!actualAppKey || !appSecret) {
+      throw new ApiError('有道翻译需要 appKey:appSecret 格式的API密钥', undefined, false);
+    }
 
-      const salt = Date.now().toString();
-      const curtime = Math.round(Date.now() / 1000).toString();
-      const sign = await this.generateYoudaoSign(actualAppKey, appSecret, text, salt, curtime);
+    const salt = Date.now().toString();
+    const curtime = Math.round(Date.now() / 1000).toString();
+    const sign = await this.generateYoudaoSign(actualAppKey, appSecret, text, salt, curtime);
 
-      const params = new URLSearchParams();
-      params.append('q', text);
-      params.append('from', 'en');
-      params.append('to', 'zh-CHS');
-      params.append('appKey', actualAppKey);
-      params.append('salt', salt);
-      params.append('sign', sign);
-      params.append('signType', 'v3');
-      params.append('curtime', curtime);
+    const params = new URLSearchParams();
+    params.append('q', text);
+    params.append('from', 'en');
+    params.append('to', 'zh-CHS');
+    params.append('appKey', actualAppKey);
+    params.append('salt', salt);
+    params.append('sign', sign);
+    params.append('signType', 'v3');
+    params.append('curtime', curtime);
 
-      const response = await fetch(endpoint, {
+    return executeTransportRequest(
+      endpoint,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params.toString(),
-      });
+      },
+      {
+        timeoutMs: options?.timeoutMs ?? TRANSPORT_DEFAULTS.legacyEngineTimeoutMs,
+        signal: options?.signal,
+        secrets: [appSecret],
+        redactTexts: [text],
+        retry: TranslationApiService.toTransportRetry(QUICK_RETRY_OPTIONS),
+        onSuccess: (data) => {
+          const d = data as YoudaoResponse;
 
-      if (!response.ok) {
-        throw new ApiError(`${providerName} API 请求失败 (${response.status})`, response.status, response.status >= 500 || response.status === 429);
+          if (d.errorCode && d.errorCode !== '0') {
+            // 业务错误码不自动重试
+            throw new TransportError('unavailable', `有道翻译错误: ${d.errorCode}`, { retryable: false });
+          }
+
+          return d.translation?.[0] || '';
+        },
       }
-
-      const data = await response.json() as YoudaoResponse;
-
-      if (data.errorCode && data.errorCode !== '0') {
-        throw new ApiError(`有道翻译错误: ${data.errorCode}`, undefined, false);
-      }
-
-      return data.translation?.[0] || '';
-    }, QUICK_RETRY_OPTIONS).catch(() => '');
+    ).catch((error: unknown) => this.handleQuickTranslateFailure(error));
   }
 
   /**

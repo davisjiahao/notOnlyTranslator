@@ -3,8 +3,10 @@ import type { UserSettings } from '@/shared/types';
 import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
 
 interface HybridTranslationSettingsProps {
-  settings: UserSettings;
-  onUpdate: (updates: Partial<UserSettings>) => Promise<void>;
+  settings: UserSettings & { hybridCredentialsRevision?: number };
+  onUpdate: (updates: Partial<UserSettings> & {
+    hybridTranslationPatch: Partial<NonNullable<UserSettings['hybridTranslation']>>;
+  }, expectedHybridCredentialsRevision?: number) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -18,6 +20,9 @@ export default function HybridTranslationSettings({
   isSaving,
 }: HybridTranslationSettingsProps) {
   const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeyDraft, setApiKeyDraft] = useState<{ value: string; revision: number } | null>(null);
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [apiKeySaveError, setApiKeySaveError] = useState(false);
 
   // 获取当前混合翻译配置
   const hybridConfig = settings.hybridTranslation || {
@@ -30,14 +35,39 @@ export default function HybridTranslationSettings({
     traditionalApiKey: '',
   };
 
-  // 更新混合翻译配置
+  // 只发送实际变更；后台合并最新配置，避免旧窗口回传已清除或改归属的密钥。
   const updateHybridConfig = async (updates: Partial<typeof hybridConfig>) => {
-    await onUpdate({
-      hybridTranslation: {
-        ...hybridConfig,
-        ...updates,
-      },
-    });
+    const patch = Object.fromEntries(Object.entries(updates).filter(
+      ([key, value]) => value !== hybridConfig[key as keyof typeof hybridConfig],
+    ));
+    if (Object.keys(patch).length === 0) return;
+    if ('traditionalProvider' in patch || 'traditionalApiKey' in patch) {
+      // 凭据变更绑定读取时的版本，由调用者转发至消息顶层供后台校验。
+      await onUpdate({ hybridTranslationPatch: patch }, settings.hybridCredentialsRevision ?? 0);
+      return;
+    }
+    await onUpdate({ hybridTranslationPatch: patch });
+  };
+
+  const saveApiKeyDraft = async () => {
+    if (!apiKeyDraft || isSavingKey || isSaving) return;
+    if (apiKeyDraft.value === hybridConfig.traditionalApiKey) {
+      setApiKeyDraft(null);
+      return;
+    }
+    setIsSavingKey(true);
+    setApiKeySaveError(false);
+    try {
+      await onUpdate(
+        { hybridTranslationPatch: { traditionalApiKey: apiKeyDraft.value } },
+        apiKeyDraft.revision,
+      );
+      setApiKeyDraft(null);
+    } catch {
+      setApiKeySaveError(true);
+    } finally {
+      setIsSavingKey(false);
+    }
   };
 
   // 翻译引擎选项
@@ -181,7 +211,19 @@ export default function HybridTranslationSettings({
                   {providerOptions.map((provider) => (
                     <button
                         key={provider.value}
-                        onClick={() => updateHybridConfig({ traditionalProvider: provider.value })}
+                        onClick={async () => {
+                          if (provider.value === hybridConfig.traditionalProvider) return;
+                          setApiKeySaveError(false);
+                          try {
+                            await updateHybridConfig({
+                              traditionalProvider: provider.value,
+                              traditionalApiKey: '',
+                            });
+                            setApiKeyDraft(null);
+                          } catch {
+                            setApiKeySaveError(true);
+                          }
+                        }}
                         aria-pressed={hybridConfig.traditionalProvider === provider.value}
                         disabled={isSaving}
                         className={`w-full p-4 border rounded-lg text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
@@ -232,8 +274,15 @@ export default function HybridTranslationSettings({
                     <input
                       id="traditional-api-key"
                       type={showApiKey ? 'text' : 'password'}
-                      value={hybridConfig.traditionalApiKey || ''}
-                      onChange={(e) => updateHybridConfig({ traditionalApiKey: e.target.value })}
+                      value={apiKeyDraft?.value ?? hybridConfig.traditionalApiKey ?? ''}
+                      onChange={(e) => {
+                        setApiKeySaveError(false);
+                        setApiKeyDraft({
+                          value: e.target.value,
+                          revision: apiKeyDraft?.revision ?? settings.hybridCredentialsRevision ?? 0,
+                        });
+                      }}
+                      disabled={isSaving || isSavingKey}
                       placeholder={PROVIDER_CONFIGS[hybridConfig.traditionalProvider]?.apiKeyPlaceholder || '输入 API Key'}
                       className="w-full px-4 py-3 pr-20 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
                     />
@@ -271,6 +320,17 @@ export default function HybridTranslationSettings({
                       )}
                     </button>
                   </div>
+                  {apiKeyDraft && (
+                    <button
+                      type="button"
+                      onClick={() => void saveApiKeyDraft()}
+                      disabled={isSaving || isSavingKey}
+                      className="mt-2 px-4 py-2 bg-primary-600 text-white text-sm rounded-lg disabled:opacity-50"
+                    >
+                      保存传统翻译密钥
+                    </button>
+                  )}
+                  {apiKeySaveError && <p role="alert" className="mt-2 text-sm text-red-600">密钥未保存，请重新加载设置后重试</p>}
                   {PROVIDER_CONFIGS[hybridConfig.traditionalProvider]?.docUrl && (
                     <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
                       获取密钥:{' '}

@@ -2,6 +2,13 @@ import { useState, useRef } from 'react';
 import type { UnknownWordEntry } from '@/shared/types';
 import type { MasteryProfile } from '@/shared/types/mastery';
 import { logger } from '@/shared/utils';
+import { SAFE_CSV_ENCODING, decodeRoundTripCSVCell, escapeRoundTripCSVCell } from '@/shared/utils/csv';
+import { PARTIAL_PROFILE_IMPORT_ERROR } from '@/shared/utils/importErrors';
+
+const MAX_IMPORT_ENTRIES = 5000;
+const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_CSV_COLUMNS = 32;
+const MAX_CSV_FIELD_CHARS = 10000;
 
 interface VocabularyExportImportProps {
   words: UnknownWordEntry[];
@@ -100,6 +107,7 @@ export default function VocabularyExportImport({
       'lastReviewAt',
       'masteryLevel',
       'estimatedLevel',
+      'csvEncoding',
     ];
 
     const rows = data.map((entry) => {
@@ -113,93 +121,102 @@ export default function VocabularyExportImport({
         entry.lastReviewAt ? new Date(entry.lastReviewAt).toISOString() : '',
         mastery ? mastery.masteryLevel.toFixed(2) : '',
         mastery ? mastery.estimatedLevel : '',
+        SAFE_CSV_ENCODING,
       ];
     });
 
-    // 转义 CSV 字段
-    const escapeCSV = (value: string | number): string => {
-      const str = String(value);
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    return [headers.join(','), ...rows.map((row) => row.map(escapeCSV).join(','))].join('\n');
+    return [headers.join(','), ...rows.map((row) => row.map(escapeRoundTripCSVCell).join(','))].join('\n');
   };
 
   /**
    * 解析 CSV 数据
    */
   const parseCSV = (csv: string): Partial<UnknownWordEntry>[] => {
-    const lines = csv.split('\n').filter((line) => line.trim());
-    if (lines.length < 2) return [];
+    const records: string[][] = [];
+    let values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    let quotedClosed = false;
+    const text = csv;
 
-    const headers = lines[0].split(',').map((h) => h.trim());
-    const result: Partial<UnknownWordEntry>[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      const values: string[] = [];
-      let current = '';
-      let inQuotes = false;
-
-      for (let j = 0; j < line.length; j++) {
-        const char = line[j];
-        if (char === '"') {
-          if (line[j + 1] === '"') {
-            current += '"';
-            j++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          values.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
+    for (let i = 0; i < text.length; i++) {
+      const char = !inQuotes && text[i] === '\r' ? '\n' : text[i];
+      if (!inQuotes && text[i] === '\r' && text[i + 1] === '\n') i++;
+      if (quotedClosed && char !== ',' && char !== '\n') {
+        throw new Error('数据格式无效：CSV 引号后存在多余字符');
       }
-      values.push(current.trim());
-
-      const entry: Partial<UnknownWordEntry> = {};
-      headers.forEach((header, index) => {
-        const value = values[index];
-        switch (header) {
-          case 'word':
-            entry.word = value;
-            break;
-          case 'translation':
-            entry.translation = value;
-            break;
-          case 'context':
-            entry.context = value || undefined;
-            break;
-          case 'markedAt':
-            entry.markedAt = value ? new Date(value).getTime() : Date.now();
-            break;
-          case 'reviewCount':
-            entry.reviewCount = value ? parseInt(value, 10) : 0;
-            break;
-          case 'lastReviewAt':
-            entry.lastReviewAt = value ? new Date(value).getTime() : undefined;
-            break;
+      if (char === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          if (current.length >= MAX_CSV_FIELD_CHARS + 1) throw new Error('数据格式无效：CSV 字段过长');
+          current += '"';
+          i++;
+        } else if (inQuotes) {
+          inQuotes = false;
+          quotedClosed = true;
+        } else if (current.length === 0) {
+          inQuotes = true;
+        } else {
+          throw new Error('数据格式无效：CSV 引号不匹配');
         }
-      });
-
-      if (entry.word && entry.translation) {
-        result.push(entry);
+      } else if (!inQuotes && (char === ',' || char === '\n')) {
+        if (values.length >= MAX_CSV_COLUMNS) throw new Error('数据格式无效：CSV 列数过多');
+        values.push(current);
+        current = '';
+        quotedClosed = false;
+        if (char === '\n') {
+          if (values.some((value) => value.trim())) {
+            if (records.length > MAX_IMPORT_ENTRIES) throw new Error('数据格式无效：词条数量超出限制');
+            records.push(values);
+          }
+          values = [];
+        }
+      } else {
+        if (current.length >= MAX_CSV_FIELD_CHARS + 1) throw new Error('数据格式无效：CSV 字段过长');
+        current += char;
       }
     }
+    if (inQuotes) throw new Error('数据格式无效：CSV 引号不匹配');
+    if (values.length >= MAX_CSV_COLUMNS) throw new Error('数据格式无效：CSV 列数过多');
+    values.push(current);
+    if (values.some((value) => value.trim())) {
+      if (records.length > MAX_IMPORT_ENTRIES) throw new Error('数据格式无效：词条数量超出限制');
+      records.push(values);
+    }
 
-    return result;
+    const headers = records[0]?.map((header) => header.trim());
+    if (!headers?.includes('word') || !headers.includes('translation')
+      || new Set(headers).size !== headers.length) {
+      throw new Error('数据格式无效：CSV 缺少必需列');
+    }
+
+    return records.slice(1).map((row) => {
+      if (row.length !== headers.length) throw new Error('数据格式无效：CSV 列数不匹配');
+      const encoded = headers.includes('csvEncoding');
+      if (encoded && row[headers.indexOf('csvEncoding')] !== SAFE_CSV_ENCODING) {
+        throw new Error('数据格式无效：CSV 编码标记不匹配');
+      }
+      const fields = Object.fromEntries(headers.map((header, index) => {
+        const value = encoded && header !== 'csvEncoding'
+          ? decodeRoundTripCSVCell(row[index]) : row[index].trim();
+        if (value.length > MAX_CSV_FIELD_CHARS) throw new Error('数据格式无效：CSV 字段过长');
+        return [header, value];
+      }));
+      return {
+        word: fields.word,
+        translation: fields.translation,
+        context: fields.context || undefined,
+        markedAt: fields.markedAt ? new Date(fields.markedAt).getTime() : Date.now(),
+        reviewCount: fields.reviewCount ? Number(fields.reviewCount) : 0,
+        lastReviewAt: fields.lastReviewAt ? new Date(fields.lastReviewAt).getTime() : undefined,
+      };
+    });
   };
 
   /**
    * 验证导入数据格式
    */
-  const validateImportData = (data: unknown): data is UnknownWordEntry[] => {
-    if (!Array.isArray(data)) {
+  const validateImportData = (data: unknown): data is Partial<UnknownWordEntry>[] => {
+    if (!Array.isArray(data) || data.length === 0 || data.length > MAX_IMPORT_ENTRIES) {
       return false;
     }
 
@@ -210,21 +227,21 @@ export default function VocabularyExportImport({
       const entry = item as Record<string, unknown>;
 
       // 必需字段
-      if (typeof entry.word !== 'string' || !entry.word.trim()) {
-        return false;
-      }
-      if (typeof entry.translation !== 'string') {
+      if (typeof entry.word !== 'string' || !entry.word.trim() || entry.word.length > 200
+        || typeof entry.translation !== 'string' || !entry.translation.trim()
+        || entry.translation.length > 10000) {
         return false;
       }
 
-      // 可选字段类型检查
-      if (entry.context !== undefined && typeof entry.context !== 'string') {
+      if (entry.context !== undefined && (typeof entry.context !== 'string' || entry.context.length > 10000)) {
         return false;
       }
-      if (entry.markedAt !== undefined && typeof entry.markedAt !== 'number') {
-        return false;
+      for (const date of [entry.markedAt, entry.lastReviewAt]) {
+        if (date !== undefined && (typeof date !== 'number' || !Number.isFinite(date)
+          || Math.abs(date) > 8.64e15)) return false;
       }
-      if (entry.reviewCount !== undefined && typeof entry.reviewCount !== 'number') {
+      if (entry.reviewCount !== undefined && (typeof entry.reviewCount !== 'number'
+        || !Number.isSafeInteger(entry.reviewCount) || entry.reviewCount < 0)) {
         return false;
       }
     }
@@ -310,6 +327,7 @@ export default function VocabularyExportImport({
     setImportSuccess(null);
 
     try {
+      if (file.size > MAX_IMPORT_FILE_BYTES) throw new Error('文件过大，最多支持 10 MB');
       const content = await file.text();
       let data: unknown;
 
@@ -329,36 +347,26 @@ export default function VocabularyExportImport({
         throw new Error('数据格式无效，请检查文件内容');
       }
 
-      // 导入词汇
-      let imported = 0;
-      let skipped = 0;
-
-      for (const entry of data as UnknownWordEntry[]) {
-        const wordEntry: UnknownWordEntry = {
-          word: entry.word.toLowerCase().trim(),
-          translation: entry.translation,
-          context: entry.context,
-          markedAt: entry.markedAt || Date.now(),
-          reviewCount: entry.reviewCount || 0,
-          lastReviewAt: entry.lastReviewAt,
-        };
-
-        try {
-          const response = await chrome.runtime.sendMessage({
-            type: 'ADD_TO_VOCABULARY',
-            payload: wordEntry,
-          });
-
-          if (response.success) {
-            imported++;
-          } else {
-            skipped++;
-          }
-        } catch {
-          skipped++;
-        }
+      const entries = data.map((entry) => ({
+        word: entry.word!.toLowerCase().trim(),
+        translation: entry.translation!,
+        context: entry.context ?? '',
+        markedAt: entry.markedAt ?? Date.now(),
+        reviewCount: entry.reviewCount ?? 0,
+        lastReviewAt: entry.lastReviewAt,
+      }));
+      const response = await chrome.runtime.sendMessage({
+        type: 'IMPORT_VOCABULARY',
+        payload: entries,
+      });
+      if (!response?.success || !response.data
+        || !Number.isInteger(response.data.imported) || !Number.isInteger(response.data.skipped)
+        || response.data.imported < 0 || response.data.skipped < 0
+        || response.data.imported + response.data.skipped !== entries.length) {
+        throw new Error(response?.error === PARTIAL_PROFILE_IMPORT_ERROR
+          ? PARTIAL_PROFILE_IMPORT_ERROR : '导入失败');
       }
-
+      const { imported, skipped } = response.data;
       setImportSuccess(`成功导入 ${imported} 个词汇${skipped > 0 ? `，跳过 ${skipped} 个` : ''}`);
       onImportComplete();
 
@@ -368,8 +376,11 @@ export default function VocabularyExportImport({
         setImportSuccess(null);
       }, 3000);
     } catch (error) {
-      logger.error('Import failed:', error);
-      setImportError((error as Error).message);
+      logger.error('Import failed');
+      const message = error instanceof Error ? error.message : '';
+      setImportError(message === PARTIAL_PROFILE_IMPORT_ERROR || message.startsWith('数据格式无效')
+        || message.startsWith('文件过大') || message.startsWith('不支持的文件格式')
+        ? message : '导入失败，请检查文件或稍后重试');
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) {

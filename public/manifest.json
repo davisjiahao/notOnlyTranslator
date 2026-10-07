@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NotOnlyTranslator - 智能分级翻译助手",
   "short_name": "NotOnlyTranslator",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "智能识别超出你词汇量的单词，只翻译该翻译的内容，让英语学习更自然高效",
   "author": "NotOnlyTranslator Team",
   "homepage_url": "https://github.com/yourusername/notOnlyTranslator",
@@ -74,10 +74,6 @@
       "description": "切换行内/双栏翻译模式"
     },
     "_execute_action": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Y",
-        "mac": "Command+Shift+Y"
-      },
       "description": "打开扩展弹窗"
     }
   },

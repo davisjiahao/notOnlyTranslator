@@ -1,0 +1,17 @@
+{
+  "source": "https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv",
+  "sourceSha256": "1a6947e04785db63613a92e14903cdae7954f7e84860b10e68e5c7cbb3f9c3cf",
+  "license": "MIT",
+  "licenseFile": "ECDICT-LICENSE",
+  "selection": {
+    "frequencyLimit": 15000,
+    "examinationTags": [
+      "cet4",
+      "cet6",
+      "gk",
+      "ky"
+    ]
+  },
+  "entryCount": 17404,
+  "artifactSha256": "67678954b62218c81d88d6bfc0e8124b94da78f4f8630af6f5854a8a80ae5f73"
+}

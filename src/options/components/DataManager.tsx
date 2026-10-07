@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useTablistKeyboard } from '@/shared/hooks';
 import {
   exportToJSON,
@@ -14,6 +14,7 @@ import {
 import { logger } from '@/shared/utils';
 
 type Tab = 'export' | 'import' | 'advanced';
+const MAX_BACKUP_FILE_BYTES = 16 * 1024 * 1024;
 
 /**
  * 数据导出/导入组件
@@ -34,16 +35,13 @@ export default function DataManager() {
     (index) => setActiveTab(tabs[index]),
     (i) => tabRefs.current[i]
   );
-  const [importPreview, setImportPreview] = useState<{
-    valid: boolean;
-    errors: string[];
-    warnings: string[];
-    metadata?: {
-      knownWordsCount: number;
-      unknownWordsCount: number;
-      masteryWordsCount: number;
-    };
-  } | null>(null);
+  const [previewSource, setPreviewSource] = useState<{ data: unknown } | { error: string } | null>(null);
+  const importPreview = useMemo(() => {
+    if (!previewSource) return null;
+    if ('error' in previewSource) return { valid: false, errors: [previewSource.error], warnings: [], metadata: undefined };
+    const validation = validateImportData(previewSource.data, importOptions);
+    return { ...validation, metadata: validation.data?.metadata };
+  }, [previewSource, importOptions]);
   const [storageStats, setStorageStats] = useState<{
     syncUsed: number;
     localUsed: number;
@@ -105,24 +103,15 @@ export default function DataManager() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setPreviewSource(null);
     setIsLoading(true);
     try {
+      if (file.size > MAX_BACKUP_FILE_BYTES) throw new Error('文件过大，最多支持 16 MB');
       const content = await file.text();
-      const data = JSON.parse(content);
-      const validation = validateImportData(data);
-
-      setImportPreview({
-        valid: validation.valid,
-        errors: validation.errors,
-        warnings: validation.warnings,
-        metadata: validation.data?.metadata,
-      });
+      setPreviewSource({ data: JSON.parse(content) });
     } catch (error) {
-      setImportPreview({
-        valid: false,
-        errors: ['文件解析失败：' + (error instanceof Error ? error.message : String(error))],
-        warnings: [],
-      });
+      setPreviewSource({ error: error instanceof Error && error.message === '文件过大，最多支持 16 MB'
+        ? error.message : '文件解析失败，请检查文件格式' });
     } finally {
       setIsLoading(false);
     }
@@ -140,6 +129,7 @@ export default function DataManager() {
 
       setIsLoading(true);
       try {
+        if (file.size > MAX_BACKUP_FILE_BYTES) throw new Error('文件过大，最多支持 16 MB');
         const content = await file.text();
         const result: ImportResult = await importFromJSON(content, importOptions);
 
@@ -159,8 +149,9 @@ export default function DataManager() {
           showMessage('error', `导入失败：${result.errors.join('、')}`);
         }
       } catch (error) {
-        logger.error('Import failed:', error);
-        showMessage('error', '导入失败：' + (error instanceof Error ? error.message : String(error)));
+        logger.error('Import failed');
+        showMessage('error', error instanceof Error && error.message === '文件过大，最多支持 16 MB'
+          ? `导入失败：${error.message}` : '导入失败，请检查文件或稍后重试');
       } finally {
         setIsLoading(false);
       }
@@ -352,15 +343,21 @@ export default function DataManager() {
                 />
                 <span className="text-gray-700 dark:text-gray-300">导入用户配置</span>
               </label>
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={importOptions.importSettings}
-                  onChange={(e) => setImportOptions(prev => ({ ...prev, importSettings: e.target.checked }))}
-                  className="w-4 h-4 rounded border-gray-300"
-                />
-                <span className="text-gray-700 dark:text-gray-300">导入用户设置</span>
-              </label>
+              <div>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={importOptions.importSettings}
+                    onChange={(e) => setImportOptions(prev => ({ ...prev, importSettings: e.target.checked }))}
+                    aria-describedby="import-settings-warning"
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">导入用户设置</span>
+                </label>
+                <p id="import-settings-warning" className="mt-1 ml-7 text-sm text-amber-700 dark:text-amber-300">
+                  导入设置可切换联网服务；导入后先检查提供商和翻译模式，敏感页面勿自动翻译。
+                </p>
+              </div>
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"

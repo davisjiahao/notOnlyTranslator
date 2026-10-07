@@ -37,10 +37,25 @@ export const EXCLUDED_SELECTORS = [
   'code',
   'pre',
   'template',
+  '[hidden]',
+  '[aria-hidden="true"]',
+
+  // 扩展界面与追加译文不是原文；保留词汇标记中的原文供翻译与状态重扫使用。
+  '.not-translator-error-notification',
+  '.not-translator-tooltip',
+  '.not-translator-help-panel',
+  '.not-translator-floating-btn',
+  '.not-translator-loading-spinner',
+  '.not-translator-inline-translation',
+  '.not-translator-translation-line',
+  '.not-translator-full-translation',
+  '.not-translator-grammar-annotation',
 
   // 表单和交互元素
+  'form',
   'input',
   'textarea',
+  '[contenteditable]',
   'select',
   'button',
   'option',
@@ -165,11 +180,17 @@ function matchesExcludedSelector(element: Element): boolean {
 /**
  * 检查元素是否在排除的祖先元素内
  */
-function hasExcludedAncestor(element: Element): boolean {
+function hasExcludedAncestor(element: Element, styles?: WeakMap<Element, CSSStyleDeclaration>): boolean {
   let current: Element | null = element;
 
   while (current) {
     if (matchesExcludedSelector(current)) {
+      return true;
+    }
+    // 只排除隐藏内容，不按视口或矩形判断，屏外正文仍交由视口观察器调度。
+    const style = styles?.get(current) ?? current.ownerDocument.defaultView?.getComputedStyle(current);
+    if (style) styles?.set(current, style);
+    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') {
       return true;
     }
     current = current.parentElement;
@@ -178,12 +199,38 @@ function hasExcludedAncestor(element: Element): boolean {
   return false;
 }
 
+/** 请求抽取与 DOM 定位共享正文边界，避免父块内的脚本载荷重新混入。 */
+export function createTranslatableTextWalker(
+  root: Element,
+  filter?: { acceptNode: (node: Node) => number }
+): TreeWalker {
+  // 缓存仅限本次同步遍历，下一次滚动或状态重扫会重新计算隐藏状态。
+  const styles = new WeakMap<Element, CSSStyleDeclaration>();
+  return root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: node => {
+      const parent = node.parentElement;
+      if (!parent || hasExcludedAncestor(parent, styles)) return NodeFilter.FILTER_REJECT;
+      return filter?.acceptNode(node) ?? NodeFilter.FILTER_ACCEPT;
+    },
+  });
+}
+
+/** 保持原文节点间的空白，不因过滤隐藏节点改变词内偏移。 */
+export function getTranslatableText(root: Element): string {
+  const walker = createTranslatableTextWalker(root);
+  const texts: string[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) texts.push(node.textContent || '');
+  return texts.join('');
+}
+
 /**
  * 检查元素是否位于排除区域内（公开 API）
  * 供其他模块（ViewportObserver、MutationObserver）复用排除逻辑
  */
 export function isInExcludedArea(element: Element): boolean {
-  return matchesExcludedSelector(element) || hasExcludedAncestor(element);
+  return matchesExcludedSelector(element) || hasExcludedAncestor(element)
+    || element.querySelector('[contenteditable]') !== null;
 }
 
 /**
@@ -228,23 +275,17 @@ export class PageScanner {
     const processedElements = new Set<Element>();
 
     // 使用 TreeWalker 遍历文本节点
-    const walker = document.createTreeWalker(
+    const walker = createTranslatableTextWalker(
       element,
-      NodeFilter.SHOW_TEXT,
       {
-        acceptNode: (node: Text) => {
+        acceptNode: (node: Node) => {
           const parent = node.parentElement;
           if (!parent) {
             return NodeFilter.FILTER_REJECT;
           }
 
-          // 检查是否在排除的元素内
-          if (hasExcludedAncestor(parent)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          // 检查元素本身是否可翻译
-          if (!this.isTranslatable(parent)) {
+          // 祖先资格由共享遍历器检查，保留原有可编辑后代的排除规则。
+          if (parent.querySelector('[contenteditable]')) {
             return NodeFilter.FILTER_REJECT;
           }
 
@@ -310,17 +351,7 @@ export class PageScanner {
    * @returns 是否可翻译
    */
   isTranslatable(element: Element): boolean {
-    // 检查是否匹配排除选择器
-    if (matchesExcludedSelector(element)) {
-      return false;
-    }
-
-    // 检查是否在排除的祖先元素内
-    if (hasExcludedAncestor(element)) {
-      return false;
-    }
-
-    return true;
+    return !isInExcludedArea(element);
   }
 
   /**

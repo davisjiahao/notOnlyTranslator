@@ -61,6 +61,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const [activeTab, setActiveTab] = useState<ChartTab>('vocabulary');
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const chartTabs: ChartTab[] = ['vocabulary', 'activity', 'progress'];
   const chartTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -85,6 +86,12 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
 
   const loadStatisticsData = async () => {
     setIsLoading(true);
+    setLoadError(false);
+    setStats(null);
+    setTrend(null);
+    setLearningStats(null);
+    setCefrLevel(null);
+    setCefrHistory([]);
     try {
       // 并行获取所有数据
       const [overviewResponse, trendResponse, statsResponse, levelResponse] = await Promise.all([
@@ -100,7 +107,11 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
         chrome.runtime.sendMessage({ type: 'GET_CEFR_LEVEL' }),
       ]);
 
-      if (overviewResponse.success && overviewResponse.data) {
+      if ([overviewResponse, trendResponse, statsResponse, levelResponse].some(response => !response?.success)) {
+        throw new Error('加载学习统计失败');
+      }
+
+      if (overviewResponse.data) {
         setStats(overviewResponse.data.stats);
       }
 
@@ -119,6 +130,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
       }
     } catch (error) {
       logger.error('Failed to load statistics data:', error);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -229,6 +241,7 @@ export default function LearningStatistics({ isSaving }: LearningStatisticsProps
 
   return (
     <div className="space-y-6">
+      {loadError && <p role="alert" className="text-red-600">加载学习统计失败，请重试</p>}
       {/* 页面标题和时间范围选择 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

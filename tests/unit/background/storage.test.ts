@@ -87,7 +87,38 @@ describe('StorageManager', () => {
 
       await StorageManager.saveSettings(newSettings);
 
-      expect(mockStorage.sync.set).toHaveBeenCalled();
+      expect(mockStorage.sync.set).toHaveBeenCalledWith({ settings: newSettings });
+    });
+
+    it('直接全量保存不自动合并旧值', async () => {
+      mockStorage.sync.get.mockResolvedValue({ settings: { enabled: false } });
+      await StorageManager.saveSettings({ translationMode: 'bilingual' });
+      expect(mockStorage.sync.set).toHaveBeenCalledExactlyOnceWith({ settings: { translationMode: 'bilingual' } });
+    });
+
+    it('导入设置增量与消息增量共用读合并写串行队列', async () => {
+      let persisted: Record<string, unknown> = {};
+      let release: () => void = () => undefined;
+      let started: () => void = () => undefined;
+      const blocked = new Promise<void>(resolve => { release = resolve; });
+      const writing = new Promise<void>(resolve => { started = resolve; });
+      mockStorage.sync.get.mockImplementation(async () => ({ settings: persisted.settings }));
+      mockStorage.sync.set.mockImplementationOnce(async updates => {
+        started();
+        await blocked;
+        persisted = { ...persisted, ...updates };
+      }).mockImplementationOnce(async updates => { persisted = { ...persisted, ...updates }; });
+
+      const first = StorageManager.updateSettings({ enabled: false });
+      await writing;
+      const imported = StorageManager.importData({ settings: { translationMode: 'bilingual' } });
+      try {
+        release();
+        await Promise.all([first, imported]);
+        expect(persisted.settings).toEqual(expect.objectContaining({ enabled: false, translationMode: 'bilingual' }));
+      } finally {
+        release();
+      }
     });
   });
 
@@ -121,6 +152,232 @@ describe('StorageManager', () => {
       await StorageManager.addUnknownWord(newWord);
 
       expect(mockStorage.local.set).toHaveBeenCalled();
+    });
+  });
+
+  describe('生词导入和并发写入', () => {
+    const existing: UnknownWordEntry = {
+      word: 'apple', translation: '原有释义', context: '原语境',
+      markedAt: 1000, reviewCount: 7, lastReviewAt: 2000,
+    };
+    const imported: UnknownWordEntry = {
+      word: 'book', translation: '书', context: '', markedAt: 3000, reviewCount: 0,
+    };
+
+    it('以导入方式加入已有单词时保留原记录并报告跳过', async () => {
+      mockStorage.local.get.mockResolvedValue({ knownWords: [], unknownWords: [existing] });
+
+      const inserted = await StorageManager.addUnknownWord(
+        { ...existing, word: ' APPLE ', translation: '不应覆盖' },
+        { skipIfExists: true }
+      );
+
+      expect(inserted).toBe(false);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('批量导入以存储中的最新快照去重，只保存一次并保留文件首条', async () => {
+      mockStorage.local.get.mockResolvedValue({ knownWords: [], unknownWords: [existing] });
+      const result = await StorageManager.importUnknownWords([
+        { ...existing, word: ' APPLE ', translation: '覆盖' },
+        imported,
+        { ...imported, word: 'BOOK', translation: '重复释义' },
+      ]);
+
+      expect(result).toEqual({ imported: 1, skipped: 2 });
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(mockStorage.local.set).toHaveBeenCalledWith(expect.objectContaining({
+        unknownWords: [existing, imported],
+      }));
+    });
+
+    it('导入已知词时跳过，保持已知与生词状态互斥', async () => {
+      mockStorage.local.get.mockResolvedValue({ knownWords: ['apple'], unknownWords: [] });
+      const result = await StorageManager.importUnknownWords([
+        { ...existing, word: ' APPLE ' }, imported,
+      ]);
+      expect(result).toEqual({ imported: 1, skipped: 1 });
+      expect(mockStorage.local.set).toHaveBeenCalledWith(expect.objectContaining({
+        knownWords: ['apple'], unknownWords: [imported],
+      }));
+    });
+
+    it('完整备份在后台队列内合并词表且保留较新的学习记录', async () => {
+      mockStorage.local.get.mockResolvedValue({ knownWords: ['hello'], unknownWords: [existing] });
+      const backup: UserProfile = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: ['book'],
+        unknownWords: [{ ...existing, translation: '旧释义', markedAt: 500 }],
+      };
+      const result = await StorageManager.importUserProfile(backup, true);
+
+      expect(result).toEqual({ wordsMerged: 1 });
+      expect(mockStorage.local.set).toHaveBeenCalledWith(expect.objectContaining({
+        knownWords: ['hello', 'book'],
+        unknownWords: [existing],
+      }));
+    });
+
+    it.each([true, false])('完整备份允许恢复应用产生的空释义，合并模式 %s', async (merge) => {
+      const emptyTranslation = { ...existing, translation: '' };
+      const backup: UserProfile = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [], unknownWords: [emptyTranslation],
+      };
+      const result = await StorageManager.importUserProfile(backup, merge);
+      expect(result.wordsMerged).toBe(0);
+      expect(mockStorage.local.set).toHaveBeenCalledWith(expect.objectContaining({
+        unknownWords: [emptyTranslation],
+      }));
+    });
+
+    it.each([
+      { markedAt: Number.NaN },
+      { translation: 42 },
+      { reviewCount: -1 },
+    ])('完整备份拒绝损坏的学习记录 %j', async (invalid) => {
+      const backup = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [],
+        unknownWords: [{ ...existing, ...invalid }],
+      } as UserProfile;
+      await expect(StorageManager.importUserProfile(backup, true)).rejects.toThrow('数据格式无效');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { estimatedVocabulary: 'not-a-number' },
+      { levelConfidence: 'bad' },
+      { createdAt: Number.NaN },
+      { examType: 'invalid' },
+    ])('完整备份拒绝无效等级档案 %j', async (invalid) => {
+      const backup = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [], unknownWords: [], ...invalid,
+      } as UserProfile;
+      await expect(StorageManager.importUserProfile(backup, true)).rejects.toThrow('数据格式无效');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { examType: ['cet4'] }, { estimatedVocabulary: -1 }, { estimatedVocabulary: 1000001 },
+      { levelConfidence: -0.1 }, { levelConfidence: 1.1 },
+      { examScore: 'invalid' }, { examScore: Infinity }, { examScore: -1 },
+      { updatedAt: Infinity }, { knownWords: [' '] }, { knownWords: [3] },
+      { knownWords: ['x'.repeat(201)] }, { unknownWords: null },
+    ])('后台直接导入损坏档案 %j 时拒绝且不写入部分记录', async patch => {
+      const backup = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [], unknownWords: [], ...patch,
+      } as unknown as UserProfile;
+      await expect(StorageManager.importUserProfile(backup, true)).rejects.toThrow('数据格式无效');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { examType: 'invalid' }, { examScore: -1 }, { examScore: 1001 }, { examScore: NaN },
+      { estimatedVocabulary: '5000' }, { estimatedVocabulary: -1 }, { estimatedVocabulary: 1000001 },
+      { levelConfidence: 'high' }, { levelConfidence: -0.1 }, { levelConfidence: 1.1 },
+    ])('后台拒绝非法等级补丁 %j，不覆盖已保存词表', async patch => {
+      await expect(StorageManager.updateLevelProfile(patch)).rejects.toThrow('数据格式无效');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('合并完整备份时保留当前已知状态，跳过旧备份中的同名生词', async () => {
+      mockStorage.local.get.mockResolvedValue({ knownWords: ['apple'], unknownWords: [] });
+      const backup: UserProfile = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [], unknownWords: [existing],
+      };
+      await StorageManager.importUserProfile(backup, true);
+      expect(mockStorage.local.set).toHaveBeenCalledWith(expect.objectContaining({
+        knownWords: ['apple'], unknownWords: [],
+      }));
+    });
+
+    it('超出本地安全预算的完整备份在写入前拒绝', async () => {
+      const backup: UserProfile = {
+        examType: 'cet4', estimatedVocabulary: 4000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: [],
+        unknownWords: Array.from({ length: 600 }, (_, index) => ({
+          word: `word${index}`, translation: '中'.repeat(10000),
+          context: 'x'.repeat(10000), markedAt: 1, reviewCount: 0,
+        })),
+      };
+      await expect(StorageManager.importUserProfile(backup, false)).rejects.toThrow('存储空间');
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('完整备份本地写入失败时恢复原同步档案', async () => {
+      mockStorage.sync.get.mockResolvedValue({ userProfile: { estimatedVocabulary: 4000 } });
+      mockStorage.local.get.mockResolvedValue({ knownWords: [], unknownWords: [] });
+      mockStorage.local.set.mockRejectedValueOnce(new Error('配额不足')).mockResolvedValue(undefined);
+      const backup: UserProfile = {
+        examType: 'cet4', estimatedVocabulary: 9000, levelConfidence: 0.5,
+        createdAt: 1, updatedAt: 1, knownWords: ['book'], unknownWords: [],
+      };
+      await expect(StorageManager.importUserProfile(backup, false)).rejects.toThrow();
+      const lastSync = mockStorage.sync.set.mock.calls.at(-1)?.[0].userProfile;
+      expect(lastSync.estimatedVocabulary).toBe(4000);
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(2);
+    });
+
+    it('批量导入拒绝无效记录，不写入任何部分数据', async () => {
+      await expect(StorageManager.importUnknownWords([
+        imported, { ...imported, markedAt: Number.NaN },
+      ])).rejects.toThrow('数据格式无效');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('普通等级更新拒绝携带旧词表快照，保护已导入词汇', async () => {
+      await expect(StorageManager.updateLevelProfile({
+        estimatedVocabulary: 5000, unknownWords: [],
+      })).rejects.toThrow('数据格式无效');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('等级档案更新与导入并发时不覆盖刚写入的生词', async () => {
+      let stored = { knownWords: [] as string[], unknownWords: [] as UnknownWordEntry[] };
+      mockStorage.local.get.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return { knownWords: [...stored.knownWords], unknownWords: [...stored.unknownWords] };
+      });
+      mockStorage.local.set.mockImplementation(async (changes: Partial<typeof stored>) => {
+        stored = { ...stored, ...changes };
+      });
+      mockStorage.sync.set.mockResolvedValue(undefined);
+
+      await Promise.all([
+        StorageManager.importUnknownWords([imported]),
+        StorageManager.updateUserProfile({ estimatedVocabulary: 4500 }),
+      ]);
+
+      expect(stored.unknownWords).toEqual([imported]);
+    });
+
+    it('导入生词与标记已知并发时都保留，不因旧档案覆盖', async () => {
+      let stored = { knownWords: [] as string[], unknownWords: [] as UnknownWordEntry[] };
+      mockStorage.local.get.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return { knownWords: [...stored.knownWords], unknownWords: [...stored.unknownWords] };
+      });
+      mockStorage.local.set.mockImplementation(async (changes: Partial<typeof stored>) => {
+        stored = { ...stored, ...changes };
+      });
+      mockStorage.sync.set.mockResolvedValue(undefined);
+
+      const [, inserted] = await Promise.all([
+        StorageManager.addKnownWord('apple'),
+        StorageManager.addUnknownWord(imported, { skipIfExists: true }),
+      ]);
+
+      expect(inserted).toBe(true);
+      expect(stored.knownWords).toContain('apple');
+      expect(stored.unknownWords).toEqual([imported]);
     });
   });
 
@@ -169,6 +426,112 @@ describe('StorageManager', () => {
 
   // ========== API Key 测试 ==========
   describe('getApiKey', () => {
+    it('提供设置快照时只读取其中的激活密钥，不重新读取已切换的设置', async () => {
+      const settings = await StorageManager.getSettings();
+      const snapshot = { ...settings, activeApiConfigId: 'a', apiConfigs: [
+        { id: 'a', name: 'A', provider: 'custom', apiUrl: 'https://a.example/v1', apiKey: 'KEY_A' } as ApiConfig,
+      ] };
+      mockStorage.sync.get.mockResolvedValue({ settings: {
+        activeApiConfigId: 'b', apiConfigs: [
+          { id: 'b', name: 'B', provider: 'custom', apiUrl: 'https://b.example/v1', apiKey: 'KEY_B' },
+        ],
+      } });
+      vi.clearAllMocks();
+
+      expect(await StorageManager.getApiKey(snapshot)).toBe('KEY_A');
+      expect(mockStorage.sync.get).not.toHaveBeenCalled();
+    });
+
+    it('旧版快照可读取旧密钥，导入新端点快照不能借用旧密钥', async () => {
+      mockStorage.sync.get.mockResolvedValue({ apiKey: 'LEGACY_KEY' });
+      const settings = await StorageManager.getSettings();
+      vi.clearAllMocks();
+
+      expect(await StorageManager.getApiKey(settings)).toBe('LEGACY_KEY');
+      expect(await StorageManager.getApiKey({ ...settings, customApiUrl: 'https://new.example/v1' })).toBe('');
+      expect(mockStorage.sync.get).toHaveBeenCalledExactlyOnceWith(['settings', 'apiKey', 'legacyApiKeyInvalidated']);
+    });
+
+    it.each([
+      { apiProvider: 'anthropic' },
+      { apiProvider: 'deepl' },
+      { apiProvider: 'custom' },
+      { apiProvider: 'ollama' },
+      { apiProvider: 'free_google_translate' },
+      { customApiUrl: 'https://new.example/v1' },
+      { activeApiConfigId: 'removed', apiConfigs: [] },
+      { apiConfigs: [{ id: 'new', provider: 'openai', apiKey: 'NEW_CONFIG_KEY' }] },
+      { apiConfigs: [{ id: 'new', provider: 'custom', apiUrl: 'https://new.example/v1', apiKey: '' }] },
+    ])('旧 OpenAI 快照不能读取切换配置后写入的旧字段密钥 %j', async updates => {
+      mockStorage.sync.get.mockResolvedValue({ settings: {}, apiKey: 'LEGACY_OPENAI_KEY' });
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockResolvedValue({
+        settings: { ...snapshot, ...updates },
+        apiKey: 'NEW_PROVIDER_KEY',
+      });
+
+      expect(await StorageManager.getApiKey(snapshot)).toBe('');
+    });
+
+    it('读取旧密钥时必须同时核验其设置归属，不能分两次读取', async () => {
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockImplementation(async keys => Array.isArray(keys)
+        ? { settings: { apiProvider: 'anthropic' }, apiKey: 'NEW_PROVIDER_KEY' }
+        : keys === 'settings' ? { settings: snapshot } : { apiKey: 'NEW_PROVIDER_KEY' });
+
+      expect(await StorageManager.getApiKey(snapshot)).toBe('');
+    });
+
+    it('旧 OpenAI 请求没有密钥时不能借用稍后配置的新服务商密钥', async () => {
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockResolvedValue({
+        settings: { apiProvider: 'custom', customApiUrl: 'https://new.example/v1' },
+        apiKey: 'NEW_PROVIDER_KEY',
+      });
+
+      expect(await StorageManager.getApiKey(snapshot)).toBe('');
+    });
+
+    it('快照含失效激活 ID 时不能使用无归属旧密钥', async () => {
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockResolvedValue({ settings: {}, apiKey: 'LEGACY_KEY' });
+
+      expect(await StorageManager.getApiKey({ ...snapshot, activeApiConfigId: 'removed' })).toBe('');
+    });
+
+    it.each([undefined, null, '', 123, { secret: 'not-a-string' }])('旧字段不是有效字符串时拒绝使用 %j', async apiKey => {
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockResolvedValue({ settings: {}, apiKey });
+
+      expect(await StorageManager.getApiKey(snapshot)).toBe('');
+    });
+
+    it('核验旧密钥归属时读取失败应传播错误，不回退到未经验证的密钥', async () => {
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockRejectedValueOnce(new Error('读取失败'));
+
+      await expect(StorageManager.getApiKey(snapshot)).rejects.toThrow('读取失败');
+    });
+
+    it('仅非凭据设置变化时仍兼容未迁移的默认 OpenAI 密钥', async () => {
+      const snapshot = await StorageManager.getSettings();
+      mockStorage.sync.get.mockResolvedValue({
+        settings: { ...snapshot, enabled: !snapshot.enabled },
+        apiKey: 'LEGACY_KEY',
+      });
+
+      expect(await StorageManager.getApiKey(snapshot)).toBe('LEGACY_KEY');
+    });
+
+    it.each(['anthropic', 'deepl'] as const)('旧版无归属密钥不能借给 %s 服务商', async apiProvider => {
+      mockStorage.sync.get.mockResolvedValue({ apiKey: 'LEGACY_KEY' });
+      const settings = await StorageManager.getSettings();
+      vi.clearAllMocks();
+
+      expect(await StorageManager.getApiKey({ ...settings, apiProvider })).toBe('');
+      expect(mockStorage.sync.get).not.toHaveBeenCalled();
+    });
+
     it('应该从激活的 API 配置中获取 API Key', async () => {
       const mockSettings = {
         activeApiConfigId: 'config-1',
@@ -190,6 +553,29 @@ describe('StorageManager', () => {
       const apiKey = await StorageManager.getApiKey();
 
       expect(apiKey).toBe('legacy-key');
+    });
+
+    it.each([
+      { customApiUrl: 'https://attacker.example/v1/chat/completions', apiConfigs: [] },
+      { activeApiConfigId: 'imported', apiConfigs: [{ id: 'imported', provider: 'custom', apiKey: '', apiUrl: 'https://attacker.example/v1' }] },
+    ])('新端点或空配置不能静默借用旧密钥 %j', async settings => {
+      mockStorage.sync.get.mockImplementation(async key => key === 'settings'
+        ? { settings } : { apiKey: 'LEGACY_SECRET' });
+      expect(await StorageManager.getApiKey()).toBe('');
+    });
+
+    it('未填写激活 ID 时首个显式自定义配置仍使用其自身密钥', async () => {
+      mockStorage.sync.get.mockImplementation(async key => key === 'settings'
+        ? { settings: { apiConfigs: [{ id: 'mine', provider: 'custom', apiKey: 'OWN_KEY', apiUrl: 'https://mine.example/v1' }] } }
+        : { apiKey: 'LEGACY_SECRET' });
+      expect(await StorageManager.getApiKey()).toBe('OWN_KEY');
+    });
+
+    it('显式自定义配置密钥不受旧密钥限制', async () => {
+      mockStorage.sync.get.mockImplementation(async key => key === 'settings'
+        ? { settings: { activeApiConfigId: 'mine', apiConfigs: [{ id: 'mine', provider: 'custom', apiKey: 'OWN_KEY', apiUrl: 'https://mine.example/v1' }] } }
+        : { apiKey: 'LEGACY_SECRET' });
+      expect(await StorageManager.getApiKey()).toBe('OWN_KEY');
     });
 
     it('当没有任何 API Key 时应该返回空字符串', async () => {

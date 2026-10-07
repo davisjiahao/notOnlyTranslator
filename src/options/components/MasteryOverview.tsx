@@ -59,10 +59,15 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
   const [vocabularyEstimate, setVocabularyEstimate] = useState<number>(0);
   const [stats, setStats] = useState<WordMasteryStats | null>(null);
   const [trend, setTrend] = useState<MasteryTrend | null>(null);
+  const [trendRange, setTrendRange] = useState<TimeRange>(30);
   const [reviewWords, setReviewWords] = useState<ReviewReminder[]>([]);
   const [learningStats, setLearningStats] = useState<LearningStatistics | null>(null);
+  const [learningRange, setLearningRange] = useState<TimeRange>(30);
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadId = useRef(0);
   const loadMasteryDataRef = useRef<() => Promise<void>>();
 
   useEffect(() => {
@@ -70,7 +75,9 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
   }, [timeRange]);
 
   const loadMasteryData = async () => {
+    const requestId = ++loadId.current;
     setIsLoading(true);
+    setLoadError(null);
     try {
       // 并行获取所有数据
       const [levelResponse, overviewResponse, reviewResponse, trendResponse, statsResponse] =
@@ -91,6 +98,12 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
           }),
         ]);
 
+      if (requestId !== loadId.current) return;
+      if ([levelResponse, overviewResponse, reviewResponse, trendResponse, statsResponse]
+        .some((response) => !response?.success)) {
+        setLoadError('加载掌握度数据失败，请重试');
+      }
+
       if (levelResponse.success && levelResponse.data) {
         setCefrLevel(levelResponse.data.level);
         setConfidence(levelResponse.data.confidence);
@@ -105,17 +118,25 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
         setReviewWords(reviewResponse.data);
       }
 
-      if (trendResponse.success && trendResponse.data) {
-        setTrend(trendResponse.data);
+      if (trendResponse.success) {
+        setTrend(trendResponse.data ?? null);
+        setTrendRange(timeRange);
       }
 
-      if (statsResponse.success && statsResponse.data) {
-        setLearningStats(statsResponse.data);
+      if (statsResponse.success) {
+        setLearningStats(statsResponse.data ?? null);
+        setLearningRange(timeRange);
       }
     } catch (error) {
-      logger.error('Failed to load mastery data:', error);
+      if (requestId === loadId.current) {
+        logger.error('Failed to load mastery data:', error);
+        setLoadError('加载掌握度数据失败，请重试');
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === loadId.current) {
+        setIsLoading(false);
+        setHasLoaded(true);
+      }
     }
   };
 
@@ -174,7 +195,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
     return `${((index + 1) / CEFR_LEVELS.length) * 100}%`;
   };
 
-  if (isLoading) {
+  if (isLoading && !hasLoaded) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label="加载掌握度数据">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -184,6 +205,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
 
   return (
     <div className="space-y-6">
+      {loadError && <div role="alert" className="text-sm text-red-600 dark:text-red-400">{loadError}</div>}
       {/* CEFR 等级展示 */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">词汇掌握度概览</h2>
@@ -372,7 +394,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
                   <span className="text-sm text-gray-600 dark:text-gray-300">学习天数</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.totalStudyDays}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-300">{timeRange}天内</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">{learningRange}天内</div>
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
@@ -483,7 +505,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
       {trendData && trendData.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">{timeRange} 天学习趋势</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">{trendRange} 天学习趋势</h3>
             {trend?.masteryChangeRate !== undefined && (
               <div className="text-sm">
                 <span className="text-gray-500 dark:text-gray-300">增长率: </span>
@@ -548,7 +570,7 @@ export default function MasteryOverview({ isSaving }: MasteryOverviewProps) {
       {learningStats?.heatmapData && learningStats.heatmapData.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">学习热力图</h3>
-          <LearningHeatmap data={learningStats.heatmapData} weeks={Math.ceil(timeRange / 7)} />
+          <LearningHeatmap data={learningStats.heatmapData} weeks={Math.ceil(learningRange / 7)} />
         </div>
       )}
 

@@ -178,12 +178,12 @@ export const PROVIDER_CONFIGS: Record<ApiProvider, ProviderConfig> = {
     modelsEndpoint: 'http://localhost:11434/api/tags',  // 原生模型列表端点
     modelsSupported: true,
     defaultModels: [
-      { id: 'qwen2.5:7b', name: 'Qwen 2.5 7B', description: '中文能力强，翻译质量高', isRecommended: true },
-      { id: 'qwen2.5:3b', name: 'Qwen 2.5 3B', description: '轻量快速，适合低配置' },
+      { id: 'qwen3:4b', name: 'Qwen3 4B', description: '中文能力强，支持关闭思考模式，本地翻译首选', isRecommended: true },
+      { id: 'qwen3.5:4b', name: 'Qwen3.5 4B', description: '轻量备选，建议先验证本机速度和效果' },
+      { id: 'qwen3.5:9b', name: 'Qwen3.5 9B', description: '参数更多，需要较多内存，建议先验证本机速度和效果' },
       { id: 'llama3.1:8b', name: 'Llama 3.1 8B', description: '综合能力强' },
-      { id: 'gemma2:9b', name: 'Gemma 2 9B', description: 'Google 出品，质量稳定' },
     ],
-    recommendedModel: 'qwen2.5:7b',
+    recommendedModel: 'qwen3:4b',
     docUrl: 'https://ollama.ai/',
     apiKeyPlaceholder: '留空或任意值',
   },
