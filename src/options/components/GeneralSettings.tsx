@@ -694,7 +694,7 @@ export default function GeneralSettings({
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
             <div className="flex justify-between">
               <span>版本</span>
-              <span className="font-medium text-gray-900 dark:text-white">0.1.0</span>
+              <span className="font-medium text-gray-900 dark:text-white">{chrome.runtime.getManifest().version}</span>
             </div>
             <div className="flex justify-between">
               <span>项目</span>

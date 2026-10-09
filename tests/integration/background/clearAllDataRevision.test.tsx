@@ -75,6 +75,7 @@ beforeAll(async () => {
     },
     runtime: {
       id: 'offline-test-extension',
+      getManifest: vi.fn(() => ({ manifest_version: 3, name: 'NotOnlyTranslator', version: '0.3.1' })),
       getURL: (path: string) => `chrome-extension://offline-test-extension/${path}`,
       onInstalled: event,
       onMessage: { addListener: vi.fn((listener: typeof onMessage) => { onMessage = listener; }) },
