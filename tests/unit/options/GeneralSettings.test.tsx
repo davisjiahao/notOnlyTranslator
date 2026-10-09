@@ -9,8 +9,11 @@ import '@testing-library/jest-dom';
 import type { UserSettings } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/constants';
 
-// Mock chrome.tabs
+// 模拟组件使用的 Chrome API
 vi.stubGlobal('chrome', {
+  runtime: {
+    getManifest: vi.fn(() => ({ manifest_version: 3, name: 'NotOnlyTranslator', version: '0.3.1' })),
+  },
   tabs: {
     query: vi.fn((_q: unknown, cb: (tabs: unknown[]) => void) => cb([])),
   },
@@ -279,6 +282,19 @@ describe('GeneralSettings', () => {
   });
 
   describe('其他区块', () => {
+    it.each(['0.3.1', '1.2.3'])('关于区域显示运行扩展版本 %s', (version) => {
+      vi.mocked(chrome.runtime.getManifest).mockReturnValueOnce({
+        manifest_version: 3,
+        name: 'NotOnlyTranslator',
+        version,
+      });
+      render(<GeneralSettings settings={makeSettings()} onUpdate={vi.fn()} isSaving={false} />);
+
+      expect(screen.getByRole('heading', { name: '关于' })).toBeVisible();
+      expect(screen.getByText('版本').parentElement).toHaveTextContent(`版本${version}`);
+      expect(screen.queryByText('0.1.0')).not.toBeInTheDocument();
+    });
+
     it('渲染 CacheStats 子组件', () => {
       render(<GeneralSettings settings={makeSettings()} onUpdate={vi.fn()} isSaving={false} />);
       expect(screen.getByTestId('cache-stats')).toBeTruthy();
