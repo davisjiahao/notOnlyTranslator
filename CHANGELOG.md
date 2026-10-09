@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zustand for state management
 - Chrome Extension Manifest V3
 
+## [0.3.2] - 2026-10-09
+
+### Fixed
+- 设置页“关于”改为显示实际安装的扩展版本，修复升级后仍显示 `0.1.0` 的问题。
+- 增加不同版本的界面回归检查，避免后续发布再次出现版本文案不同步。
+
 ## [0.3.0] - 2026-03-30
 
 ### Added
