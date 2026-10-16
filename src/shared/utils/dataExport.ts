@@ -13,6 +13,7 @@ import { logger } from '@/shared/utils';
 import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
 import { escapeCSVCell } from './csv';
 import { PARTIAL_PROFILE_IMPORT_ERROR } from './importErrors';
+import { resolveJevConfig } from './jevConfig';
 
 /**
  * 导出数据格式版本
@@ -140,6 +141,13 @@ export function validateImportedSettings(raw: unknown): string[] {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return ['用户设置格式无效'];
   const settings = raw as Record<string, unknown>;
   const errors: string[] = [];
+  try { resolveJevConfig(settings.jevConfig); }
+  catch { errors.push('Jev配置格式无效，凭据不可通过备份导入'); }
+  if (['jevApiKey', 'jevKey', 'jevCredentials'].some(key => Object.prototype.hasOwnProperty.call(settings, key)) ||
+    (Object.prototype.hasOwnProperty.call(settings, 'vocabularyAssessmentProvider') &&
+      !['legacy', 'jev'].includes(settings.vocabularyAssessmentProvider as string))) {
+    errors.push('Jev设置格式无效，凭据不可通过备份导入');
+  }
   if (typeof settings.enabled !== 'boolean') errors.push('用户设置缺少启用状态');
   if (settings.blacklist !== undefined && (!Array.isArray(settings.blacklist)
     || settings.blacklist.some(domain => typeof domain !== 'string'))) {

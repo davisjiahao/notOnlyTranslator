@@ -10,8 +10,10 @@ import type { MasteryProfile, WordMasteryEntry } from '@/shared/types/mastery';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE, STORAGE_KEYS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
 import { PARTIAL_PROFILE_IMPORT_ERROR } from '@/shared/utils/importErrors';
+import { resolveJevConfig } from '@/shared/utils/jevConfig';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { clearJevApiKey } from './jevCredentials';
 
 type SettingsUpdate = Partial<UserSettings> & {
   hybridTranslationPatch?: Partial<NonNullable<UserSettings['hybridTranslation']>>;
@@ -107,9 +109,13 @@ export class StorageManager {
    */
   static async getSettings(): Promise<UserSettings> {
     const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.SETTINGS);
+    const { jevApiKey: _jevApiKey, jevKey: _jevKey, jevCredentials: _jevCredentials, ...stored } =
+      data[STORAGE_KEYS.SYNC.SETTINGS] ?? {};
     const settings = {
       ...DEFAULT_SETTINGS,
-      ...data[STORAGE_KEYS.SYNC.SETTINGS],
+      ...stored,
+      ...(stored.jevConfig === undefined ? {} : { jevConfig: resolveJevConfig(stored.jevConfig) }),
+      vocabularyAssessmentProvider: stored.vocabularyAssessmentProvider === 'jev' ? 'jev' : 'legacy',
       apiConfigsRevision: data[STORAGE_KEYS.SYNC.SETTINGS]?.apiConfigsRevision ?? 0,
       hybridCredentialsRevision: data[STORAGE_KEYS.SYNC.SETTINGS]?.hybridCredentialsRevision ?? 0,
     };
@@ -138,6 +144,7 @@ export class StorageManager {
   static async saveSettings(
     settings: UserSettings, invalidateHybridCredentials = false, verified?: UserSettings
   ): Promise<void> {
+    this.validateJevSettings(settings);
     const current = await this.getSettings();
     if (!verified && (settings.apiConfigsRevision ?? 0) < (current.apiConfigsRevision ?? 0)) {
       throw new Error('API 配置已变更或缺少版本，请刷新设置后重试');
@@ -183,6 +190,7 @@ export class StorageManager {
     const { hybridCredentialsRevision: _importedRevision, ...fields } = settings;
     const safeSettings = {
       ...fields,
+      ...(fields.jevConfig === undefined ? {} : { jevConfig: resolveJevConfig(fields.jevConfig) }),
       ...(wrongOwner ? { hybridTranslation: safeHybrid } : {}),
       ...(hybridRevision > 0 ? { hybridCredentialsRevision: hybridRevision } : {}),
     };
@@ -215,6 +223,17 @@ export class StorageManager {
     return operation;
   }
 
+  private static validateJevSettings(settings: unknown): void {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('INVALID_JEV_SETTINGS');
+    const fields = settings as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(fields, 'jevConfig')) resolveJevConfig(fields.jevConfig);
+    if (['jevApiKey', 'jevKey', 'jevCredentials'].some(key => Object.prototype.hasOwnProperty.call(fields, key)) ||
+      (Object.prototype.hasOwnProperty.call(fields, 'vocabularyAssessmentProvider') &&
+        !['legacy', 'jev'].includes(fields.vocabularyAssessmentProvider as string))) {
+      throw new Error('INVALID_JEV_SETTINGS');
+    }
+  }
+
   /** 传统提供商白名单：增量校验与完整写入的归属记录共用同一判定。 */
   private static isValidTraditionalProvider(value: unknown): boolean {
     return ['deepl', 'google_translate', 'youdao'].includes(value as string);
@@ -244,6 +263,7 @@ export class StorageManager {
       has(updates?.hybridTranslationPatch, 'traditionalProvider') || has(updates?.hybridTranslationPatch, 'traditionalApiKey');
     return this.queueSettingsUpdate(current => {
       if (!updates || typeof updates !== 'object' || Array.isArray(updates)) throw new Error('设置格式无效');
+      this.validateJevSettings(updates);
       const { hybridTranslationPatch, ...fields } = updates;
       const hasPatch = has(updates, 'hybridTranslationPatch');
       if (hasPatch) {
@@ -271,11 +291,15 @@ export class StorageManager {
 
   /** 仅用于显式恢复备份；备份中的版本不能回退或伪造后台版本。 */
   static replaceSettings(settings: Partial<UserSettings>): Promise<void> {
-    return this.queueSettingsUpdate(current => ({
-      ...DEFAULT_SETTINGS,
-      ...settings,
-      apiConfigsRevision: (current.apiConfigsRevision ?? 0) + 1,
-    }), true);
+    return this.queueSettingsUpdate(current => {
+      this.validateJevSettings(settings);
+      return {
+        ...DEFAULT_SETTINGS,
+        ...settings,
+        vocabularyAssessmentProvider: 'legacy',
+        apiConfigsRevision: (current.apiConfigsRevision ?? 0) + 1,
+      };
+    }, true);
   }
 
   /** 清空与设置、档案队列共用屏障，不能让清空前的写入在返回后回填。 */
@@ -293,6 +317,7 @@ export class StorageManager {
       } });
       await chrome.storage.sync.remove(Object.keys(data).filter(key => key !== STORAGE_KEYS.SYNC.SETTINGS));
       await chrome.storage.local.clear();
+      await clearJevApiKey();
     });
     this.settingsUpdates = operation.catch(() => undefined);
     this.profileUpdates = operation.catch(() => undefined);
@@ -663,10 +688,13 @@ export class StorageManager {
     if (data.settings) {
       const settings = data.settings;
       // 旧格式导入属于显式恢复，保留增量语义但忽略备份内的版本。
-      await this.queueSettingsUpdate(current => ({
-        ...current, ...settings,
-        apiConfigsRevision: (current.apiConfigsRevision ?? 0) + (Object.prototype.hasOwnProperty.call(settings, 'apiConfigs') ? 1 : 0),
-      }), Object.prototype.hasOwnProperty.call(settings, 'hybridTranslation'));
+      await this.queueSettingsUpdate(current => {
+        this.validateJevSettings(settings);
+        return {
+          ...current, ...settings, vocabularyAssessmentProvider: 'legacy',
+          apiConfigsRevision: (current.apiConfigsRevision ?? 0) + (Object.prototype.hasOwnProperty.call(settings, 'apiConfigs') ? 1 : 0),
+        };
+      }, Object.prototype.hasOwnProperty.call(settings, 'hybridTranslation'));
     }
   }
 

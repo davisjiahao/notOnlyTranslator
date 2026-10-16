@@ -13,6 +13,7 @@ const chromeMock = vi.hoisted(() => {
       highlightColor: '#ffd54f',
       fontSize: 14,
       apiProvider: 'openai',
+      vocabularyAssessmentProvider: 'legacy' as 'legacy' | 'jev',
       blacklist: [] as string[],
       apiConfigs: [] as unknown[],
       hoverDelay: 0,
@@ -178,6 +179,7 @@ beforeEach(() => {
   state.deferSettings = false;
   state.settingsResolvers = [];
   state.settings = { ...initialSettings };
+  state.profile = { ...state.profile, estimatedVocabulary: 3000 };
   document.body.textContent = LONG_ENGLISH_TEXT;
 });
 
@@ -324,6 +326,142 @@ describe('设置热更新的页面生命周期', () => {
     await control.handleSettingsUpdated();
     expect(refresh).toHaveBeenCalledOnce();
     expect(sync).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Jev 阅读坐标与模式生命周期', () => {
+  it('Jev 适用时不生成独立 CEFR 预高亮，画像跨档后取消旧请求', async () => {
+    state.settings = { ...state.settings, vocabularyAssessmentProvider: 'jev', vocabHighlightEnabled: true };
+    const translator = await createTranslator();
+    const paragraph = document.createElement('p');
+    paragraph.textContent = 'The plant makes products in a factory with many people.';
+    document.body.appendChild(paragraph);
+    const control = translator as unknown as {
+      isVocabHighlightEnabled(): boolean;
+      applyVocabularySnapshot(snapshot: import('@/content/core/vocabularyState').VocabularySnapshot): void;
+      translateParagraph(element: HTMLElement): Promise<void>;
+      scanPage(): Promise<void>;
+    };
+    expect(control.isVocabHighlightEnabled()).toBe(false);
+    vi.spyOn(control, 'scanPage').mockResolvedValue(undefined);
+    const request = control.translateParagraph(paragraph);
+    await waitUntil(() => expect(state.translationCallbacks).toHaveLength(1));
+    control.applyVocabularySnapshot({
+      userLevel: 'B2', knownWords: new Set(), unknownWords: new Set(),
+      userProfile: { ...state.profile, estimatedVocabulary: 5000 } as import('@/shared/types').UserProfile,
+    } as import('@/content/core/vocabularyState').VocabularySnapshot);
+    expect(control.isVocabHighlightEnabled()).toBe(true);
+    expect(state.sentMessages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
+    state.translationCallbacks[0]({ success: true, data: { words: [], sentences: [], fullText: '旧档案结果' } });
+    await request;
+    expect(paragraph.classList.contains('not-translator-processed')).toBe(false);
+  });
+
+  it('画像读取期间模式变化，按提交时资格取消新模式的旧画像请求', async () => {
+    state.settings = { ...state.settings, vocabularyAssessmentProvider: 'jev', translationMode: 'bilingual' };
+    state.profile = { ...state.profile, estimatedVocabulary: 3000 };
+    const translator = await createTranslator();
+    const control = translator as unknown as {
+      refreshUserProfile(): Promise<void>; handleModeChange(mode: 'inline-only'): void;
+      translateParagraph(element: HTMLElement): Promise<void>; scanPage(): Promise<void>;
+    };
+    vi.spyOn(control, 'scanPage').mockResolvedValue(undefined);
+    state.deferProfile = true;
+    const reading = control.refreshUserProfile();
+    control.handleModeChange('inline-only');
+    const paragraph = document.createElement('p');
+    paragraph.textContent = 'The plant makes products.';
+    document.body.appendChild(paragraph);
+    const request = control.translateParagraph(paragraph);
+    await waitUntil(() => expect(state.translationCallbacks).toHaveLength(1));
+    state.profile = { ...state.profile, estimatedVocabulary: 5000 };
+    state.profileResolvers[0]();
+    await reading;
+    expect(state.sentMessages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
+    state.translationCallbacks[0]({ success: true, data: { words: [], sentences: [] } });
+    await request;
+    expect(paragraph.classList.contains('not-translator-processed')).toBe(false);
+    state.profile = { ...state.profile, estimatedVocabulary: 3000 };
+  });
+
+  it('单段阅读请求保留首尾空白，第二个跨节点词按原文 utf16 坐标渲染', async () => {
+    const translator = await createTranslator();
+    const paragraph = document.createElement('p');
+    paragraph.innerHTML = '  The plant grows; the <em>pla</em><strong>nt</strong> makes products.  ';
+    document.body.appendChild(paragraph);
+    const text = '  The plant grows; the plant makes products.  ';
+    const control = translator as unknown as { translateParagraph(element: HTMLElement): Promise<void> };
+    const request = control.translateParagraph(paragraph);
+    await waitUntil(() => expect(state.translationCallbacks).toHaveLength(1));
+    expect(state.sentMessages.find(message => message.type === 'TRANSLATE_TEXT')).toMatchObject({
+      payload: { text, intent: 'reading' },
+    });
+    const start = text.lastIndexOf('plant');
+    state.translationCallbacks[0]({ success: true, data: {
+      words: [{ original: 'plant', translation: '工厂', position: [start, start + 5], difficulty: 5, isPhrase: false }],
+      sentences: [], vocabularyAssessment: { provider: 'jev' },
+    } });
+    await request;
+    const marks = Array.from(paragraph.querySelectorAll<HTMLElement>('mark.not-translator-highlight'));
+    expect(marks.map(mark => mark.firstChild?.textContent).join('')).toBe('plant');
+    expect(paragraph.firstChild?.textContent).toBe('  The plant grows; the ');
+    TranslationDisplay.clearTranslation(paragraph);
+    expect(paragraph.innerHTML).toBe('  The plant grows; the <em>pla</em><strong>nt</strong> makes products.  ');
+  });
+
+  it('页面批次保留首尾空白并显式声明 reading', async () => {
+    const translator = await createTranslator();
+    const text = '  The plant grows while the plant makes products in this long sentence.  ';
+    document.body.innerHTML = `<p>${text}</p>`;
+    const control = translator as unknown as { handleTranslatePage(): Promise<unknown> };
+    const request = control.handleTranslatePage();
+    await waitUntil(() => expect(state.translationCallbacks).toHaveLength(1));
+    const message = state.sentMessages.find(item => item.type === 'BATCH_TRANSLATE_TEXT');
+    expect(message).toMatchObject({ payload: { paragraphs: [{ text }], intent: 'reading' } });
+    state.translationCallbacks[0]({ success: true, data: { results: [{ result: { words: [], sentences: [] } }] } });
+    await request;
+  });
+
+  it.each(['local', 'settings'] as const)('%s 模式切换离开 Jev 时取消旧响应并重新获取', async source => {
+    state.settings = { ...state.settings, vocabularyAssessmentProvider: 'jev' };
+    const translator = await createTranslator();
+    const paragraph = document.createElement('p');
+    paragraph.textContent = 'The plant makes products.';
+    document.body.appendChild(paragraph);
+    const control = translator as unknown as {
+      translateParagraph(element: HTMLElement): Promise<void>;
+      handleModeChange(mode: 'bilingual'): void;
+      handleSettingsUpdated(): Promise<void>;
+      scanPage(): Promise<void>;
+    };
+    const scan = vi.spyOn(control, 'scanPage').mockResolvedValue(undefined);
+    const request = control.translateParagraph(paragraph);
+    await waitUntil(() => expect(state.translationCallbacks).toHaveLength(1));
+    if (source === 'local') control.handleModeChange('bilingual');
+    else {
+      state.settings = { ...state.settings, translationMode: 'bilingual' };
+      await control.handleSettingsUpdated();
+    }
+    expect(state.sentMessages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
+    state.translationCallbacks[0]({ success: true, data: { words: [], sentences: [], fullText: '旧结果不得重显' } });
+    await request;
+    expect(paragraph.classList.contains('not-translator-processed')).toBe(false);
+    await waitUntil(() => expect(scan).toHaveBeenCalledOnce());
+  });
+
+  it('返回 Jev 行内模式时丢弃其他模式的已完成结果并重新获取', async () => {
+    state.settings = { ...state.settings, vocabularyAssessmentProvider: 'jev', translationMode: 'bilingual' };
+    const translator = await createTranslator();
+    const paragraph = document.createElement('p');
+    paragraph.textContent = 'The plant makes products.';
+    document.body.appendChild(paragraph);
+    TranslationDisplay.applyTranslation(paragraph, { words: [], sentences: [], fullText: '工厂生产产品。' }, 'bilingual');
+    const control = translator as unknown as { handleModeChange(mode: 'inline-only'): void; scanPage(): Promise<void> };
+    const scan = vi.spyOn(control, 'scanPage').mockResolvedValue(undefined);
+    control.handleModeChange('inline-only');
+    expect(paragraph.classList.contains('not-translator-processed')).toBe(false);
+    expect(paragraph.nextElementSibling).toBeNull();
+    await waitUntil(() => expect(scan).toHaveBeenCalledOnce());
   });
 });
 

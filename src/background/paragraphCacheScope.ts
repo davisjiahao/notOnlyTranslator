@@ -27,5 +27,7 @@ export function paragraphCacheScope(scope: ParagraphCacheScope): string {
     // 新标记 unknown 词缺少释义时，等待跨桶或正文变化后重新翻译。
     userLevel && [userLevel.examType, userLevel.examScore,
       Math.floor(userLevel.estimatedVocabulary / 100) * 100],
+    // 仅实验识别追加身份，避免不适用的 Jev 请求与原链 join 后丢失原因；旧设置键保持兼容。
+    ...(settings.vocabularyAssessmentProvider === 'jev' ? ['jev'] : []),
   ]);
 }

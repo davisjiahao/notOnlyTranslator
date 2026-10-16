@@ -8,6 +8,8 @@ import { StorageManager } from './storage';
 import { BatchTranslationService, type BatchTranslationOptions } from './batchTranslation';
 import { enhancedCache } from './enhancedCache';
 import { logger } from '@/shared/utils';
+import { getJevEligibility } from '@/shared/utils/jev';
+import { getJevRecognitionSignal } from './jevRecognition';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -58,6 +60,8 @@ export async function translateBatchWithJoin(
   request: BatchTranslationRequest,
   options?: BatchTranslationOptions
 ): Promise<BatchTranslationResponse> {
+  const startedAt = Date.now();
+  const jevSignal = getJevRecognitionSignal();
   let keys: string[];
   let snapshot: { settings: UserSettings; apiKey: string };
   let scopedRequest = request;
@@ -71,6 +75,11 @@ export async function translateBatchWithJoin(
     options?.signal?.throwIfAborted();
     snapshot = { settings, apiKey };
     scopedRequest = { ...request, userLevel: userProfile };
+    // Jev 阅读结果不参与在途合并与段落缓存：适用时绕过 join 直达批量服务，仍用同一快照
+    if (settings.vocabularyAssessmentProvider === 'jev'
+      && !getJevEligibility(settings, userProfile, request.mode)) {
+      return BatchTranslationService.translateBatch(scopedRequest, options, { ...snapshot, startedAt, jevSignal });
+    }
     keys = request.paragraphs.map(p => enhancedCache.generateHash(p.text, request.mode, {
       settings, userLevel: userProfile, context: apiKey, engine: 'batch',
     }));

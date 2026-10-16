@@ -155,6 +155,14 @@ export class BatchTranslationManager {
       const next = this.pendingQueue[0];
       const nextLen = next.text.length;
 
+      // 原文空白计入请求预算；超限项释放并显示既有安全失败提示，不能堵住后续队列。
+      if (nextLen > DEFAULT_BATCH_CONFIG.maxCharsPerBatch) {
+        this.pendingQueue.shift();
+        this.processingParagraphIds.delete(next.id);
+        this.notifyBatchFailure([next]);
+        continue;
+      }
+
       // 检查批次限制
       if (
         (batch.length > 0 && next.acquisitionMode !== batch[0].acquisitionMode) ||
@@ -248,7 +256,7 @@ export class BatchTranslationManager {
       const result = resultMap.get(para.id);
 
       if (result && result.result) {
-        if (!document.body.contains(para.element) || getTranslatableText(para.element).trim() !== para.text.trim()) {
+        if (!document.body.contains(para.element) || getTranslatableText(para.element) !== para.text) {
           this.processingParagraphIds.delete(para.id);
           continue;
         }

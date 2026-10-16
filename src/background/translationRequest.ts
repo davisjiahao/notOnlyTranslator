@@ -124,6 +124,8 @@ export function sanitizeErrorMessage(message: string, secrets: Array<string | un
  */
 export interface TransportRequestInit {
   method?: string;
+  /** 可由调用方禁止重定向，未指定时保留fetch默认行为。 */
+  redirect?: RequestRedirect;
   headers?: Record<string, string>;
   body?: string;
 }
@@ -146,6 +148,8 @@ export interface TransportRequestConfig {
   extractErrorMessage?: (data: unknown) => string | undefined;
   /** 每次尝试开始前运行，重试时同样调用。 */
   onAttemptStart?: () => void;
+  /** 标准JSON响应的最大字节数；未设置时保持原有读取方式。 */
+  maxResponseBytes?: number;
   /** 自定义成功响应读取，仍受单次尝试的取消和超时约束。 */
   readResponse?: (response: Response, attemptSignal: AbortSignal) => Promise<string>;
   /** 处理 2xx 响应数据并提取内容；可抛 TransportError 表示响应无效（参与重试） */
@@ -230,6 +234,47 @@ function fixedPublicTransportMessage(error: TransportError, timeoutMs: number): 
     : '翻译服务暂时不可用，请稍后重试';
 }
 
+/** Retry-After 支持秒数和HTTP日期，只保留非负有限毫秒数。 */
+function retryAfterMilliseconds(response: Response): number | undefined {
+  const value = response.headers?.get('Retry-After')?.trim();
+  if (!value) return undefined;
+  const milliseconds = /^\d+(?:\.\d+)?$/.test(value)
+    ? Number(value) * 1000
+    : /^[A-Za-z]{3},/.test(value) ? Date.parse(value) - Date.now() : NaN;
+  return Number.isFinite(milliseconds) ? Math.max(0, Math.ceil(milliseconds)) : undefined;
+}
+
+/** 有上限的JSON读取逐块计数字节，超限或取消立即停止消费正文。 */
+async function readBoundedJson(response: Response, limit: number, signal: AbortSignal): Promise<unknown> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || !response.body) {
+    throw TransportError.unavailable('响应读取失败');
+  }
+  const reader = response.body.getReader();
+  const cancel = () => { void reader.cancel().catch(() => {}); };
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let length = 0;
+  let text = '';
+  signal.addEventListener('abort', cancel, { once: true });
+  try {
+    if (signal.aborted) { cancel(); throw TransportError.cancelled(); }
+    for (;;) {
+      const chunk = await reader.read();
+      if (signal.aborted) throw TransportError.cancelled();
+      if (chunk.done) break;
+      length += chunk.value.byteLength;
+      if (length > limit) { cancel(); throw TransportError.unavailable('响应超过大小限制'); }
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    return JSON.parse(text + decoder.decode());
+  } catch (error) {
+    cancel();
+    throw error;
+  } finally {
+    signal.removeEventListener('abort', cancel);
+    reader.releaseLock();
+  }
+}
+
 /**
  * 单次尝试：fetch 连接与响应 body 读取全程受同一 AbortController 保护
  */
@@ -279,21 +324,24 @@ async function attemptOnce(
     config.onAttemptStart?.();
     const response = await Promise.race([fetch(url, { ...init, signal: controller.signal }), whenAborted]);
 
+    const readJson = () => config.maxResponseBytes === undefined
+      ? response.json() : readBoundedJson(response, config.maxResponseBytes, controller.signal);
     if (!response.ok) {
-      const errorData = await Promise.race([response.json().catch(() => ({})), whenAborted]);
+      const errorData = await Promise.race([readJson().catch(() => ({})), whenAborted]);
       const detail = config.extractErrorMessage?.(errorData);
       // public 文案固定；服务端原文脱敏后仅放入 detail（禁止进入日志）
       throw TransportError.unavailable(
         publicUnavailableMessage(response.status),
         response.status,
-        detail ? sanitizeErrorMessage(detail, redactions) : undefined
+        detail ? sanitizeErrorMessage(detail, redactions) : undefined,
+        retryAfterMilliseconds(response)
       );
     }
 
     if (config.readResponse) {
       return await Promise.race([config.readResponse(response, controller.signal), whenAborted]);
     }
-    const data = await Promise.race([response.json(), whenAborted]);
+    const data = await Promise.race([readJson(), whenAborted]);
     return config.onSuccess(data);
   } catch (error) {
     if (timedOut) {
@@ -308,6 +356,7 @@ async function attemptOnce(
       throw new TransportError(error.kind, fixedPublicTransportMessage(error, timeoutMs), {
         statusCode: error.statusCode,
         retryable: error.retryable,
+        retryAfterMs: error.retryAfterMs,
         detail: error.detail !== undefined ? sanitizeErrorMessage(error.detail, redactions) : undefined,
       });
     }

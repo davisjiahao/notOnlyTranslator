@@ -3,6 +3,8 @@ import { StorageManager } from '@/background/storage';
 import { DEFAULT_SETTINGS } from '@/shared/constants';
 import type { UserSettings } from '@/shared/types';
 
+vi.mock('@/background/jevCredentials', () => ({ clearJevApiKey: vi.fn().mockResolvedValue(undefined) }));
+
 type Settings = UserSettings & { hybridCredentialsRevision?: number };
 type Update = Partial<Settings> & { hybridTranslationPatch?: Partial<NonNullable<UserSettings['hybridTranslation']>> };
 const update = StorageManager.updateSettings.bind(StorageManager) as (

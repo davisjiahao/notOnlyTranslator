@@ -215,13 +215,18 @@ export class TranslationDisplay {
     paragraph: HTMLElement,
     result: TranslationResult
   ): void {
-    this.applyOriginalWordHighlights(paragraph, result.words, false);
+    this.applyOriginalWordHighlights(paragraph, result.words, false, this.isJevResult(result));
 
     paragraph.classList.add('not-translator-processed');
   }
 
-  /** 两种原文模式统一长短语优先；同词多义只使用核验过的出现位置。 */
-  private static applyOriginalWordHighlights(paragraph: HTMLElement, words: TranslatedWord[], bilingual: boolean): void {
+  /** Jev 结果按每次出现的精确位置渲染；缺失或旧流程结果保持原有匹配行为。 */
+  private static isJevResult(result: TranslationResult): boolean {
+    return result.vocabularyAssessment?.provider === 'jev';
+  }
+
+  /** 两种原文模式统一长短语优先；同词多义与 Jev 结果只使用核验过的出现位置。 */
+  private static applyOriginalWordHighlights(paragraph: HTMLElement, words: TranslatedWord[], bilingual: boolean, forcePosition = false): void {
     const entries = [...words].sort((a, b) => a.position[0] - b.position[0])
       .map((word, index) => ({ word, index }))
       .sort((a, b) => b.word.original.length - a.word.original.length);
@@ -230,8 +235,9 @@ export class TranslationDisplay {
       const alternatives = words.filter(other => other.original.toLowerCase() === word.original.toLowerCase()
         && other.translation !== word.translation);
       const conflictingPosition = alternatives.some(other => other.position[0] === word.position[0]);
+      const position = forcePosition || alternatives.length > 0 ? word.position : undefined;
       const matched = !conflictingPosition && this.wrapWordInText(paragraph, word, true,
-        bilingual ? index : undefined, alternatives.length > 0 ? word.position : undefined);
+        bilingual ? index : undefined, position);
       if (!matched && alternatives.length > 0 && word.original.trim() && word.translation.trim()) unmatched.push(word);
     }
     if (unmatched.length > 0) this.appendWordGlossary(paragraph, unmatched);
@@ -272,7 +278,7 @@ export class TranslationDisplay {
       return;
     }
 
-    this.applyOriginalWordHighlights(paragraph, result.words, true);
+    this.applyOriginalWordHighlights(paragraph, result.words, true, this.isJevResult(result));
 
     // 创建译文行（使用 DOM API 避免 XSS）
     const translationLine = document.createElement('div');
@@ -551,6 +557,8 @@ export class TranslationDisplay {
     const targetText = word.original;
     if (!targetText.trim() || !word.translation.trim()) return false;
     if (position && (!Number.isInteger(position[0]) || position[0] < 0 || position[1] - position[0] !== targetText.length)) return false;
+    // 严格位置模式:按核验过的 utf16 区间渲染,词可跨 inline 文本节点。
+    if (position) return this.wrapWordAtPosition(paragraph, word, position, showInlineTranslation, dataIndex);
     const source = getTranslatableText(paragraph);
     const walker = createTranslatableTextWalker(paragraph);
     const nodes: Array<{ node: Text; offset: number }> = [];
@@ -570,8 +578,7 @@ export class TranslationDisplay {
       while (index !== -1) {
         const end = index + targetText.length;
         // 拒绝词内子串后继续查找，模型偏移不影响真实正文匹配。
-        if ((!position || start + index === position[0]) &&
-            !/[\p{L}\p{N}_]/u.test(source[start + index - 1] || '') && !/[\p{L}\p{N}_]/u.test(source[start + end] || '')) {
+        if (!/[\p{L}\p{N}_]/u.test(source[start + index - 1] || '') && !/[\p{L}\p{N}_]/u.test(source[start + end] || '')) {
           fragment.appendChild(document.createTextNode(text.slice(cursor, index)));
           const mark = document.createElement('mark');
           mark.className = CSS_CLASSES.HIGHLIGHT;
@@ -606,6 +613,72 @@ export class TranslationDisplay {
       }
     }
     return matched;
+  }
+
+  /**
+   * 严格位置渲染：按对 getTranslatableText 的 utf16 闭开区间定位。
+   * 词可跨多个 inline 文本节点，分段包裹共享同一词条数据（索引在首段、行内词义在末段）；
+   * 分段复用节点级替换以保留撤销预检。切片与词条不一致或区间落入已有高亮时失败关闭。
+   */
+  private static wrapWordAtPosition(
+    paragraph: HTMLElement,
+    word: TranslatedWord,
+    position: [number, number],
+    showInlineTranslation: boolean,
+    dataIndex?: number
+  ): boolean {
+    const targetText = word.original;
+    const source = getTranslatableText(paragraph);
+    // 位置必须与正文实切片一致，且两侧不能落在词内。
+    if (source.slice(position[0], position[1]).toLowerCase() !== targetText.toLowerCase()) return false;
+    if (/[\p{L}\p{N}_]/u.test(source[position[0] - 1] || '') || /[\p{L}\p{N}_]/u.test(source[position[1]] || '')) return false;
+
+    const walker = createTranslatableTextWalker(paragraph);
+    const segments: Array<{ node: Text; from: number; to: number }> = [];
+    let node: Text | null;
+    let offset = 0;
+    while ((node = walker.nextNode() as Text | null)) {
+      const length = node.textContent?.length || 0;
+      const end = offset + length;
+      if (offset < position[1] && end > position[0]) {
+        segments.push({ node, from: Math.max(position[0], offset) - offset, to: Math.min(position[1], end) - offset });
+      }
+      offset = end;
+    }
+    if (segments.length === 0) return false;
+    // 任一分段已被高亮占用时整体失败关闭，不做部分包裹。
+    if (segments.some(({ node: segmentNode }) => segmentNode.parentElement?.closest(`.${CSS_CLASSES.HIGHLIGHT}`))) return false;
+
+    segments.forEach(({ node: textNode, from, to }, segmentIndex) => {
+      const text = textNode.textContent || '';
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(document.createTextNode(text.slice(0, from)));
+      const mark = document.createElement('mark');
+      mark.className = CSS_CLASSES.HIGHLIGHT;
+      mark.title = `${word.original} — ${word.translation}`;
+      mark.tabIndex = 0;
+      mark.setAttribute('role', 'button');
+      mark.setAttribute('aria-haspopup', 'dialog');
+      mark.dataset.difficulty = String(word.difficulty);
+      mark.dataset.translation = word.translation;
+      mark.dataset.word = word.original;
+      if (word.isPhrase) mark.dataset.isPhrase = 'true';
+      if (segmentIndex === 0 && dataIndex !== undefined) {
+        mark.dataset.index = String(dataIndex);
+        mark.classList.add('not-translator-highlighted-word');
+      }
+      mark.textContent = text.slice(from, to);
+      if (showInlineTranslation && segmentIndex === segments.length - 1) {
+        const annotation = document.createElement('span');
+        annotation.className = 'not-translator-inline-translation';
+        annotation.textContent = word.translation;
+        mark.appendChild(annotation);
+      }
+      fragment.appendChild(mark);
+      fragment.appendChild(document.createTextNode(text.slice(to)));
+      this.replaceTextNode(paragraph, textNode, fragment);
+    });
+    return true;
   }
 
   /**

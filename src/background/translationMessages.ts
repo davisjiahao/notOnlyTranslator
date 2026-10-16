@@ -27,7 +27,9 @@ function validRequest(message: Message): boolean {
   if (!isRecord(payload) || !validMode(payload.mode)) return false;
   if (message.requestId !== undefined && (typeof message.requestId !== 'string' || !/^[\w-]{1,128}$/.test(message.requestId))) return false;
   if (message.type === 'TRANSLATE_TEXT') {
-    return validText(payload.text) && (payload.context === undefined || (typeof payload.context === 'string' && payload.context.length <= MAX_TRANSLATION_TEXT_LENGTH));
+    return validText(payload.text)
+      && (payload.context === undefined || (typeof payload.context === 'string' && payload.context.length <= MAX_TRANSLATION_TEXT_LENGTH))
+      && (payload.intent === undefined || payload.intent === 'reading' || payload.intent === 'lookup');
   }
   const paragraphs = payload.paragraphs;
   return Array.isArray(paragraphs) && paragraphs.length > 0 && paragraphs.length <= DEFAULT_BATCH_CONFIG.maxParagraphsPerBatch

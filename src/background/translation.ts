@@ -23,36 +23,46 @@ import {
   getLocalWordDifficulty,
   markLocalSource,
 } from './localWordLookup';
+import { getJevEligibility } from '@/shared/utils/jev';
+import { getJevRecognitionSignal } from './jevRecognition';
+import { translateJevReading, JevAssessmentError, JevConfigChangedError, createJevBudget, recordJevAssessment } from './jevTranslation';
 
-/**
- * 翻译请求可选选项（直接复用 LLM 传输层类型，signal 由 background 消息路由注入）
- */
+/** 翻译请求选项复用 LLM 传输层，signal 由后台消息路由注入。 */
 export type TranslationRequestOptions = TranslationApiRequestOptions;
 
-/**
- * Translation Service - handles LLM API calls for translation
- * 使用 TranslationApiService 统一处理多供应商 API 调用
- * 支持混合翻译模式：传统API + LLM增强
- */
+/** Jev 回退保留首读配置与密钥；默认旧调用不传此参数。 */
+export interface TranslationSnapshot {
+  settings: UserSettings;
+  apiKey?: string;
+  skipCache?: boolean;
+  onApiCall?: (count: number) => void;
+}
+
+/** 统一 LLM 翻译服务，支持传统 API 与 LLM 增强的混合路由。 */
 export class TranslationService {
-  /**
-   * Translate text based on user level
-   * 支持多种翻译策略，根据设置自动选择最优翻译方式
-   */
+  /** 按设置与用户水平选择翻译策略。 */
   static async translate(
     request: TranslationRequest,
-    options?: TranslationRequestOptions
+    options?: TranslationRequestOptions,
+    preloaded?: TranslationSnapshot
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
     const cacheGeneration = enhancedCache.getGeneration();
     const { text, mode } = request;
     const startTime = performance.now();
+    const generationSignal = request.intent === 'reading' ? getJevRecognitionSignal() : undefined;
 
     logger.info('TranslationService.translate called:', { textLength: text?.length, mode });
 
     // 获取设置
-    const settings = await StorageManager.getSettings();
+    const settings = preloaded?.settings ?? await StorageManager.getSettings();
     options?.signal?.throwIfAborted();
+
+    // 阅读意图且启用 Jev 识别（默认关闭）：在 <=3 词本地短路前选策略；
+    // 识别失败且总预算有效时回退原链一次，其他错误不回退
+    if (request.intent === 'reading' && settings.vocabularyAssessmentProvider === 'jev') {
+      return this.translateReading(request, settings, startTime, options, generationSignal);
+    }
 
     // 策略0: 单词/短语级查词先走本地链（生词本 → 语境缓存 → 离线词典）
     // 查词不因单词等级低被拒绝；本地命中在断网/无 Key 时同样可用
@@ -73,11 +83,11 @@ export class TranslationService {
     }
 
     const hasDeepLKey = settings.apiProvider === 'deepl' && await this.hasDeepLApiKey(settings);
-    const apiKey = await StorageManager.getApiKey(settings);
+    const apiKey = preloaded?.apiKey ?? await StorageManager.getApiKey(settings);
     options?.signal?.throwIfAborted();
     if (!apiKey && !hasDeepLKey && settings.apiProvider !== 'ollama') {
       // 未配置服务也可使用已有缓存；后续在缓存未命中时只走本地词典，不调用网络。
-      return this.translateWithLLM(request, settings, apiKey, startTime, cacheGeneration, options);
+      return this.translateWithLLM(request, settings, apiKey, startTime, cacheGeneration, options, preloaded);
     }
 
     const hybridSettings = settings as UserSettings & { hybridTranslation?: { enabled?: boolean } };
@@ -92,12 +102,66 @@ export class TranslationService {
     }
 
     logger.info('TranslationService: Using standard LLM translation');
-    return this.translateWithLLM(request, settings, apiKey, startTime, cacheGeneration, options);
+    return this.translateWithLLM(request, settings, apiKey, startTime, cacheGeneration, options, preloaded);
   }
 
-  /**
-   * 检查是否有 DeepL API Key 配置
-   */
+  /** 阅读先识别后释义；只有识别失败可在剩余总预算内回退旧链一次。 */
+  private static async translateReading(
+    request: TranslationRequest,
+    settings: UserSettings,
+    startTime: number,
+    options: TranslationRequestOptions | undefined,
+    generationSignal?: AbortSignal,
+  ): Promise<TranslationResult> {
+    const reason = getJevEligibility(settings, request.userLevel, request.mode);
+    if (reason) {
+      const legacy = await this.translate({ ...request, intent: undefined }, options, { settings });
+      const assessment = { provider: 'legacy' as const, reason };
+      recordJevAssessment(assessment);
+      return { ...legacy, vocabularyAssessment: assessment };
+    }
+    const budget = createJevBudget(settings, {
+      ...options,
+      deadlineAt: Date.now() - (performance.now() - startTime)
+        + (options?.timeoutMs ?? (settings.apiProvider === 'ollama'
+          ? TRANSPORT_DEFAULTS.localLlmTimeoutMs : TRANSPORT_DEFAULTS.llmTimeoutMs)),
+    });
+    try {
+      budget.check();
+      const apiKey = await StorageManager.getApiKey(settings);
+      budget.check();
+      try {
+        const { result } = await translateJevReading(
+          { text: request.text, context: request.context, profile: request.userLevel, settings, apiKey, generationSignal },
+          { signal: budget.signal, timeoutMs: budget.remaining(), deadlineAt: budget.deadlineAt }
+        );
+        budget.check();
+        if (generationSignal?.aborted) throw new JevConfigChangedError('Jev 请求代际已变化');
+        recordMetric(MetricType.TRANSLATION_TOTAL_TIME, 'translate_total', performance.now() - startTime, true, {
+          provider: 'jev', textLength: request.text?.length,
+        });
+        return result;
+      } catch (error) {
+        budget.check();
+        if (!(error instanceof JevAssessmentError)) throw error;
+        await error.assertCurrent();
+        const legacy = await this.translate(
+          { ...request, intent: undefined },
+          { ...options, signal: error.signal ? AbortSignal.any([budget.signal, error.signal]) : budget.signal, timeoutMs: budget.remaining() },
+          { settings, apiKey, skipCache: true },
+        );
+        budget.check();
+        await error.assertCurrent();
+        budget.check();
+        if (generationSignal?.aborted) throw new JevConfigChangedError('Jev 请求代际已变化');
+        const assessment = { provider: 'legacy' as const, reason: error.reason };
+        recordJevAssessment(assessment);
+        return { ...legacy, vocabularyAssessment: assessment };
+      }
+    } finally { budget.dispose(); }
+  }
+
+  /** 检查 DeepL API Key 配置。 */
   private static async hasDeepLApiKey(settings: UserSettings): Promise<boolean> {
     // 从混合翻译配置中检查
     if (settings.hybridTranslation?.traditionalApiKey) {
@@ -205,16 +269,15 @@ export class TranslationService {
     return result;
   }
 
-  /**
-   * 标准 LLM 翻译（当 DeepL 不可用时使用）
-   */
+  /** 标准 LLM 翻译。 */
   private static async translateWithLLM(
     request: TranslationRequest,
     settings: UserSettings,
     apiKey: string,
     startTime: number,
     cacheGeneration: number,
-    options?: TranslationRequestOptions
+    options?: TranslationRequestOptions,
+    preloaded?: TranslationSnapshot
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
     const { text, mode } = request;
@@ -225,7 +288,7 @@ export class TranslationService {
     });
 
     // 检查增强缓存
-    const cached = await enhancedCache.get(cacheKey);
+    const cached = preloaded?.skipCache ? null : await enhancedCache.get(cacheKey);
     options?.signal?.throwIfAborted();
     // 旧版本可能缓存了缺失全文的成功响应，双语和全文模式不能继续复用。
     if (cached && (mode === 'inline-only' || (typeof cached.fullText === 'string' && cached.fullText.trim().length > 0))) {
@@ -267,7 +330,7 @@ export class TranslationService {
       !settings.phraseTranslationEnabled
     ) {
       logger.info('TranslationService: Using lightweight vocab mode (local-first)');
-      return this.translateWithLightweightVocab(request, settings, apiKey, startTime, cacheGeneration, options);
+      return this.translateWithLightweightVocab(request, settings, apiKey, startTime, cacheGeneration, options, preloaded);
     }
 
     // Build prompt with settings
@@ -280,7 +343,9 @@ export class TranslationService {
     let content: string;
     let fullTextFallback = false;
     try {
-      content = await TranslationApiService.callWithSystem(systemPrompt, userPrompt, apiKey, settings, undefined, options);
+      preloaded?.onApiCall?.(1);
+      content = await TranslationApiService.callWithSystem(systemPrompt, userPrompt, apiKey, settings,
+        preloaded?.skipCache ? { maxRetries: 0 } : undefined, options);
     } catch (error) {
       options?.signal?.throwIfAborted();
       if (!(error instanceof TransportError) || error.kind !== 'output_limit') throw error;
@@ -288,6 +353,7 @@ export class TranslationService {
         const recovered = await recoverInlineVocabulary(
           [{ text, context: request.context }], request.userLevel, settings, apiKey, options
         );
+        preloaded?.onApiCall?.(recovered.apiCallCount);
         options?.signal?.throwIfAborted();
         return recovered.results[0];
       }
@@ -322,7 +388,7 @@ export class TranslationService {
     options?.signal?.throwIfAborted();
     const pageUrl = typeof window !== 'undefined' ? window.location.href : 'background';
     // 纯全文任务没有完成原学习分析，不能污染其缓存身份。
-    if (!fullTextFallback) await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm', cacheGeneration);
+    if (!fullTextFallback && !preloaded?.skipCache) await enhancedCache.set(cacheKey, result, mode, pageUrl, 'llm', cacheGeneration);
 
     // 记录 API 调用性能
     const totalDuration = performance.now() - startTime;
@@ -349,7 +415,8 @@ export class TranslationService {
     apiKey: string,
     startTime: number,
     cacheGeneration: number,
-    options?: TranslationRequestOptions
+    options?: TranslationRequestOptions,
+    preloaded?: TranslationSnapshot
   ): Promise<TranslationResult> {
     options?.signal?.throwIfAborted();
     const { text, context, userLevel } = request;
@@ -379,12 +446,13 @@ export class TranslationService {
 
     options?.signal?.throwIfAborted();
     const apiStartTime = performance.now();
+    preloaded?.onApiCall?.(1);
     const content = await TranslationApiService.callWithSystem(
       systemPrompt,
       userPrompt,
       apiKey,
       settings,
-      undefined,
+      preloaded?.skipCache ? { maxRetries: 0 } : undefined,
       options
     );
     const apiDuration = performance.now() - apiStartTime;
@@ -407,7 +475,7 @@ export class TranslationService {
       if (!sense) return c;
       llmAdoptedCount += 1;
       // 清空前的在途请求只能返回结果，不能回填已清除的旧词义。
-      if (cacheGeneration === enhancedCache.getGeneration()) {
+      if (!preloaded?.skipCache && cacheGeneration === enhancedCache.getGeneration()) {
         storeWordSense(c.lemma, senseContext, sense.translation, senseScope);
       }
       return { ...c, translation: sense.translation, source: 'sense_cache' as const };
@@ -499,9 +567,7 @@ export class TranslationService {
     return markLocalSource(result);
   }
 
-  /**
-   * Build prompt for LLM using TranslationPromptBuilder or PromptVersionManager
-   */
+  /** 使用提示词构建器或用户指定版本构建请求。 */
   private static buildPrompt(request: TranslationRequest, settings: UserSettings): { systemPrompt: string; userPrompt: string } {
     const { text, context, userLevel } = request;
     const { promptVersion } = settings;
@@ -538,9 +604,7 @@ export class TranslationService {
     return builder.build();
   }
 
-  /**
-   * Parse LLM response into TranslationResult
-   */
+  /** 解析 LLM 响应。 */
   private static parseResponse(
     content: string,
     settings: UserSettings,

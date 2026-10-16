@@ -30,7 +30,7 @@ beforeAll(async () => {
   syncData = {};
   const event = { addListener: vi.fn() };
   vi.stubGlobal('chrome', {
-    storage: { sync, local },
+    storage: { sync, local, onChanged: event },
     alarms: {
       get: vi.fn((_name: string, callback: (alarm?: chrome.alarms.Alarm) => void) => callback()),
       create: vi.fn(), onAlarm: event,
