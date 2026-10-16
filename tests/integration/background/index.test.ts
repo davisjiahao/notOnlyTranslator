@@ -20,6 +20,7 @@ let onClicked: Parameters<typeof chrome.contextMenus.onClicked.addListener>[0];
 let onAlarm: Parameters<typeof chrome.alarms.onAlarm.addListener>[0];
 let onCommand: Parameters<typeof chrome.commands.onCommand.addListener>[0];
 let onNotificationClicked: Parameters<typeof chrome.notifications.onClicked.addListener>[0];
+const storageListeners: Array<Parameters<typeof chrome.storage.onChanged.addListener>[0]> = [];
 const onInstalled: Array<Parameters<typeof chrome.runtime.onInstalled.addListener>[0]> = [];
 
 const local = {
@@ -36,10 +37,10 @@ const sync = {
 };
 const sendMessage = vi.fn().mockResolvedValue(undefined);
 
-function dispatch(message: Message): Promise<MessageResponse> {
+function dispatch(message: Message, sender: chrome.runtime.MessageSender = {}): Promise<MessageResponse> {
   return new Promise((resolve, reject) => {
     try {
-      expect(onMessage(message, {} as chrome.runtime.MessageSender, resolve)).toBe(true);
+      expect(onMessage(message, sender, resolve)).toBe(true);
     } catch (error) {
       reject(error);
     }
@@ -49,13 +50,17 @@ function dispatch(message: Message): Promise<MessageResponse> {
 beforeAll(async () => {
   vi.resetModules();
   vi.stubGlobal('chrome', {
-    storage: { local, sync },
+    storage: { local, sync, onChanged: {
+      addListener: vi.fn((listener: typeof storageListeners[number]) => { storageListeners.push(listener); }),
+    } },
     alarms: {
       get: vi.fn((_name: string, callback: (alarm?: chrome.alarms.Alarm) => void) => callback()),
       create: vi.fn(),
       onAlarm: { addListener: vi.fn((listener: typeof onAlarm) => { onAlarm = listener; }) },
     },
     runtime: {
+      id: 'jev-routing-test',
+      getURL: (path: string) => `chrome-extension://jev-routing-test/${path}`,
       onInstalled: { addListener: vi.fn((listener: typeof onInstalled[number]) => { onInstalled.push(listener); }) },
       onMessage: { addListener: vi.fn((listener: typeof onMessage) => { onMessage = listener; }) },
       sendMessage: vi.fn((message: Message) => dispatch(message)),
@@ -91,6 +96,134 @@ beforeEach(() => {
 });
 
 describe('后台注册的消息监听器', () => {
+  it('Jev配置只接受options来源，模型阈值变化与ABA会取消旧代际', async () => {
+    const jevConfig = { provider: 'custom', apiUrl: 'https://recognition.example/systemone', model: 'custom-jev', threshold: 0.75 };
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { jevConfig } },
+      { id: chrome.runtime.id, url: 'https://example.test/' }))
+      .toEqual({ success: false, error: 'JEV_UNTRUSTED_SENDER' });
+    expect(sync.set).not.toHaveBeenCalled();
+    const sender = { id: chrome.runtime.id, url: chrome.runtime.getURL('src/options/index.html') };
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { jevConfig } }, sender)).toMatchObject({ success: true });
+    const { getJevRecognitionSignal } = await import('@/background/jevRecognition');
+    const signal = getJevRecognitionSignal();
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { jevConfig: { ...jevConfig, model: 'changed', threshold: 0.9 } } }, sender))
+      .toMatchObject({ success: true });
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { jevConfig } }, sender)).toMatchObject({ success: true });
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('可信options的非法Jev配置被拒绝，导入配置只保留非敏感字段并强制legacy', async () => {
+    const sender = { id: chrome.runtime.id, url: chrome.runtime.getURL('src/options/index.html') };
+    const jevConfig = { provider: 'custom', apiUrl: 'https://recognition.example/systemone', model: 'custom-jev', threshold: 0.75 };
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { jevConfig: { ...jevConfig, secret: 'synthetic-secret' } } }, sender))
+      .toMatchObject({ success: false, error: 'INVALID_JEV_CONFIG' });
+    expect(sync.set).not.toHaveBeenCalled();
+    expect(await dispatch({ type: 'REPLACE_SETTINGS', payload: { enabled: true, jevConfig, vocabularyAssessmentProvider: 'jev' } }))
+      .toMatchObject({ success: true });
+    expect(syncData.settings).toMatchObject({ jevConfig, vocabularyAssessmentProvider: 'legacy' });
+  });
+  it.each([
+    ['enabled', true, false], ['translationMode', 'inline-only', 'bilingual'],
+    ['apiProvider', 'openai', 'deepl'],
+  ])('Jev设置%s恢复原值后旧代际仍取消', async (field, original, changed) => {
+    const { getJevRecognitionSignal } = await import('@/background/jevRecognition');
+    await dispatch({ type: 'UPDATE_SETTINGS', payload: { [field]: original } });
+    const started = getJevRecognitionSignal();
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { [field]: changed } })).toMatchObject({ success: true });
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { [field]: original } })).toMatchObject({ success: true });
+    expect(started.aborted).toBe(true);
+    expect(getJevRecognitionSignal().aborted).toBe(false);
+  });
+
+  it('Jev画像改后恢复旧水平仍取消旧代际', async () => {
+    const { getJevRecognitionSignal } = await import('@/background/jevRecognition');
+    await dispatch({ type: 'UPDATE_USER_PROFILE', payload: { estimatedVocabulary: 3000 } });
+    const started = getJevRecognitionSignal();
+    await dispatch({ type: 'UPDATE_USER_PROFILE', payload: { estimatedVocabulary: 5000 } });
+    await dispatch({ type: 'UPDATE_USER_PROFILE', payload: { estimatedVocabulary: 3000 } });
+    expect(started.aborted).toBe(true);
+  });
+
+  it.each([
+    ['sync', 'settings'], ['sync', 'userProfile'], ['sync', 'apiKey'],
+    ['local', 'knownWords'], ['local', 'unknownWords'],
+  ])('Jev直接存储%s.%s变化及恢复取消旧代际', async (area, key) => {
+    const { getJevRecognitionSignal } = await import('@/background/jevRecognition');
+    const started = getJevRecognitionSignal();
+    for (const [oldValue, newValue] of [[[], ['synthetic']], [['synthetic'], []]]) {
+      storageListeners.forEach(listener => listener({ [key]: { oldValue, newValue } }, area));
+    }
+    expect(started.aborted).toBe(true);
+  });
+
+  it('Jev最终快照等待旧画像时API版本更新使旧校验失败', async () => {
+    const { StorageManager } = await import('@/background/storage');
+    const credentials = await import('@/background/jevCredentials');
+    const { createJevSnapshot, assertJevSnapshotCurrent, JevConfigChangedError } = await import('@/background/jevTranslation');
+    const config = { id: 'jev-aba', name: '旧配置', provider: 'openai' as const,
+      apiKey: 'synthetic-api-key', tested: true, createdAt: 1 };
+    syncData = { settings: { apiConfigs: [config], apiConfigsRevision: 1, activeApiConfigId: config.id },
+      userProfile: importedProfile };
+    const settings = await StorageManager.getSettings();
+    const profile = await StorageManager.getUserProfile();
+    const keyRead = vi.spyOn(credentials, 'getJevApiKey').mockResolvedValue(null);
+    let release!: (value: UserProfile) => void;
+    const profileRead = vi.spyOn(StorageManager, 'getUserProfile')
+      .mockResolvedValueOnce(profile)
+      .mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    try {
+      const snapshot = await createJevSnapshot({ settings, profile, apiKey: config.apiKey });
+      const validating = assertJevSnapshotCurrent(snapshot).catch(error => error);
+      await vi.waitFor(() => expect(profileRead).toHaveBeenCalledTimes(2));
+      expect(await dispatch({ type: 'UPDATE_SETTINGS', expectedApiConfigsRevision: 1,
+        payload: { apiConfigs: [{ ...config, name: '新配置' }] } }))
+        .toMatchObject({ success: true, data: { apiConfigsRevision: 2 } });
+      release(profile);
+      expect(await validating).toBeInstanceOf(JevConfigChangedError);
+      expect(snapshot.signal.aborted).toBe(true);
+    } finally {
+      release?.(profile);
+      keyRead.mockRestore();
+      profileRead.mockRestore();
+    }
+  });
+
+  it('无关存储事件及同值写入不取消Jev代际', async () => {
+    const { getJevRecognitionSignal } = await import('@/background/jevRecognition');
+    const started = getJevRecognitionSignal();
+    storageListeners.forEach(listener => {
+      listener({ translationCache: { newValue: {} } }, 'local');
+      listener({ settings: { newValue: {} } }, 'session');
+      listener({ knownWords: { oldValue: ['book'], newValue: ['book'] } }, 'local');
+    });
+    expect(started.aborted).toBe(false);
+  });
+
+  it.each(['GET_JEV_STATUS', 'SET_JEV_API_KEY', 'DELETE_JEV_API_KEY', 'TEST_JEV_CONNECTION'] as const)(
+    '真实监听器将%s交给可信来源检查', async type => {
+      expect(await dispatch({ type, payload: { apiKey: 'synthetic-key' } }, { id: chrome.runtime.id, url: 'https://example.test/' }))
+        .toEqual({ success: false, error: 'JEV_UNTRUSTED_SENDER' });
+      expect(sync.set).not.toHaveBeenCalled();
+    },
+  );
+
+  it('内容页不能启用Jev，但普通旧设置更新保持可用', async () => {
+    const sender = { id: 'jev-routing-test', url: 'https://example.test/', tab: { id: 1 } } as chrome.runtime.MessageSender;
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { vocabularyAssessmentProvider: 'jev' } }, sender))
+      .toEqual({ success: false, error: 'JEV_UNTRUSTED_SENDER' });
+    expect(sync.set).not.toHaveBeenCalled();
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { enabled: false } }, sender)).toEqual({ success: true });
+  });
+
+  it('精确options页面可启用Jev，但query路径不能切换', async () => {
+    const url = chrome.runtime.getURL('src/options/index.html');
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { vocabularyAssessmentProvider: 'jev' } },
+      { id: chrome.runtime.id, url: `${url}?tab=api` })).toEqual({ success: false, error: 'JEV_UNTRUSTED_SENDER' });
+    expect(await dispatch({ type: 'UPDATE_SETTINGS', payload: { vocabularyAssessmentProvider: 'jev' } },
+      { id: chrome.runtime.id, url })).toEqual({ success: true });
+    expect(syncData.settings).toMatchObject({ vocabularyAssessmentProvider: 'jev' });
+  });
+
   it.each([null, [], {}, { enabled: 'true' }, { enabled: true, apiConfigs: null }])(
     '拒绝无效备份设置 %j 且不写入同步存储', async payload => {
       expect(await dispatch({ type: 'REPLACE_SETTINGS', payload }))

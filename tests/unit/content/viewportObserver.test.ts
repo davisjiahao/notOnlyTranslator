@@ -147,6 +147,14 @@ describe('ViewportObserver', () => {
       expect(paragraphs[0].text).toBe('A'.repeat(100));
     });
 
+    it('可视段落送译文本保留首尾空白与跨 inline 原文坐标', () => {
+      const el = createParagraphElement('');
+      el.innerHTML = '  The plant grows while the <em>pla</em><strong>nt</strong> makes products in this sentence.  ';
+      observer.observe(el);
+      currentObserver!.trigger([{ target: el, isIntersecting: true }]);
+      expect(callback.mock.calls[0][0][0].text).toBe('  The plant grows while the plant makes products in this sentence.  ');
+    });
+
     it('元素离开可视区域从集合移除', () => {
       const el = createParagraphElement('A'.repeat(100));
       observer.observe(el);

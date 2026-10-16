@@ -79,6 +79,73 @@ describe('executeTransportRequest', () => {
   const okInit = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
   const baseOptions = { onSuccess: (data: unknown) => String((data as { content: string }).content) };
 
+  it.each([
+    ['2', 2000],
+    ['Wed, 21 Oct 2037 07:28:02 GMT', 2000],
+    ['0', 0],
+    ['invalid', undefined],
+    ['-1', undefined],
+  ])('保留429 Retry-After %s 的等待毫秒数', async (header, expected) => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('Wed, 21 Oct 2037 07:28:00 GMT'));
+    fetchMock.mockResolvedValue({ ok: false, status: 429, headers: new Headers({ 'Retry-After': header }), json: async () => ({}) });
+    try {
+      await expect(executeTransportRequest('https://api.example.dev/v1', okInit, baseOptions))
+        .rejects.toMatchObject({ statusCode: 429, retryAfterMs: expected });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('可选响应上限按UTF8原始字节计数，精确边界接受、超限停止读取', async () => {
+    const body = JSON.stringify({ content: '中' });
+    const size = new TextEncoder().encode(body).byteLength;
+    fetchMock.mockResolvedValueOnce(new Response(body));
+    await expect(executeTransportRequest('https://api.example.dev/v1', okInit, { ...baseOptions, maxResponseBytes: size })).resolves.toBe('中');
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new TextEncoder().encode(body)); },
+      cancel() { cancelled = true; },
+    });
+    fetchMock.mockResolvedValueOnce(new Response(stream));
+    const error = await executeTransportRequest('https://api.example.dev/v1', okInit, { ...baseOptions, maxResponseBytes: size - 1 }).catch(value => value);
+    expect(error).toMatchObject({ kind: 'unavailable' });
+    expect(cancelled).toBe(true);
+    expect(error.message).not.toContain(body);
+  });
+
+  it('超限错误响应仍保留HTTP状态与Retry-After，不把服务端正文放入错误', async () => {
+    fetchMock.mockResolvedValue(new Response('private-response-secret', { status: 429, headers: { 'Retry-After': '2' } }));
+    const error = await executeTransportRequest('https://api.example.dev/v1', okInit, { ...baseOptions, maxResponseBytes: 8 }).catch(value => value);
+    expect(error).toMatchObject({ statusCode: 429, retryAfterMs: 2000 });
+    expect(JSON.stringify(error)).not.toContain('private-response-secret');
+  });
+
+  it('非法UTF8立即取消未关闭响应流，不等待超时继续占用连接', async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(Uint8Array.of(0xff)); },
+      cancel() { cancelled = true; },
+    });
+    fetchMock.mockResolvedValue(new Response(stream));
+    await expect(executeTransportRequest('https://api.example.dev/v1', okInit, {
+      ...baseOptions, maxResponseBytes: 65_536, timeoutMs: 100,
+    })).rejects.toMatchObject({ kind: 'unavailable' });
+    expect(cancelled).toBe(true);
+  });
+
+  it('有字节上限的流式读取仍受调用方取消控制', async () => {
+    let cancelled = false;
+    fetchMock.mockResolvedValue(new Response(new ReadableStream({ cancel() { cancelled = true; } })));
+    const controller = new AbortController();
+    const result = executeTransportRequest('https://api.example.dev/v1', okInit, { ...baseOptions, maxResponseBytes: 100, signal: controller.signal });
+    const rejection = expect(result).rejects.toMatchObject({ kind: 'cancelled' });
+    await Promise.resolve();
+    await Promise.resolve();
+    controller.abort();
+    await rejection;
+    expect(cancelled).toBe(true);
+  });
+
   it('成功返回解析结果，并把 AbortSignal 传给 fetch', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: 'ok' }) });
 

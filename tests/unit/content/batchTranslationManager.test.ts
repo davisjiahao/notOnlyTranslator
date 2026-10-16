@@ -95,6 +95,18 @@ describe('BatchTranslationManager', () => {
       }
     });
 
+    it('raw 空白使首项超过预算时释放该项，不阻塞后续段落', async () => {
+      const valid = createVisibleParagraph({ id: 'valid', text: 'A'.repeat(60) });
+      const oversized = createVisibleParagraph({ id: 'oversized', text: `  ${'B'.repeat(98)}  ` });
+      await manager.handleVisibleParagraphs([valid, oversized]);
+      await vi.waitFor(() => expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'BATCH_TRANSLATE_TEXT', payload: expect.objectContaining({
+          paragraphs: [expect.objectContaining({ id: 'valid', text: valid.text })],
+        }) }), expect.any(Function)
+      ));
+      expect(manager.isProcessing('oversized')).toBe(false);
+    });
+
     it('空段落列表不处理', async () => {
       await manager.handleVisibleParagraphs([]);
       expect(manager.getProcessingCount()).toBe(0);

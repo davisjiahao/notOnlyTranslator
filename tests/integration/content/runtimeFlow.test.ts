@@ -149,6 +149,31 @@ describe('内容脚本真实初始化与运行时消息', () => {
     expect(listeners).toHaveLength(0);
   });
 
+  it.each(['main', 'div'])('短英文正文位于 %s 时，真实 Tooltip 的中文帮助面板不影响语言判定', async (tag) => {
+    const shortText = 'The plant by the window is green. Police may plant evidence to frame an innocent person.';
+    document.body.innerHTML = `<${tag}><p id="story">${shortText}</p></${tag}>`;
+
+    await createTranslator();
+
+    expect(document.querySelector('.not-translator-tooltip')).not.toBeNull();
+    expect(document.querySelector('.not-translator-help-panel')?.textContent).toContain('标记认识');
+    expect(document.body.dataset.extensionLoaded).toBe('true');
+    expect(observed).toContain(document.getElementById('story'));
+    expect(listeners).toHaveLength(1);
+  });
+
+  it.each(['en', ''])('lang="%s" 的真实中文正文仍按内容跳过扫描与消息监听', async (lang) => {
+    document.documentElement.lang = lang;
+    const chineseText = '这是页面原有的中文正文，需要根据内容继续跳过翻译。'.repeat(6);
+    document.body.innerHTML = `<main><p>${chineseText}</p></main>`;
+
+    await createTranslator();
+
+    expect(document.body.dataset.extensionLoaded).toBe('chinese-page');
+    expect(observed).toHaveLength(0);
+    expect(listeners).toHaveLength(0);
+  });
+
   it('关闭自动高亮仍接收消息，启用时扫描，关闭时不扫描', async () => {
     currentSettings = { ...settings, autoHighlight: false };
     await createTranslator();
@@ -285,7 +310,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     const text = (request?.payload as { text: string }).text;
     translationCallbacks[0]({ success: true, data: { words: [], sentences: [] } });
     await scanning;
-    expect(text.trim()).toBe(article.repeat(5).trim());
+    expect(text).toBe(article.repeat(5));
   });
 
   it.each(['paragraph', 'page'] as const)('显式 %s 翻译同样只发送正文，不读取隐藏后代', async entry => {
@@ -304,7 +329,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
       ? { results: [{ result: { words: [], sentences: [] } }] }
       : { words: [], sentences: [] } });
     await pending;
-    expect(text).toBe(article.repeat(5).trim());
+    expect(text).toBe(article.repeat(5));
   });
 
   it.each([
@@ -317,7 +342,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     await vi.waitFor(() => expect(translationCallbacks).toHaveLength(1));
     const batch = messages.find(message => message.type === 'BATCH_TRANSLATE_TEXT')!;
     const paragraphs = (batch.payload as { paragraphs: { id: string; text: string }[] }).paragraphs;
-    expect(paragraphs[0].text).toBe(article.repeat(5).trim());
+    expect(paragraphs[0].text).toBe(article.repeat(5));
 
     // 请求已发出后用户开始编辑或页面重组；不切换设置，也不改变请求 generation。
     const editedText = 'User edited content must survive this earlier translation request.';
@@ -373,7 +398,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     const retryBatch = messages.filter((message) => message.type === 'BATCH_TRANSLATE_TEXT').at(-1);
     const retryParagraphs = (retryBatch?.payload as { paragraphs: { id: string; text: string }[] }).paragraphs;
     // 重试采集的必须是纯净原文，不得混入失败通知的中文文本
-    expect(retryParagraphs[0]?.text).toBe(article.repeat(5).trim());
+    expect(retryParagraphs[0]?.text).toBe(article.repeat(5));
     const ids = retryParagraphs.map(p => p.id);
     translationCallbacks[1]({
       success: true,
@@ -409,7 +434,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     );
     const host = document.getElementById('nestedHost')!;
     const inner = document.getElementById('nestedInner')!;
-    const hostOriginalText = host.textContent!.trim();
+    const hostOriginalText = getTranslatableText(host);
 
     currentSettings = { ...settings, translationMode: 'bilingual' };
     await createTranslator();
@@ -441,7 +466,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     // 模拟无段落包裹的纯文本页面：body 直下长英文直接文本（findParagraphAncestor 会返回 body 自身）
     document.body.appendChild(document.createTextNode(article.repeat(2)));
     // 5 段正文副本 + 2 段 body 直接文本；nav 内的副本不属于可翻译正文。
-    const bodyOriginalText = article.repeat(7).trim();
+    const bodyOriginalText = article.repeat(7);
 
     currentSettings = { ...settings, translationMode: 'bilingual' };
     await createTranslator();
@@ -757,7 +782,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
       currentSettings = { ...currentSettings, translationMode: mode };
       await dispatch('SETTINGS_UPDATED');
       await vi.waitFor(() => expect(document.querySelector(`[data-mode="${mode}"]`)?.getAttribute('aria-pressed')).toBe('true'));
-      expect(getTranslatableText(paragraph).trim()).toBe(article.repeat(5).trim());
+      expect(getTranslatableText(paragraph)).toBe(article.repeat(5));
       expect(document.querySelectorAll('.not-translator-translation-line')).toHaveLength(mode === 'inline-only' ? 0 : 1);
       expect(translationCallbacks).toHaveLength(1);
     }
@@ -895,7 +920,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     intersecting(paragraph);
     await vi.waitFor(() => expect(translationCallbacks).toHaveLength(1));
     expect(messages.find(message => message.type === 'BATCH_TRANSLATE_TEXT'))
-      .toMatchObject({ payload: { mode: 'bilingual', paragraphs: [{ text: article.repeat(2).trim() }] } });
+      .toMatchObject({ payload: { mode: 'bilingual', paragraphs: [{ text: article.repeat(2) }] } });
   });
 
   it('显式服务配置的模式保存附带清理旧凭据时，不把无关旧字段当成获取配置变化', async () => {

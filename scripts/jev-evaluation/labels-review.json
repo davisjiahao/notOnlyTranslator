@@ -1,0 +1,22 @@
+{
+  "status": "reviewed-synthetic",
+  "samplesSHA256": "c8aff6cd7be3cffe26aa8fbdc62c3d310aa571dcab705b925895065641fbd0db",
+  "reviewedOn": "2026-10-13",
+  "reviewerRole": "independent language-label reviewer",
+  "reviewBeforePredictions": true,
+  "teacherValidated": false,
+  "sampleCount": 200,
+  "lemmaGroups": 100,
+  "calibrationCount": 60,
+  "holdoutCount": 140,
+  "categories": { "common": 100, "sense": 50, "advanced": 50 },
+  "rubric": "common includes every negative, including the common reading in sense pairs; sense and advanced are positive references above B1",
+  "oldExactTargetOverlap": 0,
+  "limitations": [
+    "Synthetic challenge set enriched for paired senses; not a representative sample of webpage vocabulary.",
+    "Two examples within each lemma group are correlated; groups never cross calibration and holdout.",
+    "Independent agent review is not teacher validation or an authoritative CEFR dictionary label.",
+    "Repeated occurrences do not validate selecting only the second occurrence with a different meaning in production DOM rendering.",
+    "No full-plugin baseline comparison; numeric gates alone do not establish production readiness."
+  ]
+}

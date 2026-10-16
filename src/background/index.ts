@@ -6,10 +6,14 @@ import type {
   TranslationMode,
   UserProfile,
 } from '@/shared/types';
-import { CONTEXT_MENU_IDS } from '@/shared/constants';
+import { CONTEXT_MENU_IDS, STORAGE_KEYS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
 import { validateImportedSettings } from '@/shared/utils/dataExport';
 import { StorageManager } from './storage';
+import { isTrustedJevSender } from './jevCredentials';
+import { handleJevMessage, invalidateJevOperations } from './jevMessages';
+import { resetJevRecognition } from './jevRecognition';
+import { clearLastJevAssessment } from './jevTranslation';
 import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
 import { handleTranslationMessage } from './translationMessages';
@@ -44,6 +48,17 @@ import {
 
 let pendingOperations: readonly Promise<unknown>[] = [];
 let clearingData: Promise<MessageResponse> | null = null;
+
+// 外部存储写入也必须作废 Jev 代际，避免配置或词表变更后恢复原值绕过快照校验。
+chrome.storage.onChanged.addListener((changes, area) => {
+  const keys = area === 'sync'
+    ? [STORAGE_KEYS.SYNC.SETTINGS, STORAGE_KEYS.SYNC.USER_PROFILE, STORAGE_KEYS.SYNC.API_KEY, 'legacyApiKeyInvalidated']
+    : area === 'local' ? [STORAGE_KEYS.LOCAL.KNOWN_WORDS, STORAGE_KEYS.LOCAL.UNKNOWN_WORDS] : [];
+  if (keys.some(key => Object.prototype.hasOwnProperty.call(changes, key) &&
+    JSON.stringify(changes[key].oldValue) !== JSON.stringify(changes[key].newValue))) {
+    invalidateJevOperations();
+  }
+});
 
 function trackOperation<T>(operation: Promise<T>): Promise<T> {
   pendingOperations = [...pendingOperations, operation];
@@ -291,6 +306,8 @@ function routeMessage(message: Message, sender: chrome.runtime.MessageSender): P
   }
   if (message.type === 'CLEAR_ALL_DATA') {
     if (clearingData) return clearingData;
+    invalidateJevOperations();
+    clearLastJevAssessment();
     // 等待消息、闹钟和右键操作完整结束，避免其后续阶段在清空后回填用户数据。
     clearingData = Promise.allSettled([...pendingOperations, backgroundInitialization]).then(async () => {
       // 取消翻译的消息 Promise 提前返回后，请求队列仍有迟到的写入链；
@@ -303,6 +320,8 @@ function routeMessage(message: Message, sender: chrome.runtime.MessageSender): P
       const failure = results.find(result => result.status === 'rejected');
       if (failure?.status === 'rejected') throw failure.reason;
       await StorageManager.clearAllData();
+      resetJevRecognition();
+      clearLastJevAssessment();
       return { success: true };
     }).finally(() => { clearingData = null; });
     return clearingData;
@@ -336,6 +355,11 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
   logger.info('NotOnlyTranslator: Received message:', message.type);
 
   switch (message.type) {
+    case 'GET_JEV_STATUS':
+    case 'SET_JEV_API_KEY':
+    case 'DELETE_JEV_API_KEY':
+    case 'TEST_JEV_CONNECTION':
+      return handleJevMessage(message, sender);
     case 'TRANSLATE_TEXT':
     case 'BATCH_TRANSLATE_TEXT':
     case 'CANCEL_TRANSLATION':
@@ -435,6 +459,7 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
 
     case 'UPDATE_USER_PROFILE': {
       const updated = await StorageManager.updateLevelProfile(message.payload);
+      invalidateJevOperations();
       return { success: true, data: updated };
     }
 
@@ -446,6 +471,10 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
     case 'UPDATE_SETTINGS':
     case 'REPLACE_SETTINGS': {
       const newSettings = message.payload as Partial<import('@/shared/types').UserSettings>;
+      if (message.type === 'UPDATE_SETTINGS' &&
+        ['vocabularyAssessmentProvider', 'jevConfig'].some(key => Object.prototype.hasOwnProperty.call(newSettings ?? {}, key)) && !isTrustedJevSender(sender)) {
+        return { success: false, error: 'JEV_UNTRUSTED_SENDER' };
+      }
       if (message.type === 'REPLACE_SETTINGS' && validateImportedSettings(newSettings).length > 0) {
         return { success: false, error: '数据格式无效' };
       }
@@ -454,6 +483,7 @@ async function handleMessage(message: Message, sender: chrome.runtime.MessageSen
       } else {
         await StorageManager.updateSettings(newSettings, message.expectedApiConfigsRevision, message.expectedHybridCredentialsRevision);
       }
+      invalidateJevOperations();
 
       // 通知所有标签页的 content script 设置已更新
       try {

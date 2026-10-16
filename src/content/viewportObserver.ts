@@ -151,10 +151,11 @@ export class ViewportObserver {
    * 创建段落信息对象
    */
   private createParagraphInfo(element: HTMLElement, id?: string): VisibleParagraph | null {
-    const text = getTranslatableText(element).trim();
+    // 送译文本保留原文空白，响应位置与 DOM 使用同一 UTF-16 基准。
+    const text = getTranslatableText(element);
 
     // 过滤掉文本太短的段落
-    if (text.length < 50) {
+    if (text.trim().length < 50) {
       return null;
     }
 

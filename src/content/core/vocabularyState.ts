@@ -21,6 +21,8 @@ export interface VocabularySnapshot {
   knownWords: ReadonlySet<string>;
   /** 未知/生词表（已规范化小写） */
   unknownWords: ReadonlySet<string>;
+  /** 原始画像复用已有拉取，用于与后台一致的识别资格判定。 */
+  userProfile?: UserProfile;
 }
 
 /**
@@ -92,10 +94,10 @@ export async function fetchVocabularySnapshot(
     const cefrData = cefrResponse.success
       ? (cefrResponse.data as { level?: CEFRLevel } | undefined)
       : undefined;
-    return snapshotFromProfile(
-      profileResponse.data as ProfileLike,
-      cefrData ?? undefined
-    );
+    return {
+      ...snapshotFromProfile(profileResponse.data as ProfileLike, cefrData ?? undefined),
+      userProfile: profileResponse.data as UserProfile,
+    };
   } catch (error) {
     logger.warn('VocabularyState: 拉取词汇快照失败', error);
     return null;

@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StorageManager } from '@/background/storage';
 import { DEFAULT_SETTINGS } from '@/shared/constants';
+import { clearJevApiKey } from '@/background/jevCredentials';
+vi.mock('@/background/jevCredentials', () => ({ clearJevApiKey: vi.fn().mockResolvedValue(undefined) }));
 
 let syncData: Record<string, unknown>;
 let localData: Record<string, unknown>;
 
 beforeEach(() => {
+  vi.mocked(clearJevApiKey).mockReset().mockResolvedValue(undefined);
   syncData = { settings: { ...DEFAULT_SETTINGS, apiConfigsRevision: 7 }, apiKey: 'TEST_ONLY_DELETE_KEY', userProfile: {} };
   localData = { knownWords: ['private'] };
   vi.stubGlobal('chrome', { storage: {
@@ -22,6 +25,14 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('StorageManager.clearAllData 单元边界', () => {
+  it('完整清除也删除独立Jev凭据库，失败不能报告完成', async () => {
+    vi.mocked(clearJevApiKey).mockRejectedValueOnce(new Error('JEV_CREDENTIALS_UNAVAILABLE'));
+    await expect(StorageManager.clearAllData()).rejects.toThrow('JEV_CREDENTIALS_UNAVAILABLE');
+    expect(clearJevApiKey).toHaveBeenCalledOnce();
+    await StorageManager.clearAllData();
+    expect(clearJevApiKey).toHaveBeenCalledTimes(2);
+  });
+
   it('只持久保留递增版本，完整删除其他数据，输入对象不被修改', async () => {
     const original = syncData;
     await StorageManager.clearAllData();

@@ -38,9 +38,9 @@ const local = {
   }),
 };
 
-function dispatch(message: Message): Promise<MessageResponse<UserSettings>> {
+function dispatch(message: Message, sender: chrome.runtime.MessageSender = {}): Promise<MessageResponse<UserSettings>> {
   return new Promise(resolve => {
-    expect(onMessage(message, {} as chrome.runtime.MessageSender, resolve)).toBe(true);
+    expect(onMessage(message, sender, resolve)).toBe(true);
   });
 }
 
@@ -68,7 +68,7 @@ async function assertDeleted() {
 beforeAll(async () => {
   const event = { addListener: vi.fn() };
   vi.stubGlobal('chrome', {
-    storage: { sync, local },
+    storage: { sync, local, onChanged: event },
     alarms: {
       get: vi.fn((_name: string, callback: (alarm?: chrome.alarms.Alarm) => void) => callback()),
       create: vi.fn(), onAlarm: { addListener: vi.fn((listener: typeof onAlarm) => { onAlarm = listener; }) },
@@ -108,6 +108,10 @@ beforeAll(async () => {
   };
   vi.stubGlobal('indexedDB', { open: vi.fn(() => {
     const request = { result: database, onsuccess: () => {} };
+    queueMicrotask(() => request.onsuccess());
+    return request;
+  }), deleteDatabase: vi.fn(() => {
+    const request = { onsuccess: () => {} };
     queueMicrotask(() => request.onsuccess());
     return request;
   }) });
@@ -201,6 +205,103 @@ describe('真实清空入口 → 后台消息 → 持久版本及写入队列', 
       blocked.resolve();
       await Promise.all([saving, queued, clearing]);
     }
+    await assertDeleted();
+  });
+
+  it('全清立即并最终清空Jev最近运行记录，迟到状态不能留到GET', async () => {
+    const { recordJevAssessment, getLastJevAssessment } = await import('@/background/jevTranslation');
+    const credentials = await import('@/background/jevCredentials');
+    const keyRead = vi.spyOn(credentials, 'getJevApiKey').mockResolvedValue(null);
+    const entered = deferred();
+    const blocked = deferred();
+    clearHistory.mockImplementationOnce(async () => {
+      entered.resolve();
+      await blocked.promise;
+      historyData = [];
+    });
+    recordJevAssessment({ provider: 'jev' });
+    const clearing = dispatch({ type: 'CLEAR_ALL_DATA' });
+    try {
+      expect.soft(getLastJevAssessment()).toBeUndefined();
+      await entered.promise;
+      recordJevAssessment({ provider: 'legacy', reason: 'unavailable' });
+    } finally {
+      blocked.resolve();
+      await clearing;
+    }
+    try {
+      expect(getLastJevAssessment()).toBeUndefined();
+      expect(await dispatch({ type: 'GET_JEV_STATUS' }, {
+        id: chrome.runtime.id, url: chrome.runtime.getURL('src/options/index.html'),
+      })).toEqual({ success: true, data: { hasKey: false, model: 'jev-1.13.0' } });
+    } finally { keyRead.mockRestore(); }
+  });
+
+  it('全清使旧Jev保存回包失效，等待提交后删专库且删除完成前不报告成功', async () => {
+    const entered = deferred();
+    const deleteEntered = deferred();
+    let commit!: () => void;
+    let finishDelete!: () => void;
+    let record: unknown;
+    let deletingAfterCommit = false;
+    let committed = false;
+    let cleared = false;
+    const sender = { id: chrome.runtime.id, url: chrome.runtime.getURL('src/options/index.html') };
+    const open = vi.mocked(indexedDB.open);
+    open.mockImplementationOnce(() => {
+      const transaction = { oncomplete: () => {}, onerror: () => {}, onabort: () => {}, objectStore: () => ({
+        put: (value: unknown) => {
+          const request = { result: 'apiKey', onerror: () => {} };
+          commit = () => { record = value; committed = true; transaction.oncomplete(); };
+          entered.resolve();
+          return request;
+        },
+      }) };
+      const request = { result: { close: vi.fn(), transaction: () => transaction }, onsuccess: () => {} };
+      queueMicrotask(() => request.onsuccess());
+      return request as unknown as IDBOpenDBRequest;
+    });
+    const deleting = vi.mocked(indexedDB.deleteDatabase);
+    deleting.mockImplementationOnce(() => {
+      deletingAfterCommit = committed;
+      const request = { onsuccess: () => {} };
+      finishDelete = () => { record = undefined; request.onsuccess(); };
+      deleteEntered.resolve();
+      return request as unknown as IDBOpenDBRequest;
+    });
+    const saving = dispatch({ type: 'SET_JEV_API_KEY', payload: { apiKey: 'synthetic-key' } }, sender);
+    await entered.promise;
+    const clearing = dispatch({ type: 'CLEAR_ALL_DATA' }).then(response => { cleared = true; return response; });
+    expect.soft(await dispatch({ type: 'SET_JEV_API_KEY', payload: { apiKey: 'late-key' } }, sender))
+      .toEqual({ success: false, error: '正在清除数据，请稍后刷新设置重试' });
+    expect.soft(deleting).not.toHaveBeenCalled();
+    expect.soft(cleared).toBe(false);
+    commit();
+    // 事务可提交，但全清已经作废该代次，不能再向旧页面声称当前仍有密钥。
+    expect.soft(await saving).toEqual({ success: false, error: 'JEV_CREDENTIALS_CHANGED' });
+    await deleteEntered.promise;
+    expect.soft(record).toMatchObject({ apiKey: 'synthetic-key' });
+    expect.soft(deletingAfterCommit).toBe(true);
+    expect.soft(cleared).toBe(false);
+    finishDelete();
+    expect(await clearing).toEqual({ success: true });
+    expect(deleting).toHaveBeenCalledWith('notOnlyTranslatorJevCredentials');
+
+    // 用真实凭据读取器检查删除后的状态，不能仅凭 deleteDatabase 被调用推断密钥已消失。
+    open.mockImplementationOnce(() => {
+      const transaction = { oncomplete: () => {}, onerror: () => {}, onabort: () => {}, objectStore: () => ({
+        get: () => {
+          const request = { result: record, onerror: () => {} };
+          queueMicrotask(() => transaction.oncomplete());
+          return request;
+        },
+      }) };
+      const request = { result: { close: vi.fn(), transaction: () => transaction }, onsuccess: () => {} };
+      queueMicrotask(() => request.onsuccess());
+      return request as unknown as IDBOpenDBRequest;
+    });
+    const { getJevApiKey } = await import('@/background/jevCredentials');
+    expect(await getJevApiKey()).toBeNull();
     await assertDeleted();
   });
 

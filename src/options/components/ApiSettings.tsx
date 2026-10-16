@@ -8,6 +8,7 @@ import {
 } from '@/shared/constants/providers';
 import { getModels, testConnection } from '@/shared/services/modelService';
 import { logger } from '@/shared/utils';
+import JevSettings from './JevSettings';
 
 /** API 配置完整更新参数 */
 interface ApiConfigUpdateParams {
@@ -556,6 +557,9 @@ export default function ApiSettings({
             </div>
           </div>
         </div>
+
+        {/* Jev 词汇评估（实验，自包含卡片） */}
+        <JevSettings />
       </div>
     );
   }

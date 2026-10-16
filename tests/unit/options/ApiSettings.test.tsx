@@ -10,6 +10,9 @@ import '@testing-library/jest-dom';
 import type { ApiConfig } from '@/shared/types';
 import { getModels, testConnection } from '@/shared/services/modelService';
 
+// Jev 卡片的浏览器消息与权限由 JevSettings.test.tsx 独立验证。
+vi.mock('@/options/components/JevSettings', () => ({ default: () => null }));
+
 vi.mock('@/shared/services/modelService', () => ({
   getModels: vi.fn(() => Promise.resolve([
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini', isRecommended: true },

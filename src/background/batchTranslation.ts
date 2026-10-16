@@ -27,7 +27,14 @@ import { TransportError } from '@/shared/utils/translationErrors';
 import { resolveLocalCandidates } from './localWordLookup';
 import { recoverInlineVocabulary } from './inlineVocabRecovery';
 import type { TranslationRequestOptions } from './translation';
+import { TranslationService } from './translation';
 import { createBatchParagraphParser } from './translationStream';
+import { getJevEligibility } from '@/shared/utils/jev';
+import { getJevRecognitionSignal } from './jevRecognition';
+import {
+  translateJevReading, JevAssessmentError, JevConfigChangedError, createJevSnapshot, assertJevSnapshotCurrent,
+  createJevBudget, recordJevAssessment,
+} from './jevTranslation';
 
 export interface BatchTranslationOptions extends TranslationRequestOptions {
   onParagraph?: (result: BatchParagraphResult) => void;
@@ -79,9 +86,11 @@ export class BatchTranslationService {
   static async translateBatch(
     request: BatchTranslationRequest,
     options?: BatchTranslationOptions,
-    preloaded?: { settings: UserSettings; apiKey: string }
+    preloaded?: { settings: UserSettings; apiKey: string; jevSignal?: AbortSignal; startedAt?: number }
   ): Promise<BatchTranslationResponse> {
     options?.signal?.throwIfAborted();
+    const startedAt = preloaded?.startedAt ?? Date.now();
+    const generationSignal = preloaded?.jevSignal ?? getJevRecognitionSignal();
     const { paragraphs, mode, pageUrl } = request;
 
     logger.info(`BatchTranslationService: 收到批量翻译请求，${paragraphs.length} 个段落`);
@@ -102,6 +111,14 @@ export class BatchTranslationService {
       apiConfigsCount: settings.apiConfigs?.length || 0,
       apiProvider: settings.apiProvider,
     });
+
+    // Jev 阅读管线（默认关闭）：适用时在缓存早退前切策略，逐段识别+语境释义，
+    // 不读写段落缓存；不适用则整批走旧链并统一标记固定原因
+    const jevRequested = settings.vocabularyAssessmentProvider === 'jev';
+    const jevReason = jevRequested ? getJevEligibility(settings, userProfile, mode) : undefined;
+    if (jevRequested && !jevReason) {
+      return this.translateBatchWithJev(request, settings, apiKey, userProfile, options, startedAt, generationSignal);
+    }
 
     // 为每个段落生成缓存哈希
     const paragraphsWithHash = paragraphs.map((p) => ({
@@ -126,7 +143,11 @@ export class BatchTranslationService {
       if (previous) return previous;
       accepted.set(paragraph.id, paragraph);
       if (!options?.signal?.aborted) {
-        try { options?.onParagraph?.(paragraph); } catch {
+        try {
+          options?.onParagraph?.(jevRequested && jevReason ? {
+            ...paragraph, result: { ...paragraph.result, vocabularyAssessment: { provider: 'legacy', reason: jevReason } },
+          } : paragraph);
+        } catch {
           // 页面回调失败不能改变翻译结果或缓存内容。
         }
       }
@@ -327,11 +348,104 @@ export class BatchTranslationService {
       accepted.get(p.id) ?? { id: p.id, result: this.createEmptyResult(), cached: false }
     );
 
+    // 请求了 Jev 但不适用：整批走了旧链，返回副本标记固定原因（缓存写入不受影响）
+    const finalResults = jevRequested && jevReason
+      ? orderedResults.map(entry => ({
+        ...entry,
+        result: { ...entry.result, vocabularyAssessment: { provider: 'legacy' as const, reason: jevReason } },
+      }))
+      : orderedResults;
+
     return {
-      results: orderedResults,
+      results: finalResults,
       apiCallCount,
       cacheHitCount: cacheHits.size,
     };
+  }
+
+  /**
+   * Jev 阅读批处理：逐段识别 + 入选词语境释义，固定 2 并发。
+   * 结果按请求顺序返回，onParagraph 按完成顺序渐进交付；Jev 结果不读写段落缓存。
+   * 单段识别失败且总预算有效时该段回退原链一次；取消、总 deadline、
+   * 配置/词表在途变化与释义失败一律传播，不回退。
+   */
+  private static async translateBatchWithJev(
+    request: BatchTranslationRequest,
+    settings: UserSettings,
+    apiKey: string,
+    userProfile: UserProfile,
+    options: BatchTranslationOptions | undefined,
+    startedAt: number,
+    generationSignal: AbortSignal,
+  ): Promise<BatchTranslationResponse> {
+    const { paragraphs, mode } = request;
+    const budget = createJevBudget(settings, {
+      ...options,
+      deadlineAt: startedAt + (options?.timeoutMs ?? (settings.apiProvider === 'ollama'
+        ? TRANSPORT_DEFAULTS.localLlmTimeoutMs : TRANSPORT_DEFAULTS.llmTimeoutMs)),
+    });
+    const controller = new AbortController();
+    const signal = AbortSignal.any([budget.signal, controller.signal, generationSignal]);
+    try {
+      budget.check();
+      const snapshot = await createJevSnapshot({ settings, apiKey, profile: userProfile, generationSignal });
+      const results = new Map<number, BatchParagraphResult>();
+      let apiCallCount = 0;
+      let next = 0;
+      const worker = async (): Promise<void> => {
+        while (next < paragraphs.length) {
+          signal.throwIfAborted();
+          budget.check();
+          const index = next++;
+          const paragraph = paragraphs[index];
+          let outcome: { result: TranslationResult; apiCallCount: number };
+          try {
+            outcome = await translateJevReading(
+              { text: paragraph.text, context: paragraph.text, profile: userProfile, settings, apiKey, snapshot },
+              { signal, timeoutMs: budget.remaining(), deadlineAt: budget.deadlineAt },
+            );
+          } catch (error) {
+            budget.check();
+            signal.throwIfAborted();
+            if (!(error instanceof JevAssessmentError)) throw error;
+            await error.assertCurrent();
+            let fallbackCalls = 0;
+            const legacy = await TranslationService.translate(
+              { text: paragraph.text, context: paragraph.text, userLevel: userProfile, mode },
+              { ...options, signal: error.signal ? AbortSignal.any([signal, error.signal]) : signal, timeoutMs: budget.remaining() },
+              { settings, apiKey, skipCache: true, onApiCall: count => { fallbackCalls += count; } },
+            );
+            budget.check();
+            await error.assertCurrent();
+            outcome = {
+              result: { ...legacy, vocabularyAssessment: { provider: 'legacy', reason: error.reason } },
+              apiCallCount: error.apiCallCount + fallbackCalls,
+            };
+          }
+          budget.check();
+          signal.throwIfAborted();
+          await assertJevSnapshotCurrent(snapshot);
+          budget.check();
+          signal.throwIfAborted();
+          apiCallCount += outcome.apiCallCount;
+          const accepted: BatchParagraphResult = { id: paragraph.id, result: outcome.result, cached: false };
+          results.set(index, accepted);
+          recordJevAssessment(outcome.result.vocabularyAssessment!);
+          try { options?.onParagraph?.(accepted); } catch { /* 消费方失效不能改变结果。 */ }
+        }
+      };
+      // 任一段失败即取消同批在途工作；完成后才释放总预算与返回原顺序结果。
+      await Promise.all([worker(), worker()]).catch(error => { controller.abort(); throw error; });
+      budget.check();
+      await assertJevSnapshotCurrent(snapshot);
+      budget.check();
+      signal.throwIfAborted();
+      return { results: paragraphs.map((_, index) => results.get(index)!), apiCallCount, cacheHitCount: 0 };
+    } catch (error) {
+      budget.check();
+      if (generationSignal.aborted) throw new JevConfigChangedError('Jev 请求代际已变化');
+      throw error;
+    } finally { controller.abort(); budget.dispose(); }
   }
 
   /**

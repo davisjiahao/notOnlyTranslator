@@ -13,6 +13,11 @@ import {
 } from '@/shared/utils/translationErrors';
 
 describe('TransportError', () => {
+  it('保留结构化Retry-After毫秒数', () => {
+    expect(new TransportError('unavailable', '请求过于频繁', { statusCode: 429, retryAfterMs: 2000 }).retryAfterMs).toBe(2000);
+    expect(TransportError.unavailable('请求过于频繁', 429, undefined, 3000).retryAfterMs).toBe(3000);
+  });
+
   it('三种错误类型可区分：timeout / cancelled / unavailable', () => {
     const timeout = TransportError.timeout(5000);
     const cancelled = TransportError.cancelled();

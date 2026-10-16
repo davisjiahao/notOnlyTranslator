@@ -76,6 +76,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   highlightColor: '#fef08a', // Light yellow
   fontSize: 14,
   apiProvider: 'openai',
+  vocabularyAssessmentProvider: 'legacy',
   customApiUrl: '',
   customModelName: '',
   blacklist: [],

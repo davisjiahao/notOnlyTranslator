@@ -86,6 +86,8 @@ export interface TranslationRequest {
   context: string;
   userLevel: UserProfile;
   mode: TranslationMode;
+  /** 页面阅读显式声明；缺失时保留旧版手动查词行为。 */
+  intent?: 'reading' | 'lookup';
 }
 
 export interface TranslatedWord {
@@ -121,8 +123,25 @@ export interface TranslationResult {
   grammarPoints?: GrammarPoint[]; // New field for segment-based grammar learning
   fullText?: string;  // 完整译文（用于双文对照和全文翻译模式）
   cached?: boolean;
+  /** 实际识别引擎；Jev结果必须按每次出现的position渲染。 */
+  vocabularyAssessment?: { provider: 'legacy' | 'jev'; reason?: string };
   /** 翻译来源（内部使用，用于调试和分析） */
   _source?: 'deepl' | 'llm' | 'hybrid' | 'free_google' | 'local';
+}
+
+/** 独立识别服务仅支持 systemone/noul 协议，凭据单独存储。 */
+export interface JevConfig {
+  provider: 'typesafe' | 'custom';
+  apiUrl: string;
+  model: string;
+  threshold: number;
+}
+
+/** 设置页仅接收凭据存在状态和最近已完成的识别结果，不接收密钥。 */
+export interface JevStatus {
+  hasKey: boolean;
+  model: string;
+  lastAssessment?: NonNullable<TranslationResult['vocabularyAssessment']> & { at: number };
 }
 
 // API 配置（支持多个配置）
@@ -185,6 +204,10 @@ export interface UserSettings {
   highlightColor: string;
   fontSize: number;
   apiProvider: ApiProvider;
+  /** 独立生词识别器；旧设置缺失时使用原流程，凭据不进入settings。 */
+  vocabularyAssessmentProvider?: 'legacy' | 'jev';
+  /** 缺失时沿用已校准的默认识别配置。 */
+  jevConfig?: JevConfig;
   customApiUrl?: string;
   customModelName?: string;
   /** 百度文心需要的 Secret Key */
@@ -286,6 +309,10 @@ export type MessageType =
   | 'SETTINGS_UPDATED'
   | 'TOGGLE_ENABLED'
   | 'TEST_API_CONNECTION'  // 测试 API 连接
+  | 'GET_JEV_STATUS'
+  | 'SET_JEV_API_KEY'
+  | 'DELETE_JEV_API_KEY'
+  | 'TEST_JEV_CONNECTION'
   // 掌握度系统消息类型
   | 'GET_MASTERY_OVERVIEW'
   | 'GET_CEFR_LEVEL'

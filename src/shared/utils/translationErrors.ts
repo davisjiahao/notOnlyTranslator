@@ -53,6 +53,8 @@ export interface TransportErrorOptions {
   retryable?: boolean;
   /** 已脱敏的服务端补充细节；不属于 public 文案，禁止进入日志 */
   detail?: string;
+  /** 服务端建议的冷却时间，单位毫秒。 */
+  retryAfterMs?: number;
 }
 
 /**
@@ -66,6 +68,7 @@ export class TransportError extends Error {
   public readonly statusCode?: number;
   public readonly retryable: boolean;
   public readonly detail?: string;
+  public readonly retryAfterMs?: number;
 
   constructor(kind: TransportErrorKind, message: string, options: TransportErrorOptions = {}) {
     super(message);
@@ -74,6 +77,7 @@ export class TransportError extends Error {
     this.statusCode = options.statusCode;
     this.retryable = options.retryable ?? kind === 'unavailable';
     this.detail = options.detail;
+    this.retryAfterMs = options.retryAfterMs;
   }
 
   /** 请求超时（单次尝试总时长已耗尽，重试决策交还调用方） */
@@ -98,9 +102,9 @@ export class TransportError extends Error {
    * 与旧 defaultShouldRetry 语义保持一致：仅网络失败、429、5xx 可自动重试，其余 4xx 不重试
    * message 为固定 public 文案；服务端原文经脱敏后放入 detail
    */
-  static unavailable(message: string, statusCode?: number, detail?: string): TransportError {
+  static unavailable(message: string, statusCode?: number, detail?: string, retryAfterMs?: number): TransportError {
     const retryable = statusCode === undefined || statusCode === 429 || statusCode >= 500;
-    return new TransportError('unavailable', message, { statusCode, retryable, detail });
+    return new TransportError('unavailable', message, { statusCode, retryable, detail, retryAfterMs });
   }
 }
 
