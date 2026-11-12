@@ -23,10 +23,12 @@ export function paragraphCacheScope(scope: ParagraphCacheScope): string {
     hybrid && [hybrid.enabled, hybrid.defaultEngine, hybrid.traditionalProvider,
       hybrid.simpleTextThreshold, hybrid.enableSmartRouting, hybrid.priority, hybrid.traditionalApiKey],
     engine === 'deepl' && settings.apiConfigs?.find(config => config.provider === 'deepl')?.apiKey,
-    // 所有模式均由展示层过滤已知词；词汇标记与 Bayesian 桶内微调不使段落缓存失效。
-    // 新标记 unknown 词缺少释义时，等待跨桶或正文变化后重新翻译。
+    // 词表参与缓存身份：认识/生词变化后不能复用旧释义。
+    // 等级桶仍保留，避免仅 Bayesian 微调之外的水平变化被词表指纹掩盖。
     userLevel && [userLevel.examType, userLevel.examScore,
-      Math.floor(userLevel.estimatedVocabulary / 100) * 100],
+      Math.floor(userLevel.estimatedVocabulary / 100) * 100,
+      [...(userLevel.knownWords ?? [])].map(word => word.toLowerCase()).sort(),
+      [...(userLevel.unknownWords ?? [])].flatMap(entry => typeof entry?.word === 'string' ? [entry.word.toLowerCase()] : []).sort()],
     // 仅实验识别追加身份，避免不适用的 Jev 请求与原链 join 后丢失原因；旧设置键保持兼容。
     ...(settings.vocabularyAssessmentProvider === 'jev' ? ['jev'] : []),
   ]);

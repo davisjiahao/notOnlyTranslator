@@ -15,7 +15,7 @@ function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason: unknown) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
-  // 首段已经交付后，尾段仍可能失败；无人订阅的拒绝也必须被消费。
+  // 首段已经交付后，尾段仍可能失败；失效中止时也可能没有等待者。
   void promise.catch(() => {});
   return { promise, resolve, reject };
 }
@@ -53,6 +53,14 @@ export function inflightBatchCount(): number {
 }
 
 export function clearInflightBatches(): void {
+  inflight.clear();
+}
+
+/** 阅读上下文失效后，不能再把新请求并入旧批次。 */
+export function abortInflightBatches(): void {
+  for (const entry of inflight.values()) {
+    entry.close(new DOMException('翻译请求已取消', 'AbortError'));
+  }
   inflight.clear();
 }
 

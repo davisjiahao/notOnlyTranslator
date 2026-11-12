@@ -57,7 +57,7 @@ beforeEach(async () => {
 });
 
 describe('真实翻译路径的段落缓存', () => {
-  it('单段词汇标记与桶内微调保持命中，切换模型/增强/等级桶/语境后重新翻译', async () => {
+  it('单段词表变化重新翻译，桶内微调仍命中，模型/增强/等级桶/语境也重新翻译', async () => {
     const run = (input = request) => TranslationService.translate(input);
     expect((await run()).fullText).toBe('译文1');
     expect((await run()).fullText).toBe('译文1');
@@ -67,10 +67,11 @@ describe('真实翻译路径的段落缓存', () => {
     expect((await run()).fullText).toBe('译文3');
     settings = { ...settings, grammarTranslationEnabled: true };
     expect((await run()).fullText).toBe('译文4');
-    expect((await run({ ...request, userLevel: { ...userLevel, knownWords: ['same'], estimatedVocabulary: 3050 } })).fullText).toBe('译文4');
-    expect((await run({ ...request, userLevel: { ...userLevel, estimatedVocabulary: 9000 } })).fullText).toBe('译文5');
-    expect((await run({ ...request, context: 'second' })).fullText).toBe('译文6');
-    expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(6);
+    expect((await run({ ...request, userLevel: { ...userLevel, estimatedVocabulary: 3050 } })).fullText).toBe('译文4');
+    expect((await run({ ...request, userLevel: { ...userLevel, knownWords: ['same'], estimatedVocabulary: 3050 } })).fullText).toBe('译文5');
+    expect((await run({ ...request, userLevel: { ...userLevel, estimatedVocabulary: 9000 } })).fullText).toBe('译文6');
+    expect((await run({ ...request, context: 'second' })).fullText).toBe('译文7');
+    expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(7);
   });
 
   it('批量同文本精确命中，但 provider、model 与用户等级切换时不复用', async () => {
@@ -83,11 +84,12 @@ describe('真实翻译路径的段落缓存', () => {
     expect((await batch()).results[0].result.fullText).toBe('译文2');
     settings = { ...settings, customModelName: 'model-b' };
     expect((await batch()).results[0].result.fullText).toBe('译文3');
-    expect((await batch({ ...userLevel, knownWords: ['same'], estimatedVocabulary: 3050 })).results[0].result.fullText).toBe('译文3');
-    expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(3);
+    expect((await batch({ ...userLevel, estimatedVocabulary: 3050 })).results[0].cached).toBe(true);
+    expect((await batch({ ...userLevel, knownWords: ['same'], estimatedVocabulary: 3050 })).results[0].result.fullText).toBe('译文4');
+    expect(TranslationApiService.callWithSystem).toHaveBeenCalledTimes(4);
   });
 
-  it.each(['known', 'unknown'] as const)('批量标记一个 %s 词并在桶内微调后全命中且零外发，4499→4500 则未命中', async marking => {
+  it.each(['known', 'unknown'] as const)('批量标记一个 %s 词后重新外发，仅桶内词汇量微调仍全命中', async marking => {
     const batch = (profile: UserProfile) => BatchTranslationService.translateBatch({
       paragraphs: [
         { id: '0', text, elementPath: '#a' },
@@ -109,18 +111,20 @@ describe('真实翻译路径的段落缓存', () => {
     expect(TranslationApiService.callWithSystem).toHaveBeenCalled();
     vi.mocked(TranslationApiService.callWithSystem).mockClear();
     vi.mocked(TranslationApiService.quickTranslate).mockClear();
+    const tuned = await batch({ ...profile, estimatedVocabulary: 4499 });
+    expect(tuned.results.every(item => item.cached)).toBe(true);
+    expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
     const cached = await batch(marked);
     expect(cached.results).toHaveLength(2);
-    expect(cached.results.every(item => item.cached)).toBe(true);
-    expect(cached.results.map(item => item.result.fullText)).toEqual(first.results.map(item => item.result.fullText));
-    expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
-    expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
+    expect(cached.results.every(item => item.cached)).toBe(false);
+    expect(TranslationApiService.callWithSystem).toHaveBeenCalled();
+    vi.mocked(TranslationApiService.callWithSystem).mockClear();
     const crossed = await batch({ ...marked, estimatedVocabulary: 4500 });
     expect(crossed.results.every(item => !item.cached)).toBe(true);
     expect(TranslationApiService.callWithSystem).toHaveBeenCalled();
   });
 
-  it.each(['llm', 'deepl', 'hybrid'] as const)('%s 路径词表与桶内微调后命中，跨桶后重新外发', async engine => {
+  it.each(['llm', 'deepl', 'hybrid'] as const)('%s 路径词表变化后重新外发，桶内微调仍命中', async engine => {
     settings = { ...baseSettings, hybridTranslation: {
       enabled: engine === 'hybrid', defaultEngine: 'llm', traditionalProvider: 'deepl',
       traditionalApiKey: 'TEST-DEEPL-KEY', simpleTextThreshold: 10, enableSmartRouting: false, priority: 'quality',
@@ -131,11 +135,15 @@ describe('真实翻译路径的段落缓存', () => {
     const marked = { ...input, userLevel: { ...input.userLevel, estimatedVocabulary: 4499,
       knownWords: ['same'], unknownWords: [{ word: 'revision', translation: '修订', context: text, markedAt: 1, reviewCount: 0 }],
     } };
+    const tuned = { ...input, userLevel: { ...input.userLevel, estimatedVocabulary: 4499 } };
+    expect(await service.translate(tuned)).toMatchObject({ cached: true, fullText: first.fullText });
     vi.mocked(TranslationApiService.callWithSystem).mockClear();
     vi.mocked(TranslationApiService.quickTranslate).mockClear();
-    expect(await service.translate(marked)).toMatchObject({ cached: true, fullText: first.fullText });
-    expect(TranslationApiService.callWithSystem).not.toHaveBeenCalled();
-    expect(TranslationApiService.quickTranslate).not.toHaveBeenCalled();
+    expect((await service.translate(marked)).cached).not.toBe(true);
+    expect(vi.mocked(TranslationApiService.callWithSystem).mock.calls.length
+      + vi.mocked(TranslationApiService.quickTranslate).mock.calls.length).toBeGreaterThan(0);
+    vi.mocked(TranslationApiService.callWithSystem).mockClear();
+    vi.mocked(TranslationApiService.quickTranslate).mockClear();
     expect((await service.translate({ ...marked, userLevel: { ...marked.userLevel, estimatedVocabulary: 4500 } })).cached).not.toBe(true);
     expect(vi.mocked(TranslationApiService.callWithSystem).mock.calls.length
       + vi.mocked(TranslationApiService.quickTranslate).mock.calls.length).toBeGreaterThan(0);

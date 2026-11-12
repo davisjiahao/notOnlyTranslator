@@ -162,6 +162,16 @@ describe('内容脚本真实初始化与运行时消息', () => {
     expect(listeners).toHaveLength(1);
   });
 
+  it('短英文页面即使声明 zh，也不受扩展中文界面影响', async () => {
+    document.documentElement.lang = 'zh-CN';
+    const shortText = 'The plant by the window is green. Police may plant evidence to frame an innocent person.';
+    document.body.innerHTML = `<div><p id="story">${shortText}</p></div>`;
+    await createTranslator();
+    expect(document.querySelector('.not-translator-help-panel')?.textContent).toContain('标记认识');
+    expect(document.body.dataset.extensionLoaded).toBe('true');
+    expect(observed).toContain(document.getElementById('story'));
+  });
+
   it.each(['en', ''])('lang="%s" 的真实中文正文仍按内容跳过扫描与消息监听', async (lang) => {
     document.documentElement.lang = lang;
     const chineseText = '这是页面原有的中文正文，需要根据内容继续跳过翻译。'.repeat(6);
@@ -557,11 +567,10 @@ describe('内容脚本真实初始化与运行时消息', () => {
     ['bilingual', 'full-translate'],
     ['full-translate', 'inline-only'],
     ['full-translate', 'bilingual'],
-  ] as const)('设置广播从 %s 切换到 %s 只重绘已有结果，不重发请求', async (from, to) => {
+  ] as const)('设置广播从 %s 切换到 %s 丢弃旧译文并按新模式重新获取', async (from, to) => {
     currentSettings = { ...settings, translationMode: from };
     await createTranslator();
     const paragraph = document.getElementById('story')!;
-    // 可见段落也不得因模式切换重新进入获取链。
     Object.defineProperty(paragraph, 'getBoundingClientRect', {
       value: () => ({ top: 10, bottom: 110, left: 10, right: 610, width: 600, height: 100 }),
     });
@@ -580,20 +589,13 @@ describe('内容脚本真实初始化与运行时消息', () => {
     expect(await dispatch('SETTINGS_UPDATED')).toEqual({ success: true });
     await dispatch('SETTINGS_UPDATED');
     await new Promise(resolve => setTimeout(resolve, 300));
-    expect(translationCallbacks).toHaveLength(1);
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
-    expect(paragraph.classList.contains('not-translator-processed')).toBe(true);
-    if (to === 'bilingual') {
-      expect(paragraph.dataset.originalText).toBe(article.repeat(5));
-      expect(paragraph.querySelector('.not-translator-highlight')?.getAttribute('data-word')).toBe('ephemeral');
-      expect(document.querySelector('.not-translator-translation-line')?.textContent).toBe('旧模式译文');
-    } else if (to === 'full-translate') {
-      expect(paragraph.textContent).toBe('旧模式译文');
-    } else {
-      expect(paragraph.querySelector('.not-translator-highlight')?.getAttribute('data-word')).toBe('ephemeral');
-      expect(document.querySelector('.not-translator-translation-line')).toBeNull();
-    }
-    expect(document.querySelector('.not-translator-loading-spinner')).toBeNull();
+    expect(document.body.textContent).not.toContain('旧模式译文');
+    expect(getTranslatableText(paragraph)).toBe(article.repeat(5));
+    expect(messages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(0);
+    intersecting(paragraph);
+    await vi.waitFor(() => expect(translationCallbacks.length).toBeGreaterThan(1));
+    expect(messages.filter(message => message.type === 'BATCH_TRANSLATE_TEXT').at(-1))
+      .toMatchObject({ payload: { mode: to } });
     expect(paragraph.classList.contains('not-translator-fade-out')).toBe(false);
   });
 
@@ -614,7 +616,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
     expect(document.querySelector('.not-translator-floating-btn-text')?.textContent).toBe(label);
   });
 
-  it('设置广播切换模式保留在途批次，响应按最新展示模式呈现', async () => {
+  it('设置广播切换模式取消在途批次，迟到旧结果不呈现', async () => {
     currentSettings = { ...settings, translationMode: 'bilingual' };
     await createTranslator();
     const paragraph = document.getElementById('story')!;
@@ -623,24 +625,20 @@ describe('内容脚本真实初始化与运行时消息', () => {
     });
     intersecting(paragraph);
     await vi.waitFor(() => expect(translationCallbacks).toHaveLength(1));
+    const first = messages.find(message => message.type === 'BATCH_TRANSLATE_TEXT')!;
     currentSettings = { ...currentSettings, translationMode: 'full-translate' };
     await dispatch('SETTINGS_UPDATED');
-    await new Promise(resolve => setTimeout(resolve, 300));
-    expect(translationCallbacks).toHaveLength(1);
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
-    expect(messages.find(message => message.type === 'BATCH_TRANSLATE_TEXT'))
-      .toMatchObject({ payload: { mode: 'bilingual' } });
-
+    await vi.waitFor(() => expect(messages).toContainEqual({ type: 'CANCEL_TRANSLATION', payload: { requestId: first.requestId } }));
     translationCallbacks[0]({ success: true, data: { results: [{
-      id: 'para_story', result: { words: [], sentences: [], fullText: '新模式全文译文' },
+      id: 'para_story', result: { words: [], sentences: [], fullText: '旧模式不得出现' },
     }] } });
-    await vi.waitFor(() => expect(paragraph.textContent).toBe('新模式全文译文'));
-    expect(paragraph.classList.contains('not-translator-full-translated')).toBe(true);
-    expect(document.querySelector('.not-translator-translation-line')).toBeNull();
-    expect(document.querySelector('.not-translator-loading-spinner')).toBeNull();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    expect(document.body.textContent).not.toContain('旧模式不得出现');
+    expect(messages.filter(message => message.type === 'BATCH_TRANSLATE_TEXT').at(-1))
+      .toMatchObject({ payload: { mode: 'full-translate' } });
   });
 
-  it.each(['shortcut', 'button'] as const)('%s 切换本地结果只重绘并保存模式，重复广播不补请求', async entry => {
+  it.each(['shortcut', 'button'] as const)('%s 切换模式取消旧结果，重复广播不重复获取', async entry => {
     await createTranslator();
     const paragraph = document.getElementById('story')!;
     intersecting(paragraph);
@@ -661,15 +659,16 @@ describe('内容脚本真实初始化与运行时消息', () => {
       listener({ settings: { oldValue: previous, newValue: currentSettings } }, 'sync');
     }
     await dispatch('SETTINGS_UPDATED');
-    await dispatch('SETTINGS_UPDATED');
-    await new Promise(resolve => setTimeout(resolve, 700));
+    await new Promise(resolve => setTimeout(resolve, 400));
+    expect(paragraph.querySelector('.not-translator-highlight')).toBeNull();
+    expect(getTranslatableText(paragraph)).toContain('ephemeral');
     expect(translationCallbacks).toHaveLength(1);
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
-    expect(paragraph.querySelector('.not-translator-highlight')).not.toBeNull();
-    expect(paragraph.classList.contains('not-translator-processed')).toBe(true);
+    await dispatch('SETTINGS_UPDATED');
+    await new Promise(resolve => setTimeout(resolve, 400));
+    expect(translationCallbacks).toHaveLength(1);
   });
 
-  it.each(['sequential', 'page'] as const)('%s 操作切模式时保留后续段落的获取模式，仅改变响应呈现', async entry => {
+  it.each(['sequential', 'page'] as const)('%s 操作切模式时取消旧获取，迟到结果不呈现', async entry => {
     const count = entry === 'page' ? 16 : 2;
     document.querySelector('article')!.innerHTML = Array.from({ length: count }, (_, index) =>
       `<p id="operation-${index}">${article.repeat(2)}</p>`).join('');
@@ -683,15 +682,13 @@ describe('内容脚本真实初始化与运行时消息', () => {
     await dispatch('SETTINGS_UPDATED');
     await vi.waitFor(() => expect(document.querySelector('[data-mode="bilingual"]')?.getAttribute('aria-pressed')).toBe('true'));
     const result = { words: [], sentences: [], fullText: '同一获取结果的新展示' };
+    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(true);
     translationCallbacks[0]({ success: true, data: entry === 'page'
       ? { results: Array.from({ length: 15 }, () => ({ result })) } : result });
-    await vi.waitFor(() => expect(translationCallbacks).toHaveLength(2));
-    expect(messages.filter(message => ['TRANSLATE_TEXT', 'BATCH_TRANSLATE_TEXT'].includes(message.type)))
-      .toEqual([expect.objectContaining({ payload: expect.objectContaining({ mode: 'inline-only' }) }),
-        expect.objectContaining({ payload: expect.objectContaining({ mode: 'inline-only' }) })]);
-    expect(document.querySelector('.not-translator-translation-line')?.textContent).toContain(result.fullText);
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
-    translationCallbacks[1]({ success: true, data: entry === 'page' ? { results: [{ result }] } : result });
+    await Promise.resolve();
+    expect(document.body.textContent).not.toContain(result.fullText);
+    expect(messages.filter(message => ['TRANSLATE_TEXT', 'BATCH_TRANSLATE_TEXT'].includes(message.type))[0])
+      .toMatchObject({ payload: expect.objectContaining({ mode: 'inline-only' }) });
     await pending;
   });
 
@@ -757,7 +754,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
   it.each([
     ['batch', false], ['sequential', false], ['paragraph', false], ['page', false],
     ['batch', true], ['sequential', true], ['paragraph', true], ['page', true],
-  ] as const)('%s 入口合法空或grammar-only=%s结果统一留存，切模式不重取或丢原文', async (entry, grammarOnly) => {
+  ] as const)('%s 入口合法空或grammar-only=%s切模式后恢复原文且不保留旧标注', async (entry, grammarOnly) => {
     currentSettings = { ...settings, grammarTranslationEnabled: grammarOnly };
     const instance = await createTranslator();
     const paragraph = document.getElementById('story')!;
@@ -783,8 +780,7 @@ describe('内容脚本真实初始化与运行时消息', () => {
       await dispatch('SETTINGS_UPDATED');
       await vi.waitFor(() => expect(document.querySelector(`[data-mode="${mode}"]`)?.getAttribute('aria-pressed')).toBe('true'));
       expect(getTranslatableText(paragraph)).toBe(article.repeat(5));
-      expect(document.querySelectorAll('.not-translator-translation-line')).toHaveLength(mode === 'inline-only' ? 0 : 1);
-      expect(translationCallbacks).toHaveLength(1);
+      expect(paragraph.textContent).not.toContain('用于修饰名词');
     }
   });
 
@@ -806,13 +802,17 @@ describe('内容脚本真实初始化与运行时消息', () => {
       listener({ [key]: { newValue: currentKnownWords } }, key === 'knownWords' ? 'local' : 'sync');
     }
     await new Promise(resolve => setTimeout(resolve, 700));
-    expect(document.querySelector('.not-translator-translation-line')?.textContent).toBe('应保留的完整中文');
+    if (key === 'knownWords') {
+      expect(document.body.textContent).not.toContain('应保留的完整中文');
+    } else {
+      expect(document.querySelector('.not-translator-translation-line')?.textContent).toBe('应保留的完整中文');
+      expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
+    }
     currentSettings = { ...currentSettings, translationMode: 'inline-only' };
     await dispatch('SETTINGS_UPDATED');
     await vi.waitFor(() => expect(document.querySelector('.not-translator-translation-line')).toBeNull());
     expect(paragraph.querySelector('[data-word="ephemeral"]')).toBeNull();
-    expect(translationCallbacks).toHaveLength(1);
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
+    expect(document.body.textContent).not.toContain('应保留的完整中文');
   });
 
   it('已认识广播后在途响应按最新学习状态呈现，改回未知可重绘原始词义而不请求', async () => {
@@ -908,19 +908,21 @@ describe('内容脚本真实初始化与运行时消息', () => {
     expect(document.body.textContent).not.toContain('关闭后不可复活');
   });
 
-  it('仅切模式不触发旧段落请求，新插入正文仍按新模式自动获取', async () => {
+  it('切模式后新插入正文按新模式自动获取', async () => {
     await createTranslator();
     currentSettings = { ...currentSettings, translationMode: 'bilingual' };
     await dispatch('SETTINGS_UPDATED');
     await vi.waitFor(() => expect(document.querySelector('[data-mode="bilingual"]')?.getAttribute('aria-pressed')).toBe('true'));
-    expect(translationCallbacks).toHaveLength(0);
+    await new Promise(resolve => setTimeout(resolve, 300));
     document.querySelector('article')!.insertAdjacentHTML('beforeend', `<p id="new-mode-story">${article.repeat(2)}</p>`);
     const paragraph = document.getElementById('new-mode-story')!;
     await vi.waitFor(() => expect(observed).toContain(paragraph));
     intersecting(paragraph);
-    await vi.waitFor(() => expect(translationCallbacks).toHaveLength(1));
-    expect(messages.find(message => message.type === 'BATCH_TRANSLATE_TEXT'))
-      .toMatchObject({ payload: { mode: 'bilingual', paragraphs: [{ text: article.repeat(2) }] } });
+    await vi.waitFor(() => expect(messages.some(message => message.type === 'BATCH_TRANSLATE_TEXT'
+      && (message.payload as { paragraphs?: { text: string }[] }).paragraphs?.some(item => item.text === article.repeat(2)))).toBe(true));
+    expect(messages.find(message => message.type === 'BATCH_TRANSLATE_TEXT'
+      && (message.payload as { paragraphs?: { text: string }[] }).paragraphs?.some(item => item.text === article.repeat(2))))
+      .toMatchObject({ payload: { mode: 'bilingual' } });
   });
 
   it('显式服务配置的模式保存附带清理旧凭据时，不把无关旧字段当成获取配置变化', async () => {
@@ -935,11 +937,11 @@ describe('内容脚本真实初始化与运行时消息', () => {
         apiKey: { newValue: '' }, legacyApiKeyInvalidated: { newValue: true } }, 'sync');
     }
     await vi.waitFor(() => expect(document.querySelector('[data-mode="bilingual"]')?.getAttribute('aria-pressed')).toBe('true'));
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
-    expect(translationCallbacks).toHaveLength(1);
+    expect(messages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
+    expect(messages.filter(message => message.type === 'UPDATE_SETTINGS')).toHaveLength(0);
   });
 
-  it('settings 存储事件与设置广播重复到达时仅重绘一次，不取消或重扫', async () => {
+  it('settings 存储事件与设置广播重复到达时只取消并重扫一次', async () => {
     await createTranslator();
     intersecting(document.getElementById('story')!);
     await vi.waitFor(() => expect(translationCallbacks).toHaveLength(1));
@@ -949,9 +951,14 @@ describe('内容脚本真实初始化与运行时消息', () => {
     }
     await vi.waitFor(() => expect(document.querySelector('[data-mode="bilingual"]')?.getAttribute('aria-pressed')).toBe('true'));
     await dispatch('SETTINGS_UPDATED');
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 400));
+    expect(messages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
+    translationCallbacks[0]({ success: true, data: { results: [{ id: 'para_story', result: {
+      words: [], sentences: [], fullText: '重复广播不得复活',
+    } }] } });
+    await Promise.resolve();
+    expect(document.body.textContent).not.toContain('重复广播不得复活');
     expect(translationCallbacks).toHaveLength(1);
-    expect(messages.some(message => message.type === 'CANCEL_TRANSLATION')).toBe(false);
   });
 
   it.each(['llm', 'traditional', 'hybrid'] as const)('浮动按钮切换到 %s 只提交引擎字段，不回传旧密钥', async engine => {

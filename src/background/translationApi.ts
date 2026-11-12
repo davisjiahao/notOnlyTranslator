@@ -9,11 +9,22 @@ import {
   boundedMaxTokens,
   TRANSPORT_DEFAULTS,
   type TranslationApiRequestOptions,
+  type TransportRequestConfig,
+  type TransportRequestInit,
   type TransportRetryConfig,
 } from '@/background/translationRequest';
 
 // 对外透出传输层请求选项类型，方便调用方引用
 export type { TranslationApiRequestOptions, ResponseFormatOption } from '@/background/translationRequest';
+
+/** 流式与非流式共用源站冷却，避免 429 后立即重打。 */
+function sendTranslationRequest(
+  url: string,
+  init: TransportRequestInit,
+  config: TransportRequestConfig,
+): Promise<string> {
+  return executeTransportRequest(url, init, { ...config, shareRateLimit: true });
+}
 
 /**
  * 默认重试配置
@@ -115,8 +126,10 @@ const anthropicExtractor: ProviderResponseExtractor = {
     );
   },
   extractContent: (data) => {
-    const d = data as { content?: Array<{ text?: string }> };
-    return d.content?.[0]?.text;
+    const blocks = (data as { content?: Array<{ text?: unknown }> }).content;
+    if (!Array.isArray(blocks)) return undefined;
+    const text = blocks.flatMap(block => typeof block?.text === 'string' ? [block.text] : []).join('');
+    return text || undefined;
   },
 };
 
@@ -133,8 +146,11 @@ const geminiExtractor: ProviderResponseExtractor = {
     );
   },
   extractContent: (data) => {
-    const d = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    return d.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: unknown; thought?: boolean }> } }> })
+      .candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts)) return undefined;
+    const text = parts.flatMap(part => !part?.thought && typeof part?.text === 'string' ? [part.text] : []).join('');
+    return text || undefined;
   },
 };
 
@@ -563,7 +579,7 @@ export class TranslationApiService {
       return content;
     };
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       url,
       { method: 'POST', headers, body: JSON.stringify(body) },
       {
@@ -604,7 +620,7 @@ export class TranslationApiService {
     params.append('target_lang', 'ZH');
     params.append('source_lang', 'EN');
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       endpoint,
       {
         method: 'POST',
@@ -654,7 +670,7 @@ export class TranslationApiService {
     const url = new URL(endpoint);
     url.searchParams.append('key', apiKey);
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       url.toString(),
       {
         method: 'POST',
@@ -709,7 +725,7 @@ export class TranslationApiService {
     url.searchParams.append('dt', 't');
     url.searchParams.append('q', userPrompt);
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       url.toString(),
       { method: 'GET' },
       {
@@ -777,7 +793,7 @@ export class TranslationApiService {
     params.append('signType', 'v3');
     params.append('curtime', curtime);
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       endpoint,
       {
         method: 'POST',
@@ -832,7 +848,7 @@ export class TranslationApiService {
     // 百度格式：将系统提示词与用户提示词合并
     const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       chatUrl,
       {
         method: 'POST',
@@ -900,7 +916,7 @@ export class TranslationApiService {
       ? Math.min(requestedTimeoutMs, TRANSPORT_DEFAULTS.legacyEngineTimeoutMs)
       : TRANSPORT_DEFAULTS.legacyEngineTimeoutMs;
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       tokenUrl,
       { method: 'POST' },
       {
@@ -1061,7 +1077,7 @@ export class TranslationApiService {
     params.append('target_lang', 'ZH');
     params.append('source_lang', 'EN');
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       endpoint,
       {
         method: 'POST',
@@ -1095,7 +1111,7 @@ export class TranslationApiService {
     const url = new URL(endpoint);
     url.searchParams.append('key', apiKey);
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       url.toString(),
       {
         method: 'POST',
@@ -1135,7 +1151,7 @@ export class TranslationApiService {
     url.searchParams.append('dt', 't');
     url.searchParams.append('q', text);
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       url.toString(),
       { method: 'GET' },
       {
@@ -1175,7 +1191,7 @@ export class TranslationApiService {
     const accessToken = await this.getBaiduAccessToken(apiKey, secretKey, options);
     const chatUrl = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${model}?access_token=${accessToken}`;
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       chatUrl,
       {
         method: 'POST',
@@ -1228,7 +1244,7 @@ export class TranslationApiService {
     params.append('signType', 'v3');
     params.append('curtime', curtime);
 
-    return executeTransportRequest(
+    return sendTranslationRequest(
       endpoint,
       {
         method: 'POST',

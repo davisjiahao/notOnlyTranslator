@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 切换翻译模式、词表、翻译配置或 API 密钥后，中止在途翻译并丢弃旧缓存，避免旧结果再次出现。
+- 流式与非流式翻译共用正文提取、取消、超时和源站限流；错误信息不再回显密钥或凭据。
+- 语言检测继续排除扩展自身的中文界面，短英文页面不会因语言声明或少量汉字被误判。
+- Jev 密钥仍只保存在本机 IndexedDB，并在同步设置或备份中被剔除；清除全部数据时删除。
+
 ### Added
 - Initial project setup
 - User proficiency level assessment system

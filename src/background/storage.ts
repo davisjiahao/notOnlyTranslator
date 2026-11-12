@@ -14,6 +14,7 @@ import { resolveJevConfig } from '@/shared/utils/jevConfig';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { clearJevApiKey } from './jevCredentials';
+import { hasJevCredentialFields, omitJevCredentialFields } from '@/shared/utils/jevIsolation';
 
 type SettingsUpdate = Partial<UserSettings> & {
   hybridTranslationPatch?: Partial<NonNullable<UserSettings['hybridTranslation']>>;
@@ -109,8 +110,8 @@ export class StorageManager {
    */
   static async getSettings(): Promise<UserSettings> {
     const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.SETTINGS);
-    const { jevApiKey: _jevApiKey, jevKey: _jevKey, jevCredentials: _jevCredentials, ...stored } =
-      data[STORAGE_KEYS.SYNC.SETTINGS] ?? {};
+    const storedSettings = data[STORAGE_KEYS.SYNC.SETTINGS] ?? {};
+    const { jevApiKey: _jevApiKey, jevKey: _jevKey, jevCredentials: _jevCredentials, ...stored } = storedSettings;
     const settings = {
       ...DEFAULT_SETTINGS,
       ...stored,
@@ -300,6 +301,22 @@ export class StorageManager {
         apiConfigsRevision: (current.apiConfigsRevision ?? 0) + 1,
       };
     }, true);
+  }
+
+  /** 发现同步设置里的 Jev 凭据时立刻删掉，不读取、不记录密钥本身。 */
+  static purgeSyncedJevCredentials(): Promise<void> {
+    const operation = this.settingsUpdates.then(() => this.purgeSyncedJevCredentialsUnlocked());
+    this.settingsUpdates = operation.catch(() => undefined);
+    return operation;
+  }
+
+  private static async purgeSyncedJevCredentialsUnlocked(): Promise<void> {
+    const data = await chrome.storage.sync.get(STORAGE_KEYS.SYNC.SETTINGS);
+    const settings = data[STORAGE_KEYS.SYNC.SETTINGS];
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings) || !hasJevCredentialFields(settings)) return;
+    await chrome.storage.sync.set({
+      [STORAGE_KEYS.SYNC.SETTINGS]: omitJevCredentialFields(settings),
+    });
   }
 
   /** 清空与设置、档案队列共用屏障，不能让清空前的写入在返回后回填。 */

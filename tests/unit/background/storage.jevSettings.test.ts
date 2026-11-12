@@ -73,6 +73,16 @@ describe('Jev开关与备份恢复', () => {
     else await StorageManager.importData({ settings });
     expect(await StorageManager.getSettings()).toMatchObject({ vocabularyAssessmentProvider: 'legacy', enabled: false });
   });
+  it('发现同步设置中的 Jev 密钥时从同步区删除，且不把密钥写进日志', async () => {
+    stored = { settings: { ...DEFAULT_SETTINGS, jevApiKey: 'synthetic-secret', enabled: true } };
+    await StorageManager.purgeSyncedJevCredentials();
+    expect(stored.settings).not.toHaveProperty('jevApiKey');
+    expect(JSON.stringify(stored)).not.toContain('synthetic-secret');
+    expect(stored.settings).toMatchObject({ enabled: true });
+    const writes = vi.mocked(chrome.storage.sync.set).mock.calls.length;
+    await StorageManager.purgeSyncedJevCredentials();
+    expect(vi.mocked(chrome.storage.sync.set).mock.calls.length).toBe(writes);
+  });
   it('GET_SETTINGS不暴露历史错误写入的Jev字段且无效旧enum回落legacy', async () => {
     stored = { settings: { ...DEFAULT_SETTINGS, jevApiKey: 'synthetic-secret', jevKey: 'other',
       jevCredentials: { apiKey: 'synthetic-secret' }, vocabularyAssessmentProvider: 'invalid' } };

@@ -14,6 +14,7 @@ import { PROVIDER_CONFIGS } from '@/shared/constants/providers';
 import { escapeCSVCell } from './csv';
 import { PARTIAL_PROFILE_IMPORT_ERROR } from './importErrors';
 import { resolveJevConfig } from './jevConfig';
+import { JEV_CREDENTIAL_FIELDS, omitJevCredentialFields } from './jevIsolation';
 
 /**
  * 导出数据格式版本
@@ -106,8 +107,9 @@ function getAppVersion(): string {
  * @returns 完整导出数据
  */
 export async function exportAllData(): Promise<FullExportData> {
+  await StorageManager.purgeSyncedJevCredentials();
   const profile = await StorageManager.getUserProfile();
-  const settings = await StorageManager.getSettings();
+  const settings = omitJevCredentialFields(await StorageManager.getSettings());
   const mastery = await StorageManager.getMasteryProfile();
   const translationCache = await StorageManager.getTranslationCache();
 
@@ -143,7 +145,7 @@ export function validateImportedSettings(raw: unknown): string[] {
   const errors: string[] = [];
   try { resolveJevConfig(settings.jevConfig); }
   catch { errors.push('Jev配置格式无效，凭据不可通过备份导入'); }
-  if (['jevApiKey', 'jevKey', 'jevCredentials'].some(key => Object.prototype.hasOwnProperty.call(settings, key)) ||
+  if (JEV_CREDENTIAL_FIELDS.some(key => Object.prototype.hasOwnProperty.call(settings, key)) ||
     (Object.prototype.hasOwnProperty.call(settings, 'vocabularyAssessmentProvider') &&
       !['legacy', 'jev'].includes(settings.vocabularyAssessmentProvider as string))) {
     errors.push('Jev设置格式无效，凭据不可通过备份导入');

@@ -8,6 +8,7 @@ import type {
 } from '@/shared/types';
 import { CONTEXT_MENU_IDS, STORAGE_KEYS } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { sanitizeErrorMessage } from './translationRequest';
 import { validateImportedSettings } from '@/shared/utils/dataExport';
 import { StorageManager } from './storage';
 import { isTrustedJevSender } from './jevCredentials';
@@ -16,7 +17,9 @@ import { resetJevRecognition } from './jevRecognition';
 import { clearLastJevAssessment } from './jevTranslation';
 import { TranslationService } from './translation';
 import { UserLevelManager } from './userLevel';
-import { handleTranslationMessage } from './translationMessages';
+import { cancelAllTranslations, handleTranslationMessage } from './translationMessages';
+import { abortInflightBatches } from './inflightBatchDedup';
+import { configureReadingInvalidation, invalidateReadingContext, readingContextChanged } from './readingInvalidation';
 import { MasteryManager } from './mastery';
 import { enhancedCache } from './enhancedCache';
 import { clearWordSenseCache } from './localWordLookup';
@@ -46,17 +49,39 @@ import {
   importHistoryData,
 } from './translationHistory';
 
+function sanitizeBackgroundError(error: unknown): string {
+  const message = error instanceof Error ? error.message : '操作失败，请稍后重试';
+  return sanitizeErrorMessage(message);
+}
+
 let pendingOperations: readonly Promise<unknown>[] = [];
 let clearingData: Promise<MessageResponse> | null = null;
 
+configureReadingInvalidation({
+  abortTranslations: () => {
+    cancelAllTranslations();
+    abortInflightBatches();
+  },
+  clearCaches: async () => {
+    clearWordSenseCache();
+    await enhancedCache.clearAll();
+    await StorageManager.clearTranslationCache();
+  },
+});
+
 // 外部存储写入也必须作废 Jev 代际，避免配置或词表变更后恢复原值绕过快照校验。
+// 影响译文的模式、词表、配置和密钥同时作废在途请求与翻译缓存。
 chrome.storage.onChanged.addListener((changes, area) => {
+  if (readingContextChanged(changes, area)) invalidateReadingContext();
   const keys = area === 'sync'
     ? [STORAGE_KEYS.SYNC.SETTINGS, STORAGE_KEYS.SYNC.USER_PROFILE, STORAGE_KEYS.SYNC.API_KEY, 'legacyApiKeyInvalidated']
     : area === 'local' ? [STORAGE_KEYS.LOCAL.KNOWN_WORDS, STORAGE_KEYS.LOCAL.UNKNOWN_WORDS] : [];
   if (keys.some(key => Object.prototype.hasOwnProperty.call(changes, key) &&
     JSON.stringify(changes[key].oldValue) !== JSON.stringify(changes[key].newValue))) {
     invalidateJevOperations();
+    if (area === 'sync' && Object.prototype.hasOwnProperty.call(changes, STORAGE_KEYS.SYNC.SETTINGS)) {
+      void StorageManager.purgeSyncedJevCredentials();
+    }
   }
 });
 
@@ -342,7 +367,7 @@ chrome.runtime.onMessage.addListener(
       .catch((error) =>
         sendResponse({
           success: false,
-          error: error.message,
+          error: sanitizeBackgroundError(error),
         })
       );
 

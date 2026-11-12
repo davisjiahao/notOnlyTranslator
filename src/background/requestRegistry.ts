@@ -41,4 +41,13 @@ export class TranslationRequestRegistry {
     controller.abort(new DOMException('翻译请求已取消', 'AbortError'));
     return true;
   }
+
+  /** 模式、词表、配置或密钥变化时，中止全部在途翻译，避免旧结果继续返回或写入缓存。 */
+  cancelAll(): number {
+    const controllers = Object.values(this.requests);
+    for (const controller of controllers) {
+      controller.abort(new DOMException('翻译请求已取消', 'AbortError'));
+    }
+    return controllers.length;
+  }
 }

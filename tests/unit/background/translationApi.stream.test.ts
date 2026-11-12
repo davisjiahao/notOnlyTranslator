@@ -134,6 +134,31 @@ describe('TranslationApiService流式适配', () => {
     expect(onTextDelta).not.toHaveBeenCalled();
   });
 
+  it('Gemini 流式与非流式都跳过思考片段并拼接可见文本', async () => {
+    const visible = '可见甲可见乙';
+    const json = { candidates: [{ content: { parts: [{ thought: true, text: '思考' }, { text: '可见甲' }, { text: '可见乙' }] }, finishReason: 'STOP' }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(json))));
+    await expect(invoke('gemini')).resolves.toBe(visible);
+    const stream = event({ candidates: [{ content: { parts: [{ thought: true, text: '思考' }, { text: '可见甲' }] } }] })
+      + event({ candidates: [{ content: { parts: [{ text: '可见乙' }] }, finishReason: 'STOP' }] });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse(stream)));
+    await expect(invoke('gemini', { onTextDelta: vi.fn() })).resolves.toBe(visible);
+  });
+
+  it.each(['stream', 'json'] as const)('%s 请求在发出前取消，返回固定取消错误且不发起网络', async (mode) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    controller.abort();
+    const error = await invoke('openai', {
+      signal: controller.signal,
+      ...(mode === 'stream' ? { onTextDelta: vi.fn() } : {}),
+    }).catch(value => value);
+    expect(error).toMatchObject({ kind: 'cancelled' });
+    expect(error.message).not.toMatch(/test-api-key|sk-/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('HTTP错误仍走原分类且不触发正文解析', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: 'test-api-key user-secret' } }), { status: 401 })));
     const onTextDelta = vi.fn();

@@ -10,6 +10,8 @@ import {
   executeTransportRequest,
   boundedMaxTokens,
   resolveResponseFormat,
+  resetSharedRateLimits,
+  sanitizeErrorMessage,
   TRANSPORT_DEFAULTS,
 } from '@/background/translationRequest';
 import { TransportError } from '@/shared/utils/translationErrors';
@@ -73,7 +75,9 @@ describe('executeTransportRequest', () => {
   });
 
   afterEach(() => {
+    resetSharedRateLimits();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   const okInit = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
@@ -526,5 +530,51 @@ describe('executeTransportRequest', () => {
     expect(logged).not.toContain('sensitive-detail');
     expect(logged).not.toContain('sk-secret-987654');
     warnSpy.mockRestore();
+  });
+
+  it('授权头、查询参数和 JSON 字段中的凭据都会被抹掉', () => {
+    const raw = [
+      'DeepL-Auth-Key deepl-secret-value',
+      'https://translate.example/v2?apiKey=deepl-secret-value&q=hello',
+      '{"appSecret":"deepl-secret-value","ok":true}',
+    ].join(' ');
+    const safe = sanitizeErrorMessage(raw, ['deepl-secret-value']);
+    expect(safe).not.toContain('deepl-secret-value');
+    expect(safe).toContain('DeepL-Auth-Key [已脱敏]');
+    expect(safe).toContain('apiKey=[已脱敏]');
+    expect(safe).toContain('"appSecret":"[已脱敏]"');
+  });
+
+  it('429 后同一源站的流式与非流式请求共享冷却，错误不回显密钥', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: new Headers({ 'Retry-After': '2' }),
+      json: async () => ({ error: { message: 'quota sk-test-secret-123' } }),
+    });
+    const error = await executeTransportRequest('https://api.example.dev/v1', okInit, {
+      ...baseOptions,
+      shareRateLimit: true,
+      secrets: ['sk-test-secret-123'],
+      retry: { maxRetries: 0 },
+      extractErrorMessage: data => (data as { error?: { message?: string } }).error?.message,
+    }).catch(value => value);
+    expect(error).toMatchObject({ statusCode: 429, retryAfterMs: 2000 });
+    expect(JSON.stringify(error)).not.toContain('sk-test-secret-123');
+
+    let fetched = false;
+    fetchMock.mockImplementation(async () => {
+      fetched = true;
+      return { ok: true, status: 200, json: async () => ({ content: 'ok' }) };
+    });
+    const second = executeTransportRequest('https://api.example.dev/v1', okInit, {
+      ...baseOptions, shareRateLimit: true, retry: { maxRetries: 0 },
+    });
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(fetched).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(second).resolves.toBe('ok');
+    expect(fetched).toBe(true);
   });
 });

@@ -62,6 +62,16 @@ describe('翻译请求生命周期', () => {
     await expect(registry.run('tab', 'after-cancel', async () => true)).resolves.toBe(true);
   });
 
+  it('上下文失效时取消全部在途请求，完成后可以重新开始', async () => {
+    const registry = new TranslationRequestRegistry();
+    const pending = ['a', 'b'].map(id => registry.run('tab', id, () => new Promise(() => {}))
+      .catch((error: Error) => error.name));
+    expect(registry.cancelAll()).toBe(2);
+    expect(await Promise.all(pending)).toEqual(['AbortError', 'AbortError']);
+    expect(registry.cancelAll()).toBe(0);
+    await expect(registry.run('tab', 'a', async () => 'next')).resolves.toBe('next');
+  });
+
   it('不合法的取消标识不会命中请求', () => {
     expect(new TranslationRequestRegistry().cancel('tab', '../invalid')).toBe(false);
   });
