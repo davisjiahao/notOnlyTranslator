@@ -79,6 +79,10 @@ async function expectPageMode(page: Page, mode: TranslationMode): Promise<void> 
   await expect(page.getByRole('alert')).toHaveCount(0);
 }
 
+async function callCount(worker: Worker): Promise<number> {
+  return worker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls.length);
+}
+
 async function expectCleanRequests(worker: Worker): Promise<void> {
   const calls = await worker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls);
   const texts = calls.flatMap(call => call.messages.filter(message => message.role === 'user'))
@@ -96,11 +100,11 @@ async function openCompletedInlinePage(worker: Worker, openTestPage: () => Promi
   await expectPageMode(page, 'bilingual');
   const baseline = await worker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls.length);
   expect(baseline).toBeGreaterThan(0);
-  // 首轮完整结果只从正常 HTTP 回包获得，再经真实控件进入原矩阵起点。
+  // 首轮完整结果只从正常 HTTP 回包获得；切到行内会清掉对照译文并重新获取。
   await page.getByRole('button', { name: '翻译模式切换', exact: true }).click();
   await page.locator('.not-translator-floating-mode-item[data-mode="inline-only"]').click();
   await expectPageMode(page, 'inline-only');
-  expect(await observeCallCount(worker, 'inline-only')).toBe(baseline);
+  expect(await callCount(worker)).toBeGreaterThan(baseline);
   return page;
 }
 
@@ -118,9 +122,11 @@ test.describe('真实 UI 三模式切换', () => {
       const popup = await openPopup(extContext, extensionId);
       for (const mode of cycle) {
         await test.step(`切换至${MODES[mode].popup}`, async () => {
+          const before = await callCount(llmWorker);
           await selectPopupMode(popup, mode);
           await expectPageMode(page, mode);
           await expectModeControls(page, popup, llmWorker, mode);
+          expect(await callCount(llmWorker), '切换模式必须按新模式重新获取').toBeGreaterThan(before);
           await expectCleanRequests(llmWorker);
         });
       }
@@ -158,8 +164,10 @@ test.describe('真实 UI 三模式切换', () => {
     expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth);
     expect(bounds.bottom, '展开面板底部必须位于视口内，不能重复叠加页面 scrollY').toBeLessThanOrEqual(bounds.viewportHeight);
 
+    const beforeFull = await callCount(llmWorker);
     await panel.locator('.not-translator-floating-mode-item[data-mode="full-translate"]').click();
     await expectPageMode(page, 'full-translate');
+    expect(await callCount(llmWorker)).toBeGreaterThan(beforeFull);
     await expect(button).toHaveAttribute('aria-expanded', 'false');
     await expect.poll(() => llmWorker.evaluate(async () => (await chrome.storage.sync.get('settings')).settings.translationMode))
       .toBe('full-translate');
@@ -171,9 +179,11 @@ test.describe('真实 UI 三模式切换', () => {
   }) => {
     const page = await openCompletedInlinePage(llmWorker, openTestPage);
     for (const mode of ['full-translate', 'inline-only', 'bilingual'] as const) {
+      const before = await callCount(llmWorker);
       await page.getByRole('button', { name: '翻译模式切换', exact: true }).click();
       await page.locator(`.not-translator-floating-mode-item[data-mode="${mode}"]`).click();
       await expectPageMode(page, mode);
+      expect(await callCount(llmWorker)).toBeGreaterThan(before);
       const popup = await openPopup(extContext, extensionId);
       await expectModeControls(page, popup, llmWorker, mode);
       await popup.close();
@@ -182,65 +192,53 @@ test.describe('真实 UI 三模式切换', () => {
   });
 });
 
-test('在途双语批次切全文不取消或重发，唯一响应按最新模式显示并清圈', async ({
+test('在途双语批次切全文会取消旧请求，并按全文重新获取', async ({
   llmWorker, openTestPage, extContext, extensionId,
 }) => {
   const page = await openTestPage();
-  await expect(page.locator(`${SPINNER}, ${LOADING}`)).toHaveCount(0); // 新契约：在途段落零加载注入
+  await expect(page.locator(`${SPINNER}, ${LOADING}`)).toHaveCount(0); // 在途段落零加载注入
   await expect.poll(() => llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.pending.length)).toBe(1);
   const popup = await openPopup(extContext, extensionId);
   await selectPopupMode(popup, 'full-translate');
-  await expectModeControls(page, popup, llmWorker, 'full-translate');
-  expect(await observeCallCount(llmWorker, 'full-translate')).toBe(1);
-  expect(await llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.pending.length)).toBe(1);
-  // 不放行第二个请求，唯一在途响应应直接用于当前模式。
+  await expect.poll(() => llmWorker.evaluate(async () => (await chrome.storage.sync.get('settings')).settings.translationMode))
+    .toBe('full-translate');
+  // 旧批次仍停在替身里，新模式的批次必须已经发出。
+  await expect.poll(() => callCount(llmWorker)).toBeGreaterThan(1);
   await releaseReply(llmWorker, 'valid');
-  await expect.poll(() => llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls[0].aborted)).toBe(false);
+  await expect.poll(() => llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls[0].aborted)).toBe(true);
+  await expect.poll(() => llmWorker.evaluate(() => {
+    const calls = (globalThis as LlmScope).__llmDisplayE2E.calls;
+    return calls[calls.length - 1]?.aborted ?? true;
+  })).toBe(false);
   await expectPageMode(page, 'full-translate');
   await expectModeControls(page, popup, llmWorker, 'full-translate');
-  expect(await observeCallCount(llmWorker, 'full-translate')).toBe(1);
+  expect(await callCount(llmWorker)).toBeGreaterThan(1);
   await expectCleanRequests(llmWorker);
 });
 
-test('缺全文失败后切模式不重发，真实移回视口后恢复正文并清除错误及加载圈', async ({
+test('缺全文失败后切换模式会按新模式重新获取，而不是留在原文等待滚回', async ({
   llmWorker, openTestPage, extContext, extensionId,
 }) => {
   const page = await openTestPage();
-  await expect(page.locator(`${SPINNER}, ${LOADING}`)).toHaveCount(0); // 新契约：在途段落零加载注入
-  await expect.poll(() => llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.pending.length)).toBeGreaterThan(0); // 等待批次真实发出
+  await expect(page.locator(`${SPINNER}, ${LOADING}`)).toHaveCount(0);
+  await expect.poll(() => llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.pending.length)).toBeGreaterThan(0);
   await releaseReply(llmWorker, 'missing');
   await expect(page.getByRole('alert')).toContainText('批量翻译失败');
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.locator(`${SPINNER}, ${LOADING}`)).toHaveCount(0);
   await expect(page.locator('#content .not-translator-processed')).toHaveCount(0);
-  const baseline = await llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls.length);
+  const baseline = await callCount(llmWorker);
   await releaseReply(llmWorker, 'valid');
   const popup = await openPopup(extContext, extensionId);
   for (const mode of ['full-translate', 'bilingual'] as const) {
+    const before = await callCount(llmWorker);
     await selectPopupMode(popup, mode);
+    await expectPageMode(page, mode);
     await expectModeControls(page, popup, llmWorker, mode);
-    expect(await observeCallCount(llmWorker, mode)).toBe(baseline);
-    for (const paragraph of PARAGRAPHS.slice(0, 3)) {
-      const original = page.locator(`#${paragraph.id}`);
-      await expect(original).toContainText(paragraph.source);
-      await expect(original).not.toContainText(paragraph.translation);
-      await expect(original).toBeVisible();
-      await expect(original).toHaveCSS('opacity', '1');
-      await expect(original).not.toHaveClass(/not-translator-fade-out|not-translator-full-translated/);
-    }
-    await expect(page.locator(`${SPINNER}, ${LOADING}, .not-translator-translating`)).toHaveCount(0);
-    await expect(page.locator('.not-translator-translation-line')).toHaveCount(0);
+    expect(await callCount(llmWorker), `${mode} 切换必须重新获取，不能只保留失败后的原文`).toBeGreaterThan(before);
     await expectCleanRequests(llmWorker);
   }
-  // 与已有失败恢复用例相同，真实滚出/滚回才重新请求，模式切换不充当重试。
-  await page.evaluate(() => { document.body.style.minHeight = '6000px'; });
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await expect(page.locator('#para-alpha')).not.toBeInViewport();
-  await page.locator('#para-alpha').scrollIntoViewIfNeeded();
-  await expectPageMode(page, 'bilingual');
-  await expectModeControls(page, popup, llmWorker, 'bilingual');
-  expect(await llmWorker.evaluate(() => (globalThis as LlmScope).__llmDisplayE2E.calls.length)).toBeGreaterThan(baseline);
-  await expectCleanRequests(llmWorker);
+  expect(await callCount(llmWorker)).toBeGreaterThan(baseline);
 });
 
 test('真实 popup 暂停全局翻译会中止在途请求，迟到响应不回填正文', async ({

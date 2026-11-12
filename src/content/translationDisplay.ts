@@ -1,6 +1,7 @@
 import type { TranslationResult, TranslationMode, TranslatedWord, UserSettings } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
 import { normalizeWordSet } from './core/vocabularyState';
+import { findWordOccurrences } from './highlightRanges';
 import { createTranslatableTextWalker, getTranslatableText, isInExcludedArea } from './pageScanner';
 
 /**
@@ -559,56 +560,11 @@ export class TranslationDisplay {
     if (position && (!Number.isInteger(position[0]) || position[0] < 0 || position[1] - position[0] !== targetText.length)) return false;
     // 严格位置模式:按核验过的 utf16 区间渲染,词可跨 inline 文本节点。
     if (position) return this.wrapWordAtPosition(paragraph, word, position, showInlineTranslation, dataIndex);
+    // 未强制位置时仍标出每一次完整出现，包括被行内标签拆开的重复词。
     const source = getTranslatableText(paragraph);
-    const walker = createTranslatableTextWalker(paragraph);
-    const nodes: Array<{ node: Text; offset: number }> = [];
-    let node: Text | null;
-    let offset = 0;
-    while ((node = walker.nextNode() as Text | null)) {
-      if (!node.parentElement?.closest(`.${CSS_CLASSES.HIGHLIGHT}`)) nodes.push({ node, offset });
-      offset += node.textContent?.length || 0;
-    }
-
     let matched = false;
-    for (const { node: textNode, offset: start } of nodes) {
-      const text = textNode.textContent || '';
-      const fragment = document.createDocumentFragment();
-      let cursor = 0;
-      let index = text.toLowerCase().indexOf(targetText.toLowerCase());
-      while (index !== -1) {
-        const end = index + targetText.length;
-        // 拒绝词内子串后继续查找，模型偏移不影响真实正文匹配。
-        if (!/[\p{L}\p{N}_]/u.test(source[start + index - 1] || '') && !/[\p{L}\p{N}_]/u.test(source[start + end] || '')) {
-          fragment.appendChild(document.createTextNode(text.slice(cursor, index)));
-          const mark = document.createElement('mark');
-          mark.className = CSS_CLASSES.HIGHLIGHT;
-          mark.title = `${word.original} — ${word.translation}`;
-          mark.tabIndex = 0;
-          mark.setAttribute('role', 'button');
-          mark.setAttribute('aria-haspopup', 'dialog');
-          mark.dataset.difficulty = String(word.difficulty);
-          mark.dataset.translation = word.translation;
-          mark.dataset.word = word.original;
-          if (word.isPhrase) mark.dataset.isPhrase = 'true';
-          if (dataIndex !== undefined) {
-            mark.dataset.index = String(dataIndex);
-            mark.classList.add('not-translator-highlighted-word');
-          }
-          mark.textContent = text.slice(index, end);
-          if (showInlineTranslation) {
-            const annotation = document.createElement('span');
-            annotation.className = 'not-translator-inline-translation';
-            annotation.textContent = word.translation;
-            mark.appendChild(annotation);
-          }
-          fragment.appendChild(mark);
-          cursor = end;
-        }
-        index = text.toLowerCase().indexOf(targetText.toLowerCase(), end);
-      }
-      if (cursor > 0) {
-        fragment.appendChild(document.createTextNode(text.slice(cursor)));
-        this.replaceTextNode(paragraph, textNode, fragment);
+    for (const occurrence of findWordOccurrences(source, targetText, { boundary: 'unicode', flexibleWhitespace: false })) {
+      if (this.wrapWordAtPosition(paragraph, word, [occurrence.start, occurrence.end], showInlineTranslation, dataIndex)) {
         matched = true;
       }
     }

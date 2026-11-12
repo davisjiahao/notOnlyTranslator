@@ -9,6 +9,8 @@
   .not-translator-grammar-highlight,
   .not-translator-nav-highlight,
   .not-translator-loading-spinner,
+  .not-translator-translation-line,
+  .not-translator-floating-status,
   :is(.not-translator-tooltip, .not-translator-help-panel, .not-translator-floating-btn, .not-translator-floating-panel, .not-translator-error-notification),
   :is(.not-translator-tooltip, .not-translator-help-panel, .not-translator-floating-btn, .not-translator-floating-panel, .not-translator-error-notification) *,
   :is(.not-translator-tooltip, .not-translator-help-panel, .not-translator-floating-btn, .not-translator-floating-panel, .not-translator-error-notification)::before,
@@ -511,6 +513,24 @@ mark.not-translator-inactive-vocabulary {
   font-size: 14px;
 }
 
+/* 取消不同于失败：中性状态，不使用错误色。 */
+.not-translator-tooltip-cancelled,
+.not-translator-tooltip-cancelled-hint {
+  margin: 0;
+  text-align: center;
+  color: #4b5563;
+}
+
+.not-translator-tooltip-cancelled {
+  padding: 8px 12px 0;
+  font-weight: 600;
+}
+
+.not-translator-tooltip-cancelled-hint {
+  padding: 4px 12px 12px;
+  font-size: 13px;
+}
+
 /* Retry button */
 .not-translator-tooltip-actions .not-translator-mark-button.retry {
   background: #fef3c7;
@@ -1005,11 +1025,9 @@ mark.not-translator-inactive-vocabulary {
 
 @keyframes not-translator-fade-in {
   from {
-    opacity: 0;
     transform: translateY(-4px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -1323,10 +1341,10 @@ a .not-translator-inline-translation,
   border-left: 2px solid #e5e7eb;
 }
 
-/* 翻译内容过渡动画 */
+/* 模式切换不再对正文做透明度过渡，避免清词义时闪一下。 */
 .not-translator-processed,
 .not-translator-translation-line {
-  transition: opacity 0.15s ease;
+  transition: none;
 }
 .not-translator-fade-out {
   opacity: 0;
@@ -1742,6 +1760,26 @@ a .not-translator-inline-translation,
   font-size: 13px;
   font-weight: 600;
   color: #ffffff;
+}
+
+/* 挂在按钮外，不撑开模式名，避免切换时按钮高度跳动。 */
+.not-translator-floating-status {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  max-width: 240px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+}
+
+.not-translator-floating-status[hidden] {
+  display: none;
 }
 
 /* 最小化状态 */

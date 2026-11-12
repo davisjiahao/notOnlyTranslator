@@ -78,6 +78,9 @@ class NotOnlyTranslator {
   /** 刷新翻译定时器 */
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** 模式或配置刷新的代际，过期的进度回调不能清掉新的状态提示 */
+  private refreshCycle = 0;
+
   /** 词汇高亮器 - 用于 CEFR 词汇水平高亮 */
   private vocabHighlighter: VocabularyHighlighter | null = null;
 
@@ -200,7 +203,7 @@ class NotOnlyTranslator {
   private async translateAndShowTooltip(word: string, target: HTMLElement): Promise<void> {
     const token = this.startTooltipRequest();
     try {
-      this.tooltip.showLoading(target);
+      this.tooltip.showLoading(target, word);
       const userLevel = await this.getUserProfile();
       if (!this.isTooltipRequestCurrent(token)) return;
 
@@ -216,7 +219,7 @@ class NotOnlyTranslator {
       if (!this.isTooltipRequestCurrent(token)) return;
 
       if (!response.success || !response.data) {
-        this.tooltip.showError(target, '翻译失败，请稍后重试');
+        this.showTooltipFailure(target, response.error, word);
         logger.warn('双击翻译失败:', response.error);
         return;
       }
@@ -240,7 +243,7 @@ class NotOnlyTranslator {
       logger.info('双击查词:', word);
     } catch (error) {
       if (!this.isTooltipRequestCurrent(token)) return;
-      this.tooltip.showError(target, '翻译出错');
+      this.showTooltipFailure(target, error instanceof Error ? error.message : undefined, word);
       logger.error('双击翻译出错:', error);
     }
   }
@@ -257,7 +260,7 @@ class NotOnlyTranslator {
   ): Promise<void> {
     const token = this.startTooltipRequest();
     try {
-      this.tooltip.showLoading(target);
+      this.tooltip.showLoading(target, word);
       const userLevel = await this.getUserProfile();
       if (!this.isTooltipRequestCurrent(token)) return;
 
@@ -273,7 +276,7 @@ class NotOnlyTranslator {
       if (!this.isTooltipRequestCurrent(token)) return;
 
       if (!response.success || !response.data) {
-        this.tooltip.showError(target, '翻译失败，请稍后重试');
+        this.showTooltipFailure(target, response.error, word);
         logger.warn('词汇翻译失败:', response.error);
         return;
       }
@@ -298,9 +301,19 @@ class NotOnlyTranslator {
       logger.info(`词汇查词: ${word} (${level})`);
     } catch (error) {
       if (!this.isTooltipRequestCurrent(token)) return;
-      this.tooltip.showError(target, '翻译出错');
+      this.showTooltipFailure(target, error instanceof Error ? error.message : undefined, word);
       logger.error('词汇翻译出错:', error);
     }
+  }
+
+  /** 加载、失败和取消使用不同文案；取消不伪装成失败，失败也不回显上游细节。 */
+  private showTooltipFailure(target: HTMLElement, error: string | undefined, word?: string): void {
+    if (error?.includes('翻译请求已取消')) {
+      this.tooltip.showCancelled(target, word);
+      return;
+    }
+    if (word) this.tooltip.showError(target, word, '翻译失败，请稍后重试');
+    else this.tooltip.showError(target, '翻译失败，请稍后重试');
   }
 
   /**
@@ -401,7 +414,8 @@ class NotOnlyTranslator {
     this.translationGeneration++;
     this.tooltipRequestGeneration++;
     cancelTranslationMessages(notifyBackground);
-    this.tooltip.hide();
+    const showedCancellation = this.tooltip.showCancelled?.() ?? false;
+    if (this.destroyed || !showedCancellation) this.tooltip.hide();
     document.querySelectorAll<HTMLElement>('.not-translator-translating').forEach((element) => {
       element.classList.remove('not-translator-translating');
     });
@@ -711,6 +725,7 @@ class NotOnlyTranslator {
     // 段落不再注入加载圈：翻译进行中状态由悬浮按钮显示
     this.batchManager.setOnProgress((activeBatches) => {
       this.floatingButton?.setBusy(activeBatches > 0);
+      if (activeBatches === 0 && !this.refreshTimer) this.floatingButton?.setActivity(null);
     });
 
     // 创建可视区域观察器
@@ -840,7 +855,13 @@ class NotOnlyTranslator {
   /**
    * 配置或个人词表失效后重新获取翻译
    */
-  private refreshTranslation(_mode: TranslationMode): void {
+  private refreshActivity(mode: TranslationMode): string {
+    const label = mode === 'bilingual' ? '对照' : mode === 'full-translate' ? '全文' : '行内';
+    return `正在按${label}模式重新获取译文`;
+  }
+
+  private refreshTranslation(mode: TranslationMode): void {
+    const cycle = ++this.refreshCycle;
     this.cancelInFlightTranslations();
     this.batchManager?.cancelAll();
 
@@ -852,10 +873,12 @@ class NotOnlyTranslator {
 
     // 立即丢弃旧结果，避免刷新等待期内的展示切换复活失效翻译。
     this.clearAllTranslations();
+    this.floatingButton?.setActivity(this.refreshActivity(mode));
 
-    // 合并短时间内的配置广播，再重新扫描。
+    // 合并短时间内的配置广播，再重新扫描并按新模式获取。
     this.refreshTimer = setTimeout(() => {
       this.refreshTimer = null;
+      if (this.destroyed || cycle !== this.refreshCycle) return;
 
       // 重置批量翻译状态
       if (this.batchManager) {
@@ -865,7 +888,8 @@ class NotOnlyTranslator {
         this.viewportObserver.resetTracking();
       }
 
-      this.scanPage();
+      void this.scanPage();
+      if (!this.floatingButton?.getBusy()) this.floatingButton?.setActivity(null);
     }, TIMING.MODE_SWITCH_TRANSITION);
   }
 
@@ -926,15 +950,28 @@ class NotOnlyTranslator {
    * 获取页面文本采样
    * 从主要内容区域采样，排除脚本、样式、导航等元素
    */
-  private getPageTextSample(): string {
+  /** 去掉扩展界面后再取样，避免浮动按钮、帮助面板等中文把短英文判成中文页。 */
+  private stripForLanguageSample(root: Element): string {
+    const clone = root.cloneNode(true) as Element;
     const excludeSelectors = [
       'script', 'style', 'noscript', 'iframe', 'nav', 'footer', 'header', 'aside', '.sidebar', '.nav', '.menu', '.advertisement', '.ad', '.social', '.comments',
-      // 复用正文排除中的扩展界面与译文，避免它们的中文影响页面语言判定。
       ...EXCLUDED_SELECTORS.filter(selector => selector.startsWith('.not-translator-')),
     ];
-    
-    let sampleArea: Element | null = null;
-    
+    excludeSelectors.forEach(selector => {
+      clone.querySelectorAll(selector).forEach(element => element.remove());
+    });
+    clone.querySelectorAll('[class*="not-translator-"], [id^="not-translator-"]').forEach(element => element.remove());
+    return clone.textContent || '';
+  }
+
+  /** 短样本整段判断；长页面仍取中段，避免窗口刚好落在未剥离的中文尾部。 */
+  private sampleLanguageText(fullText: string): string {
+    if (fullText.replace(/\s/g, '').length < 280) return fullText;
+    const startPos = Math.max(0, Math.floor(fullText.length / 4));
+    return fullText.slice(startPos, Math.min(fullText.length, startPos + TIMING.MAX_SAMPLE_LENGTH));
+  }
+
+  private getPageTextSample(): string {
     const contentSelectors = [
       'article',
       'main',
@@ -947,30 +984,13 @@ class NotOnlyTranslator {
     ];
 
     for (const selector of contentSelectors) {
-      sampleArea = document.querySelector(selector);
-      if (sampleArea && sampleArea.textContent && sampleArea.textContent.trim().length > 200) {
-        break;
-      }
+      const area = document.querySelector(selector);
+      if (!area) continue;
+      const stripped = this.stripForLanguageSample(area);
+      if (stripped.trim().length > 200) return this.sampleLanguageText(stripped);
     }
 
-    if (!sampleArea) {
-      sampleArea = document.body;
-    }
-
-    const clone = sampleArea.cloneNode(true) as Element;
-    excludeSelectors.forEach(sel => {
-      clone.querySelectorAll(sel).forEach(el => el.remove());
-    });
-    // 扩展自己的中文界面（浮层、帮助、浮动按钮）不参与语言判断。
-    clone.querySelectorAll('[class*="not-translator-"], [id^="not-translator-"]').forEach(el => el.remove());
-
-    const fullText = clone.textContent || '';
-    const maxSampleLength = TIMING.MAX_SAMPLE_LENGTH;
-
-    const startPos = Math.max(0, Math.floor(fullText.length / 4));
-    const endPos = Math.min(fullText.length, startPos + maxSampleLength);
-
-    return fullText.slice(startPos, endPos);
+    return document.body ? this.sampleLanguageText(this.stripForLanguageSample(document.body)) : '';
   }
 
   /**
@@ -1124,7 +1144,7 @@ class NotOnlyTranslator {
         });
       } else if (word) {
         // 没有翻译数据，获取翻译
-        this.tooltip.showLoading(element);
+        this.tooltip.showLoading(element, word);
         // 存储等级信息到元素上，以便翻译完成后显示
         this.translateAndShowVocabTooltip(word, element, level, difficulty);
       }
@@ -1147,7 +1167,7 @@ class NotOnlyTranslator {
       });
     } else if (word) {
       // 没有翻译数据时，获取翻译
-      this.tooltip.showLoading(element);
+      this.tooltip.showLoading(element, word);
       this.translateSelection(word, element);
     }
   }
@@ -1215,7 +1235,7 @@ class NotOnlyTranslator {
         });
       } else {
         // 没有翻译数据时，获取翻译
-        this.tooltip.showLoading(highlightElement);
+        this.tooltip.showLoading(highlightElement, word);
         this.translateSelection(word, highlightElement);
       }
     } else if (selectedText.length > 1 && selectedText.length < TIMING.TEXT_SELECTION_MAX_LENGTH) {
@@ -1612,7 +1632,7 @@ class NotOnlyTranslator {
   ): Promise<void> {
     const token = this.startTooltipRequest();
     try {
-      this.tooltip.showLoading(targetElement);
+      this.tooltip.showLoading(targetElement, text);
       const result = await this.translateText(text, undefined, token.translationGeneration, undefined, 'lookup');
       if (!this.isTooltipRequestCurrent(token)) return;
 
@@ -1621,14 +1641,11 @@ class NotOnlyTranslator {
       } else if (result.sentences.length > 0) {
         this.tooltip.showSentence(targetElement, result.sentences[0]);
       } else {
-        this.tooltip.showError(targetElement, '未找到需要翻译的内容');
+        this.tooltip.showError(targetElement, text, '未找到需要翻译的内容');
       }
     } catch (error) {
       if (!this.isTooltipRequestCurrent(token)) return;
-      this.tooltip.showError(
-        targetElement,
-        error instanceof Error ? error.message : '翻译失败'
-      );
+      this.showTooltipFailure(targetElement, error instanceof Error ? error.message : undefined, text);
     }
   }
 
@@ -1816,7 +1833,7 @@ class NotOnlyTranslator {
       if (!this.isTooltipRequestCurrent(token)) return;
 
       if (!response.success || !response.data) {
-        this.tooltip.showError(targetElement, payload.text, '翻译失败，请稍后重试');
+        this.showTooltipFailure(targetElement, response.error, payload.text);
         logger.warn('右键菜单翻译失败:', response.error);
         return;
       }
@@ -1844,7 +1861,7 @@ class NotOnlyTranslator {
       logger.info('右键菜单翻译成功:', payload.text.substring(0, 50));
     } catch (error) {
       if (this.isTooltipRequestCurrent(token)) {
-        this.tooltip.showError(targetElement, payload.text, '翻译出错');
+        this.showTooltipFailure(targetElement, error instanceof Error ? error.message : undefined, payload.text);
         logger.error('右键菜单翻译出错:', error);
       }
     }

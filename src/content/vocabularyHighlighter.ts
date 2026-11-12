@@ -9,6 +9,7 @@ import {
 } from '@/shared/utils/vocabularyService';
 import { CSS_CLASSES } from '@/shared/constants';
 import { logger } from '@/shared/utils';
+import { findWordOccurrences, slicesCovering, slicesTouch, wrapCoveringSlices } from './highlightRanges';
 import { createTranslatableTextWalker, getTranslatableText } from './pageScanner';
 import { TranslationDisplay } from './translationDisplay';
 import { captureFocusReturn } from './utils/focusReturn';
@@ -263,11 +264,58 @@ export class VocabularyHighlighter {
       const result = this.processTextNode(textNode, wordMap);
       highlighted.push(...result);
     }
+    // 同一词被行内标签拆开时，单节点扫描看不到完整词；再按拼接正文补上这些出现。
+    highlighted.push(...this.highlightSplitOccurrences(container, wordMap));
 
     // 标记容器为已处理
     container.classList.add('not-translator-vocab-processed');
 
     return highlighted;
+  }
+
+  /** 补上被行内节点拆开的重复出现，已在单节点内命中的不重复包裹。 */
+  private highlightSplitOccurrences(
+    container: HTMLElement,
+    wordMap: Map<string, WordDifficultyResult>,
+  ): HighlightedVocabularyWord[] {
+    const highlighted: HighlightedVocabularyWord[] = [];
+    const source = getTranslatableText(container);
+    const occupied = '.not-translator-vocab-highlight, .not-translator-highlight, .not-translator-translation-line';
+    for (const wordData of wordMap.values()) {
+      for (const occurrence of findWordOccurrences(source, wordData.word, { boundary: 'ascii' })) {
+        const slices = slicesCovering(container, occurrence.start, occurrence.end);
+        if (!slices || slices.length < 2 || slicesTouch(slices, occupied)) continue;
+        const marks = wrapCoveringSlices(slices, sliceText => this.createHighlightElement(wordData, sliceText));
+        if (!marks) continue;
+        marks.forEach(mark => this.rememberHighlight(wordData, mark, highlighted));
+      }
+    }
+    return highlighted;
+  }
+
+  /** 把一次高亮记入词条；重复出现追加到同一词，不另建词条。 */
+  private rememberHighlight(
+    wordData: WordDifficultyResult,
+    mark: HTMLElement,
+    highlighted: HighlightedVocabularyWord[],
+  ): void {
+    const key = wordData.word.toLowerCase();
+    const existing = this.highlightedWords.get(key);
+    if (existing) {
+      this.highlightedWords = new Map(this.highlightedWords).set(key, {
+        ...existing,
+        elements: [...existing.elements, mark],
+      });
+      return;
+    }
+    const entry: HighlightedVocabularyWord = {
+      word: wordData.word,
+      level: wordData.level,
+      difficulty: wordData.difficulty,
+      elements: [mark],
+    };
+    this.highlightedWords = new Map(this.highlightedWords).set(key, entry);
+    highlighted.push(entry);
   }
 
   /**
@@ -332,24 +380,7 @@ export class VocabularyHighlighter {
       const span = this.createHighlightElement(match.word, match.originalText);
       fragment.appendChild(span);
 
-      // 记录高亮的单词（不可变更新：新 Map + 新条目对象）
-      const key = match.word.word.toLowerCase();
-      const existing = this.highlightedWords.get(key);
-      if (existing) {
-        this.highlightedWords = new Map(this.highlightedWords).set(key, {
-          ...existing,
-          elements: [...existing.elements, span],
-        });
-      } else {
-        const newEntry: HighlightedVocabularyWord = {
-          word: match.word.word,
-          level: match.word.level,
-          difficulty: match.word.difficulty,
-          elements: [span],
-        };
-        this.highlightedWords = new Map(this.highlightedWords).set(key, newEntry);
-        highlighted.push(newEntry);
-      }
+      this.rememberHighlight(match.word, span, highlighted);
 
       currentIndex = match.end;
     }
@@ -474,7 +505,7 @@ export class VocabularyHighlighter {
     // 查找并恢复此元素内的高亮
     const highlights = element.querySelectorAll<HTMLElement>('.not-translator-vocab-highlight');
     highlights.forEach((highlight) => {
-      const word = highlight.textContent || '';
+      const word = highlight.dataset.word || highlight.textContent || '';
       const key = word.toLowerCase();
 
       // 从映射中移除（不可变更新）

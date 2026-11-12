@@ -242,6 +242,30 @@ describe('Tooltip', () => {
     });
   });
 
+  describe('showCancelled', () => {
+    it('加载中改为已取消，已完成的词条保持不变', () => {
+      tooltip.showLoading(mockTarget, 'apple');
+      expect(tooltip.showCancelled()).toBe(true);
+      const tooltipEl = document.getElementById('not-translator-tooltip');
+      expect(tooltipEl?.getAttribute('aria-busy')).toBeNull();
+      expect(tooltipEl?.textContent).toContain('apple');
+      expect(tooltipEl?.textContent).toContain('翻译已取消');
+      expect(tooltipEl?.querySelector('[role="alert"]')).toBeNull();
+      expect(tooltipEl?.querySelector('[role="status"]')?.textContent).toBe('翻译已取消');
+
+      tooltip.showWord(mockTarget, {
+        original: 'apple',
+        translation: '苹果',
+        position: [0, 5],
+        difficulty: 1,
+        isPhrase: false,
+      });
+      expect(tooltip.showCancelled()).toBe(false);
+      expect(tooltipEl?.textContent).toContain('苹果');
+      expect(tooltipEl?.textContent).not.toContain('翻译已取消');
+    });
+  });
+
   describe('showError', () => {
     it('should display error message', () => {
       tooltip.showError(mockTarget, '翻译服务暂时不可用');

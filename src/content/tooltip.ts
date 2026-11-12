@@ -244,6 +244,7 @@ export class Tooltip {
     if (this.element.querySelector('.not-translator-tooltip-content')?.contains(document.activeElement)) this.focus();
     this.element.setAttribute('aria-label', label);
     this.element.removeAttribute('aria-hidden');
+    this.element.removeAttribute('aria-busy');
     this.element.inert = false;
     this.clearLoadingSlowTimeout();
     return true;
@@ -656,6 +657,7 @@ export class Tooltip {
     if (this.element) {
       this.element.classList.remove(CSS_CLASSES.TOOLTIP_VISIBLE);
       this.element.setAttribute('aria-hidden', 'true');
+      this.element.removeAttribute('aria-busy');
       this.element.inert = true;
       this.currentWord = null;
       this.currentTarget = null;
@@ -938,7 +940,65 @@ export class Tooltip {
 
     // Position and show
     this.positionTooltip(targetElement);
+    this.element.setAttribute('aria-busy', 'true');
     this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
+  }
+
+  /**
+   * 把加载中的浮层改成已取消。没有加载态时返回 false，调用方可改走隐藏。
+   */
+  showCancelled(targetElement?: HTMLElement, word?: string): boolean {
+    if (!this.element || !this.isVisible()) return false;
+    const loading = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-loading`);
+    const target = targetElement ?? this.currentTarget;
+    if (!loading || !target) return false;
+    const activeWord = word || this.currentWord || target.dataset.word || undefined;
+    if (!this.prepareToShow(target, `${activeWord || '翻译已取消'} — 词典与翻译`)) return false;
+
+    this.currentWord = activeWord || null;
+    this.currentTarget = target;
+    this.isPinned = false;
+    this.updatePinButtonState();
+
+    const content = this.element.querySelector(`.${CSS_CLASSES.TOOLTIP}-content`);
+    if (!content) return false;
+    content.replaceChildren();
+
+    if (activeWord) {
+      const header = document.createElement('div');
+      header.className = `${CSS_CLASSES.TOOLTIP}-header`;
+      const wordSpan = document.createElement('span');
+      wordSpan.className = `${CSS_CLASSES.TOOLTIP}-word`;
+      wordSpan.textContent = activeWord;
+      header.appendChild(wordSpan);
+      content.appendChild(header);
+    }
+
+    const status = document.createElement('div');
+    status.className = `${CSS_CLASSES.TOOLTIP}-cancelled`;
+    status.setAttribute('role', 'status');
+    status.textContent = '翻译已取消';
+    content.appendChild(status);
+
+    const hint = document.createElement('p');
+    hint.className = `${CSS_CLASSES.TOOLTIP}-cancelled-hint`;
+    hint.textContent = '本次查询已停止。可以再次悬停或选中该词重新查询。';
+    content.appendChild(hint);
+
+    const actions = document.createElement('div');
+    actions.className = `${CSS_CLASSES.TOOLTIP}-actions`;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = `${CSS_CLASSES.MARK_BUTTON} retry`;
+    close.setAttribute('aria-label', '关闭已取消的翻译');
+    close.textContent = '关闭';
+    close.addEventListener('click', () => this.hide());
+    actions.appendChild(close);
+    content.appendChild(actions);
+
+    this.positionTooltip(target);
+    this.element.classList.add(CSS_CLASSES.TOOLTIP_VISIBLE);
+    return true;
   }
 
   /**

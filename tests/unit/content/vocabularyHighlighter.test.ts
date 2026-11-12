@@ -245,6 +245,20 @@ describe('VocabularyHighlighter', () => {
       expect(el.querySelector('mark.not-translator-vocab-highlight[data-word="ephemeral"]')).toBeTruthy();
     });
 
+    it('跨节点重复词都会高亮，且不会嵌套', () => {
+      const el = document.createElement('div');
+      el.innerHTML = 'The ephe<em>meral</em> nature returns to ephemeral ideas today.';
+      document.body.appendChild(el);
+
+      highlighter.highlightElement(el);
+
+      const marks = Array.from(el.querySelectorAll<HTMLElement>(`mark.${CSS_VOCAB_HIGHLIGHT}[data-word="ephemeral"]`));
+      expect(marks.map(mark => mark.childNodes[0]?.textContent).join('')).toBe('ephemeralephemeral');
+      expect(marks.length).toBeGreaterThanOrEqual(3);
+      expect(el.querySelector('em mark')?.textContent).toBe('meral');
+      expect(el.querySelector('mark mark')).toBeNull();
+    });
+
     it('处理完成后添加 vocab-processed class', () => {
       const el = document.createElement('div');
       el.textContent = 'The ephemeral nature of existence is profound.';

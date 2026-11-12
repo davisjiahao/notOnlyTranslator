@@ -3,7 +3,7 @@ import type { Locator, Page, Worker } from '@playwright/test';
 import type { TranslationMode } from '../../src/shared/types';
 import { TIMING } from '../../src/shared/constants';
 import {
-  test as base, expect, PARAGRAPHS, SPINNER, LOADING, releaseReply, observeCallCount, expectNoVisibleVocabDecorations, type LlmScope,
+  test as base, expect, PARAGRAPHS, SPINNER, LOADING, releaseReply, expectNoVisibleVocabDecorations, type LlmScope,
 } from '../fixtures/fake-llm-extension';
 
 const MODES = {
@@ -59,10 +59,13 @@ async function expectSettled(page: Page, mode: TranslationMode): Promise<void> {
   await expect(page.getByRole('alert')).toHaveCount(0);
 }
 
-async function selectMode(page: Page, mode: TranslationMode): Promise<void> {
+/** 与 #10 一致：切换会清掉当前词义和译文，并按新模式重新请求，而不是只重绘。 */
+async function selectMode(page: Page, mode: TranslationMode, worker: Worker): Promise<void> {
+  const before = await callCount(worker);
   await page.getByRole('button', { name: '翻译模式切换', exact: true }).click();
   await page.locator(`.not-translator-floating-mode-item[data-mode="${mode}"]`).click();
   await expectSettled(page, mode);
+  expect(await callCount(worker), `${MODES[mode]}切换必须重新请求翻译`).toBeGreaterThan(before);
 }
 
 // 只计入翻译注释的 CSS 括号，不混入词汇等级徽标；不修改页面或生产数据。
@@ -190,25 +193,23 @@ const test = base.extend<{ ready: { page: Page; baseline: number; originals: Rec
   },
 });
 
-test.describe('完整结果的三模式纯展示切换', () => {
+test.describe('完整结果的三模式切换会重新获取', () => {
   for (const from of Object.keys(MODES) as TranslationMode[]) {
     for (const to of Object.keys(MODES) as TranslationMode[]) {
       if (from === to) continue;
-      test(`${MODES[from]}→${MODES[to]}及往返不新增 HTTP 翻译请求`, async ({ ready, llmWorker }, testInfo) => {
+      test(`${MODES[from]}→${MODES[to]}及往返会清除旧词义并重新请求`, async ({ ready, llmWorker }, testInfo) => {
         const { page, baseline } = ready;
-        if (from !== 'bilingual') {
-          await selectMode(page, from);
-          expect.soft(await observeCallCount(llmWorker, from), '准备来源模式也只能重绘首轮结果').toBe(baseline);
-        }
+        if (from !== 'bilingual') await selectMode(page, from, llmWorker);
         for (const [index, mode] of [to, from, to].entries()) {
           await test.step(`第 ${index + 1} 次切换至${MODES[mode]}`, async () => {
-            await selectMode(page, mode);
-            const count = await observeCallCount(llmWorker, mode);
+            const before = await callCount(llmWorker);
+            await selectMode(page, mode, llmWorker);
+            const count = await callCount(llmWorker);
             await testInfo.attach(`switch-${index}-${mode}`, {
-              body: JSON.stringify({ baseline, count, text: await page.locator('#content').innerText() }),
+              body: JSON.stringify({ baseline, before, count, text: await page.locator('#content').innerText() }),
               contentType: 'application/json',
             });
-            expect.soft(count, `${from}→${mode}必须只重绘，不发新的 HTTP 翻译请求`).toBe(baseline);
+            expect(count, `${from}→${mode}必须按新模式重新请求`).toBeGreaterThan(before);
           });
         }
       });
@@ -218,18 +219,23 @@ test.describe('完整结果的三模式纯展示切换', () => {
   test('行内无需 hover 即见难词中文，往返不累积括号且仍可打开 tooltip', async ({ ready, llmWorker }) => {
     const { page, baseline, originals } = ready;
     for (let round = 0; round < 2; round++) {
-      await selectMode(page, 'inline-only');
+      await selectMode(page, 'inline-only', llmWorker);
       await expect(page.locator('.not-translator-tooltip-visible')).toHaveCount(0);
       for (const word of WORDS) {
         const paragraph = page.locator(`#${word.id}`);
-        const annotation = paragraph.locator(ANNOTATION);
+        // 重新获取的行内结果可以带上其他本地词义；目标词本身仍只标注一次。
+        const wordMark = paragraph.locator(`mark.not-translator-highlight[data-word="${word.original}"]`);
+        await expect(wordMark).toHaveCount(1);
+        const annotation = wordMark.locator(ANNOTATION);
         await expect(annotation).toHaveCount(1);
         await expect(annotation).toBeVisible();
-        const text = await displayedText(paragraph);
-        expect(text).toMatch(new RegExp(`${word.original}\\s*[（(]${word.translation}[）)]`));
-        expect(text.replace(new RegExp(`\\s*[（(]${word.translation}[）)]`), '')).toBe(originals[word.id]);
-        expect(text.match(/[（(]/g)).toHaveLength(1);
-        expect(text.match(/[）)]/g)).toHaveLength(1);
+        await expect(annotation).toContainText(word.translation);
+        await expect(wordMark.locator('mark')).toHaveCount(0);
+        await expect.poll(() => paragraph.evaluate(node => {
+          const clone = node.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('.not-translator-inline-translation').forEach(item => item.remove());
+          return (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
+        })).toBe(originals[word.id]);
       }
       const word = page.locator('#para-beta [data-word="counterintuitive"]').first();
       await word.hover();
@@ -238,8 +244,8 @@ test.describe('完整结果的三模式纯展示切换', () => {
       await expect(tooltip.locator('.not-translator-tooltip-translation')).toContainText('违反直觉的');
       await page.mouse.move(0, 0);
       await expect(tooltip).toHaveCount(0);
-      await selectMode(page, 'bilingual');
-      expect(await observeCallCount(llmWorker, 'bilingual')).toBe(baseline);
+      await selectMode(page, 'bilingual', llmWorker);
+      expect(await callCount(llmWorker)).toBeGreaterThan(baseline);
     }
   });
 
@@ -248,7 +254,7 @@ test.describe('完整结果的三模式纯展示切换', () => {
     expect(await llmWorker.evaluate(async () => (await chrome.storage.sync.get('settings')).settings.hoverDelay))
       .toBe(TIMING.DEFAULT_HOVER_DELAY);
     for (let round = 0; round < 2; round++) {
-      await selectMode(page, 'full-translate');
+      await selectMode(page, 'full-translate', llmWorker);
       for (const word of WORDS) {
         const translatedWord = page.locator(`#${word.id} .not-translator-highlighted-translation[data-word="${word.original}"], #${word.id} + .not-translator-translation-line .not-translator-highlighted-translation[data-word="${word.original}"]`);
         await translatedWord.hover();
@@ -261,7 +267,7 @@ test.describe('完整结果的三模式纯展示切换', () => {
       }
       for (const target of CHINESE_HOVER_TARGETS) await expectNoOldWordCard(page, target);
       await expect(page.locator('#para-simple')).toHaveText(PARAGRAPHS[2].translation);
-      await selectMode(page, 'bilingual');
+      await selectMode(page, 'bilingual', llmWorker);
       for (const target of CHINESE_HOVER_TARGETS) {
         const english = page.locator(`#${target.id} [data-word="${target.oldWord}"]`);
         await expect(english).toBeVisible();
@@ -273,7 +279,7 @@ test.describe('完整结果的三模式纯展示切换', () => {
           return border || style.textDecorationLine.includes('underline');
         })).toBe(true);
       }
-      expect(await observeCallCount(llmWorker, 'bilingual')).toBe(baseline);
+      expect(await callCount(llmWorker)).toBeGreaterThan(baseline);
     }
   });
 });
