@@ -9,7 +9,14 @@ import {
 } from '@/shared/utils/vocabularyService';
 import { CSS_CLASSES } from '@/shared/constants';
 import { logger } from '@/shared/utils';
-import { findWordOccurrences, slicesCovering, slicesTouch, wrapCoveringSlices } from './highlightRanges';
+import {
+  findWordOccurrences,
+  indexTranslatableText,
+  slicesFromIndex,
+  slicesTouch,
+  wrapCoveringSlices,
+  type IndexedTranslatableText,
+} from './highlightRanges';
 import { createTranslatableTextWalker, getTranslatableText } from './pageScanner';
 import { TranslationDisplay } from './translationDisplay';
 import { captureFocusReturn } from './utils/focusReturn';
@@ -273,21 +280,32 @@ export class VocabularyHighlighter {
     return highlighted;
   }
 
-  /** 补上被行内节点拆开的重复出现，已在单节点内命中的不重复包裹。 */
+  /**
+   * 补上被行内节点拆开的重复出现，已在单节点内命中的不重复包裹。
+   * 偏移索引只建一次：每个词各走一遍 TreeWalker 会在每个文本节点上重复计算样式，
+   * 超纲词一多就会把主线程堵住。只有真正包住跨节点词后才重建索引。
+   */
   private highlightSplitOccurrences(
     container: HTMLElement,
     wordMap: Map<string, WordDifficultyResult>,
   ): HighlightedVocabularyWord[] {
     const highlighted: HighlightedVocabularyWord[] = [];
-    const source = getTranslatableText(container);
     const occupied = '.not-translator-vocab-highlight, .not-translator-highlight, .not-translator-translation-line';
+    let indexed: IndexedTranslatableText | null = null;
+    const readIndex = (): IndexedTranslatableText => {
+      indexed ??= indexTranslatableText(container);
+      return indexed;
+    };
     for (const wordData of wordMap.values()) {
-      for (const occurrence of findWordOccurrences(source, wordData.word, { boundary: 'ascii' })) {
-        const slices = slicesCovering(container, occurrence.start, occurrence.end);
+      const occurrences = findWordOccurrences(readIndex().source, wordData.word, { boundary: 'ascii' });
+      for (const occurrence of occurrences) {
+        const slices = slicesFromIndex(readIndex(), occurrence.start, occurrence.end);
         if (!slices || slices.length < 2 || slicesTouch(slices, occupied)) continue;
         const marks = wrapCoveringSlices(slices, sliceText => this.createHighlightElement(wordData, sliceText));
         if (!marks) continue;
         marks.forEach(mark => this.rememberHighlight(wordData, mark, highlighted));
+        // 包裹会拆开原文本节点，后续出现必须按新节点重新定位。正文拼接不变，旧偏移仍然有效。
+        indexed = null;
       }
     }
     return highlighted;

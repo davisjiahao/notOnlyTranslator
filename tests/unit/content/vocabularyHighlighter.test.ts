@@ -245,6 +245,27 @@ describe('VocabularyHighlighter', () => {
       expect(el.querySelector('mark.not-translator-vocab-highlight[data-word="ephemeral"]')).toBeTruthy();
     });
 
+    it('大量超纲词只遍历一次正文，不按词重复计算样式', () => {
+      const alphabet = 'abcdefghij';
+      const words = Array.from({ length: 60 }, (_, index) => {
+        const left = alphabet[index % alphabet.length];
+        const right = alphabet[Math.floor(index / alphabet.length)];
+        return `blorp${left}${right}town`;
+      });
+      const el = document.createElement('p');
+      el.textContent = words.join(' ');
+      document.body.appendChild(el);
+      const styleSpy = vi.spyOn(window, 'getComputedStyle');
+
+      highlighter.highlightElement(el);
+
+      expect(el.querySelectorAll(`mark.${CSS_VOCAB_HIGHLIGHT}`)).toHaveLength(words.length);
+      // 旧实现为每个词重建 TreeWalker。60 个词会把 getComputedStyle 打到数千次，
+      // 并在 CI 上把「标记认识后撤销」拖过 10 秒。一次索引应远低于这个量级。
+      expect(styleSpy.mock.calls.length).toBeLessThan(250);
+      styleSpy.mockRestore();
+    });
+
     it('跨节点重复词都会高亮，且不会嵌套', () => {
       const el = document.createElement('div');
       el.innerHTML = 'The ephe<em>meral</em> nature returns to ephemeral ideas today.';
