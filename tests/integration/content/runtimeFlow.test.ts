@@ -162,6 +162,19 @@ describe('内容脚本真实初始化与运行时消息', () => {
     expect(listeners).toHaveLength(1);
   });
 
+  it('主内容区里的扩展中文界面不会把短英文判成中文页', async () => {
+    document.documentElement.lang = 'zh-CN';
+    const shortText = 'The plant by the window is green. Police may plant evidence to frame an innocent person.';
+    document.body.innerHTML = `<main><p id="story">${shortText}</p>
+      <div class="not-translator-floating-btn">翻译模式行内对照全文翻译中最小化</div>
+      <div class="not-translator-help-panel">标记认识标记不认识加入生词本钉住面板快捷键帮助</div>
+      <div id="not-translator-status">正在按对照模式重新获取译文</div>
+    </main>`;
+    await createTranslator();
+    expect(document.body.dataset.extensionLoaded).toBe('true');
+    expect(observed).toContain(document.getElementById('story'));
+  });
+
   it('短英文页面即使声明 zh，也不受扩展中文界面影响', async () => {
     document.documentElement.lang = 'zh-CN';
     const shortText = 'The plant by the window is green. Police may plant evidence to frame an innocent person.';

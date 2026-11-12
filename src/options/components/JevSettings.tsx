@@ -324,6 +324,14 @@ export default function JevSettings() {
         开启后，待判断的句子和目标词将发送至 {savedConfig.provider === 'typesafe' ? 'TypeSafe' : '自定义识别服务'}（{new URL(savedConfig.apiUrl).host}）；入选词由当前翻译服务补充释义。
         密钥仅保存在本机扩展内，不同步、不进入备份；清除全部数据也会删除密钥。
       </p>
+      <div className="mb-4 rounded-lg bg-gray-50 dark:bg-gray-900/40 p-3 text-sm text-gray-700 dark:text-gray-200">
+        <p className="font-medium text-gray-900 dark:text-white">生效条件（需同时满足，不会放宽）</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>当前等级为 B1。其他等级继续使用原来的识别流程。</li>
+          <li>翻译模式为行内。双语对照和全文翻译都不会启用 Jev。</li>
+          <li>短语增强和语法增强都关闭。打开其中任一项即停用 Jev。</li>
+        </ul>
+      </div>
 
       <fieldset disabled={busy !== null} className="my-4 space-y-3">
         <legend className="mb-2 font-medium text-gray-900 dark:text-white">识别服务配置</legend>
@@ -400,6 +408,13 @@ export default function JevSettings() {
         }`}
       >
         {statusText}
+      </p>
+      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+        {reason
+          ? '因此当前阅读不会使用 Jev，仍使用原来的识别流程。'
+          : !status.hasKey
+            ? '上面的条件已经满足，但还没有密钥，阅读时不会调用 Jev。'
+            : '上面的条件已满足。若站点未授权或服务不可用，阅读时会退回原来的识别流程。'}
       </p>
 
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">

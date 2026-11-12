@@ -8,18 +8,26 @@
 
 import type { TranslatedWord } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
-import { createTranslatableTextWalker } from './pageScanner';
+import { findWordOccurrences, slicesCovering, slicesTouch, wrapCoveringSlices, type TextOccurrence } from './highlightRanges';
+import { getTranslatableText } from './pageScanner';
 import { logger } from '@/shared/utils';
 
 /**
  * 渲染任务
  */
+interface PendingOccurrence {
+  word: TranslatedWord;
+  occurrence: TextOccurrence;
+}
+
 interface RenderTask {
   id: string;
   container: HTMLElement;
   words: TranslatedWord[];
   priority: number;
   visible: boolean;
+  /** 首次扫描后的全部出现；分帧消费，避免提前丢掉后续重复词。 */
+  pending?: PendingOccurrence[];
 }
 
 /**
@@ -256,158 +264,45 @@ export class OptimizedHighlighter {
    * @returns 处理的节点数
    */
   private processTaskBatch(task: RenderTask): number {
-    const { container, words } = task;
-    if (!words.length) return 0;
-
-    // 创建单词映射
-    const wordMap = new Map<string, TranslatedWord>();
-    words.forEach((w) => {
-      wordMap.set(w.original.toLowerCase(), w);
-    });
-
-    // 收集文本节点
-    const walker = createTranslatableTextWalker(
-      container,
-      {
-        acceptNode: (node) => {
-          // 正文资格由共享遍历器检查，这里仅保留本入口的去重规则。
-          const parent = node.parentElement;
-          if (parent?.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          const text = node.textContent?.toLowerCase() || '';
-          for (const word of wordMap.keys()) {
-            if (text.includes(word)) {
-              return NodeFilter.FILTER_ACCEPT;
-            }
-          }
-
-          return NodeFilter.FILTER_SKIP;
-        },
-      }
-    );
-
-    const nodesToProcess: Text[] = [];
-    let node: Node | null;
-    while ((node = walker.nextNode()) && nodesToProcess.length < this.config.maxNodesPerFrame) {
-      nodesToProcess.push(node as Text);
-    }
-
-    // 处理收集的节点
-    nodesToProcess.forEach((textNode) => {
-      this.processTextNode(textNode, wordMap, task);
-    });
-
-    // 移除已处理的单词
-    const processedWords = new Set<string>();
-    nodesToProcess.forEach((textNode) => {
-      const text = textNode.textContent?.toLowerCase() || '';
-      for (const word of wordMap.keys()) {
-        if (text.includes(word)) {
-          processedWords.add(word);
-        }
-      }
-    });
-
-    // 更新任务单词列表
-    task.words = task.words.filter((w) => !processedWords.has(w.original.toLowerCase()));
-
-    return nodesToProcess.length;
+    if (!task.words.length) return 0;
+    if (!task.pending) task.pending = this.collectOccurrences(task);
+    const batch = task.pending.splice(0, this.config.maxNodesPerFrame);
+    batch.forEach(item => this.paintOccurrence(task.container, item));
+    if (task.pending.length === 0) task.words = [];
+    return batch.length;
   }
 
-  /**
-   * 处理单个文本节点
-   */
-  private processTextNode(
-    textNode: Text,
-    wordMap: Map<string, TranslatedWord>,
-    _task: RenderTask
-  ): void {
-    const text = textNode.textContent || '';
-    if (!text.trim()) return;
+  /** 长词优先占位，重复出现和跨节点出现都保留到分帧消费完。 */
+  private collectOccurrences(task: RenderTask): PendingOccurrence[] {
+    const source = getTranslatableText(task.container);
+    return task.words.flatMap(word => findWordOccurrences(source, word.original, { boundary: 'ascii' })
+      .map(occurrence => ({ word, occurrence })))
+      .sort((a, b) => (b.occurrence.end - b.occurrence.start) - (a.occurrence.end - a.occurrence.start)
+        || a.occurrence.start - b.occurrence.start);
+  }
 
-    const parent = textNode.parentNode;
-    if (!parent) return;
-
-    // 查找所有匹配
-    const matches: Array<{ start: number; end: number; word: TranslatedWord }> = [];
-
-    for (const [, word] of wordMap) {
-      const isPhrase = word.original.includes(' ');
-      const escapedOriginal = this.escapeRegex(word.original);
-      let regexPattern: string;
-
-      if (isPhrase) {
-        const flexiblePhrase = escapedOriginal.replace(/\\ /g, '\\s+');
-        regexPattern = `\\b${flexiblePhrase}\\b`;
-      } else {
-        regexPattern = `\\b${escapedOriginal}\\b`;
-      }
-
-      const regex = new RegExp(regexPattern, 'gi');
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          word: { ...word, original: match[0] },
-        });
-      }
-    }
-
-    if (!matches.length) return;
-
-    // 排序并去重
-    matches.sort((a, b) => a.start - b.start);
-    const filteredMatches: typeof matches = [];
-    let lastEnd = 0;
-    for (const match of matches) {
-      if (match.start >= lastEnd) {
-        filteredMatches.push(match);
-        lastEnd = match.end;
-      }
-    }
-
-    // 创建文档片段
-    const fragment = document.createDocumentFragment();
-    let currentIndex = 0;
-
-    for (const match of filteredMatches) {
-      if (match.start > currentIndex) {
-        fragment.appendChild(document.createTextNode(text.slice(currentIndex, match.start)));
-      }
-
-      // WCAG 1.3.1: 使用 <mark> 语义元素替代 <span> 表示高亮内容
+  /** 一次出现可跨多个文本节点；落入已有高亮时整次跳过。 */
+  private paintOccurrence(container: HTMLElement, item: PendingOccurrence): void {
+    const slices = slicesCovering(container, item.occurrence.start, item.occurrence.end);
+    if (!slices || slicesTouch(slices, `.${CSS_CLASSES.HIGHLIGHT}`)) return;
+    const marks = wrapCoveringSlices(slices, (sliceText) => {
       const mark = document.createElement('mark');
       mark.className = CSS_CLASSES.HIGHLIGHT;
-      mark.textContent = match.word.original;
-      mark.title = `${match.word.original} — ${match.word.translation}`;
+      mark.textContent = sliceText;
+      mark.title = `${item.occurrence.text} — ${item.word.translation}`;
       mark.tabIndex = 0;
       mark.setAttribute('role', 'button');
       mark.setAttribute('aria-haspopup', 'dialog');
-      mark.dataset.word = match.word.original;
-      mark.dataset.translation = match.word.translation;
-      mark.dataset.difficulty = String(match.word.difficulty);
-      mark.dataset.isPhrase = String(match.word.isPhrase);
-
-      fragment.appendChild(mark);
-
-      // 跟踪高亮元素
-      const key = match.word.original.toLowerCase();
-      if (!this.highlightedElements.has(key)) {
-        this.highlightedElements.set(key, []);
-      }
-      this.highlightedElements.get(key)!.push(mark);
-
-      currentIndex = match.end;
-    }
-
-    if (currentIndex < text.length) {
-      fragment.appendChild(document.createTextNode(text.slice(currentIndex)));
-    }
-
-    parent.replaceChild(fragment, textNode);
+      mark.dataset.word = item.occurrence.text;
+      mark.dataset.translation = item.word.translation;
+      mark.dataset.difficulty = String(item.word.difficulty);
+      mark.dataset.isPhrase = String(item.word.isPhrase);
+      return mark;
+    });
+    if (!marks) return;
+    const key = item.occurrence.text.toLowerCase();
+    const existing = this.highlightedElements.get(key) ?? [];
+    this.highlightedElements.set(key, [...existing, ...marks]);
   }
 
   /**
@@ -519,13 +414,6 @@ export class OptimizedHighlighter {
    */
   getRenderStats(): RenderStats | null {
     return this.renderStats;
-  }
-
-  /**
-   * 转义正则字符
-   */
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**

@@ -116,6 +116,12 @@ export class FloatingButton {
         <span class="not-translator-floating-btn-text">翻译</span>
       </div>
     `;
+    const activity = document.createElement('p');
+    activity.className = 'not-translator-floating-status';
+    activity.setAttribute('role', 'status');
+    activity.setAttribute('aria-live', 'polite');
+    activity.hidden = true;
+    this.container.appendChild(activity);
 
     // 创建模式选择面板
     this.createPanel();
@@ -568,6 +574,19 @@ export class FloatingButton {
       // WCAG 4.1.2: 同步 aria-pressed 状态
       el.setAttribute('aria-pressed', String(isActive));
     });
+  }
+
+  /** 模式切换和重新获取时的可见说明，不替换按钮上的模式名。 */
+  setActivity(message: string | null): void {
+    const status = this.container?.querySelector('.not-translator-floating-status');
+    if (!(status instanceof HTMLElement)) return;
+    const text = message?.trim() ?? '';
+    status.textContent = text;
+    status.hidden = text.length === 0;
+  }
+
+  getBusy(): boolean {
+    return this.isBusy;
   }
 
   /**

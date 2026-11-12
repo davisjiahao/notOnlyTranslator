@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Highlighter } from '@/content/highlighter';
 import { CSS_CLASSES } from '@/shared/constants';
 import type { TranslatedWord } from '@/shared/types';
@@ -26,6 +26,21 @@ describe('Highlighter', () => {
 
       const highlighted = testContainer.querySelectorAll(`.${CSS_CLASSES.HIGHLIGHT}`);
       expect(highlighted.length).toBe(2);
+    });
+
+    it('跨节点和重复出现都高亮，再次标注不嵌套', () => {
+      testContainer.innerHTML = '<p>pre <em>He</em>llo and Hello</p>';
+      const words: TranslatedWord[] = [
+        { original: 'Hello', translation: '你好', position: [0, 5], difficulty: 5, isPhrase: false },
+      ];
+
+      highlighter.highlightWords(testContainer, words);
+      highlighter.highlightWords(testContainer, words);
+
+      const highlighted = Array.from(testContainer.querySelectorAll(`.${CSS_CLASSES.HIGHLIGHT}`));
+      expect(highlighted.map(mark => mark.childNodes[0]?.textContent).join('')).toBe('HelloHello');
+      expect(testContainer.querySelector('mark mark')).toBeNull();
+      expect(highlighter.isHighlighted('hello')).toBe(true);
     });
 
     it('应该忽略空单词列表', () => {

@@ -140,6 +140,22 @@ describe('难词直接呈现', () => {
     expect(getTranslatableText(element)).toBe('concatenate cat cat.');
   });
 
+  it('跨节点的重复词都会标出，清除后恢复行内结构', () => {
+    const element = paragraph('The pla<em>nt</em> grows; the plant stays.');
+    TranslationDisplay.applyTranslation(element, result([word('plant', '植物')], ''), 'inline-only');
+
+    const marks = Array.from(element.querySelectorAll<HTMLElement>('mark.not-translator-highlight'));
+    expect(marks.map(mark => mark.childNodes[0]?.textContent).join('')).toBe('plantplant');
+    expect(marks.every(mark => mark.dataset.word === 'plant' && mark.dataset.translation === '植物')).toBe(true);
+    expect(element.querySelector('mark mark')).toBeNull();
+    expect(annotations(element)).toHaveLength(2);
+    expect(getTranslatableText(element)).toBe('The plant grows; the plant stays.');
+
+    TranslationDisplay.clearTranslation(element);
+    expect(element.querySelector('em')?.textContent).toBe('nt');
+    expect(getTranslatableText(element)).toBe('The plant grows; the plant stays.');
+  });
+
   it('重复词条不会二次嵌套或将刚插入的中文当作原文匹配', () => {
     const element = paragraph('ubiquitous ubiquitous.');
     TranslationDisplay.applyTranslation(element, result([word(), word(), word('无处不在的', '错误')]), 'inline-only');

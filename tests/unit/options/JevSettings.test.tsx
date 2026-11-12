@@ -248,6 +248,11 @@ describe('JevSettings', () => {
     expect(
       screen.getByText(`暂不满足生效条件：${JEV_REASON_LABELS.disabled}`)
     ).toBeInTheDocument();
+    expect(screen.getByText('生效条件（需同时满足，不会放宽）')).toBeInTheDocument();
+    expect(screen.getByText(/当前等级为 B1/)).toBeInTheDocument();
+    expect(screen.getByText(/翻译模式为行内/)).toBeInTheDocument();
+    expect(screen.getByText(/短语增强和语法增强都关闭/)).toBeInTheDocument();
+    expect(screen.getByText('因此当前阅读不会使用 Jev，仍使用原来的识别流程。')).toBeInTheDocument();
   });
 
   it.each([

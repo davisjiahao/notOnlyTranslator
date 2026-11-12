@@ -203,6 +203,21 @@ describe('OptimizedHighlighter', () => {
       expect(container.querySelectorAll('mark').length).toBe(1);
     });
 
+    it('分帧后仍高亮全部重复出现，并包住被拆开的词', async () => {
+      const container = document.createElement('div');
+      const repeated = Array.from({ length: 12 }, () => '<span>test</span>').join(' ');
+      container.innerHTML = `pre <em>te</em>st ${repeated}`;
+      document.body.appendChild(container);
+
+      await highlighter.highlightWords(container, [makeWord()]);
+      for (let frame = 0; frame < 4; frame += 1) flushRaf();
+
+      const marks = Array.from(container.querySelectorAll(`mark.${CSS_HIGHLIGHT}`));
+      expect(marks.map(mark => mark.childNodes[0]?.textContent).join('')).toBe('test'.repeat(13));
+      expect(container.querySelector('mark mark')).toBeNull();
+      expect(container.textContent?.replace(/\s+/g, ' ').trim().startsWith('pre test')).toBe(true);
+    });
+
     it('保留高亮前后的文本', async () => {
       const container = document.createElement('div');
       container.textContent = 'before test after';

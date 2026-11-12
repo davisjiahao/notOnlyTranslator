@@ -383,6 +383,18 @@ describe('FloatingButton', () => {
       expect(btnText().textContent).toBe('翻译'); // 构造时通用标签，updateMode 后才显示模式名
     });
 
+    it('活动说明不替换模式名，清空后隐藏', () => {
+      const fb = new FloatingButton(onModeChange);
+      fb.updateMode('bilingual');
+      fb.setActivity('正在按对照模式重新获取译文');
+      const status = document.querySelector('.not-translator-floating-status') as HTMLElement;
+      expect(status.textContent).toBe('正在按对照模式重新获取译文');
+      expect(status.hidden).toBe(false);
+      expect(btnText().textContent).toBe('对照');
+      fb.setActivity(null);
+      expect(status.hidden).toBe(true);
+    });
+
     it('忙碌时显示翻译中并标记 aria-busy', () => {
       const fb = new FloatingButton(onModeChange);
       fb.updateMode('bilingual'); // 从默认模式切到对照，再进入忙碌

@@ -1,6 +1,7 @@
 import type { TranslatedWord } from '@/shared/types';
 import { CSS_CLASSES } from '@/shared/constants';
-import { createTranslatableTextWalker } from './pageScanner';
+import { findWordOccurrences, slicesCovering, slicesTouch, wrapCoveringSlices } from './highlightRanges';
+import { getTranslatableText } from './pageScanner';
 
 /**
  * Highlighter - handles text highlighting in the page
@@ -16,165 +17,36 @@ export class Highlighter {
     words: TranslatedWord[]
   ): void {
     if (!words.length) return;
-
-    // Create a map for quick lookup
-    const wordMap = new Map<string, TranslatedWord>();
-    words.forEach((w) => {
-      wordMap.set(w.original.toLowerCase(), w);
-    });
-
-    // Walk through all text nodes
-    const walker = createTranslatableTextWalker(
-      container,
-      {
-        acceptNode: (node) => {
-          // 正文资格由共享遍历器检查，这里仅保留本入口的去重规则。
-          const parent = node.parentElement;
-          if (parent?.classList.contains(CSS_CLASSES.HIGHLIGHT)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          // Check if text contains any words to highlight
-          const text = node.textContent?.toLowerCase() || '';
-          for (const word of wordMap.keys()) {
-            if (text.includes(word)) {
-              return NodeFilter.FILTER_ACCEPT;
-            }
-          }
-
-          return NodeFilter.FILTER_SKIP;
-        },
-      }
-    );
-
-    const nodesToProcess: Text[] = [];
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-      nodesToProcess.push(node as Text);
+    const source = getTranslatableText(container);
+    const occurrences = words.flatMap(word => findWordOccurrences(source, word.original, { boundary: 'ascii' })
+      .map(occurrence => ({ word, occurrence })))
+      .sort((a, b) => (b.occurrence.end - b.occurrence.start) - (a.occurrence.end - a.occurrence.start)
+        || a.occurrence.start - b.occurrence.start);
+    for (const { word, occurrence } of occurrences) {
+      const slices = slicesCovering(container, occurrence.start, occurrence.end);
+      if (!slices || slicesTouch(slices, `.${CSS_CLASSES.HIGHLIGHT}`)) continue;
+      const marks = wrapCoveringSlices(slices, (sliceText) => this.createMark(word, occurrence.text, sliceText));
+      if (!marks) continue;
+      const key = occurrence.text.toLowerCase();
+      const existing = this.highlightedElements.get(key) ?? [];
+      this.highlightedElements.set(key, [...existing, ...marks]);
     }
-
-    // Process collected nodes
-    nodesToProcess.forEach((textNode) => {
-      this.processTextNode(textNode, wordMap);
-    });
   }
 
-  /**
-   * Process a single text node to highlight words
-   */
-  private processTextNode(
-    textNode: Text,
-    wordMap: Map<string, TranslatedWord>
-  ): void {
-    const text = textNode.textContent || '';
-    if (!text.trim()) return;
-
-    const parent = textNode.parentNode;
-    if (!parent) return;
-
-    // Find all word matches in the text
-    const matches: Array<{
-      start: number;
-      end: number;
-      word: TranslatedWord;
-    }> = [];
-
-    for (const [, word] of wordMap) {
-      // Check if this is a multi-word phrase (contains spaces)
-      const isPhrase = word.original.includes(' ');
-
-      // For phrases, don't use word boundaries; for single words, use word boundaries
-      // Also handle hyphenated words as single units
-      const escapedOriginal = this.escapeRegex(word.original);
-      let regexPattern: string;
-
-      if (isPhrase) {
-        // For multi-word phrases, match exact phrase with word boundaries at ends only
-        // Allow flexible whitespace between words
-        const flexiblePhrase = escapedOriginal.replace(/\\ /g, '\\s+');
-        regexPattern = `\\b${flexiblePhrase}\\b`;
-      } else {
-        // For single words, use standard word boundary matching
-        regexPattern = `\\b${escapedOriginal}\\b`;
-      }
-
-      const regex = new RegExp(regexPattern, 'gi');
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          word: { ...word, original: match[0] }, // Preserve original case
-        });
-      }
-    }
-
-    if (!matches.length) return;
-
-    // Sort matches by position
-    matches.sort((a, b) => a.start - b.start);
-
-    // Remove overlapping matches
-    const filteredMatches: typeof matches = [];
-    let lastEnd = 0;
-    for (const match of matches) {
-      if (match.start >= lastEnd) {
-        filteredMatches.push(match);
-        lastEnd = match.end;
-      }
-    }
-
-    // Create document fragment with highlighted spans
-    const fragment = document.createDocumentFragment();
-    let currentIndex = 0;
-
-    for (const match of filteredMatches) {
-      // Add text before the match
-      if (match.start > currentIndex) {
-        fragment.appendChild(
-          document.createTextNode(text.slice(currentIndex, match.start))
-        );
-      }
-
-      // WCAG 1.3.1: 使用 <mark> 语义元素替代 <span> 表示高亮内容
-      const mark = document.createElement('mark');
-      mark.className = CSS_CLASSES.HIGHLIGHT;
-      mark.textContent = match.word.original;
-      mark.title = `${match.word.original} — ${match.word.translation}`;
-      mark.tabIndex = 0;
-      mark.setAttribute('role', 'button');
-      mark.setAttribute('aria-haspopup', 'dialog');
-      mark.dataset.word = match.word.original;
-      mark.dataset.translation = match.word.translation;
-      mark.dataset.difficulty = String(match.word.difficulty);
-      mark.dataset.isPhrase = String(match.word.isPhrase);
-
-      fragment.appendChild(mark);
-
-      // Track highlighted elements
-      const key = match.word.original.toLowerCase();
-      if (!this.highlightedElements.has(key)) {
-        this.highlightedElements.set(key, []);
-      }
-      this.highlightedElements.get(key)!.push(mark);
-
-      currentIndex = match.end;
-    }
-
-    // Add remaining text
-    if (currentIndex < text.length) {
-      fragment.appendChild(document.createTextNode(text.slice(currentIndex)));
-    }
-
-    // Replace original text node
-    parent.replaceChild(fragment, textNode);
-  }
-
-  /**
-   * Escape special regex characters
-   */
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  /** 分段高亮共享整词数据，可见文本只保留当前切片。 */
+  private createMark(word: TranslatedWord, occurrenceText: string, sliceText: string): HTMLElement {
+    const mark = document.createElement('mark');
+    mark.className = CSS_CLASSES.HIGHLIGHT;
+    mark.textContent = sliceText;
+    mark.title = `${occurrenceText} — ${word.translation}`;
+    mark.tabIndex = 0;
+    mark.setAttribute('role', 'button');
+    mark.setAttribute('aria-haspopup', 'dialog');
+    mark.dataset.word = occurrenceText;
+    mark.dataset.translation = word.translation;
+    mark.dataset.difficulty = String(word.difficulty);
+    mark.dataset.isPhrase = String(word.isPhrase);
+    return mark;
   }
 
   /**
