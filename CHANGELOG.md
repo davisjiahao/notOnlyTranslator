@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-12
+
 ### Fixed
 - 阅读高亮按拼接后的正文定位重复词和被行内标签拆开的词，避免只标中第一处或提前丢掉后续出现。
 - 短页面语言判断先去掉扩展自身的中文界面，并整段查看短样本，避免采样窗口落到界面中文上。
@@ -20,29 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 流式与非流式翻译共用正文提取、取消、超时和源站限流；错误信息不再回显密钥或凭据。
 - 语言检测继续排除扩展自身的中文界面，短英文页面不会因语言声明或少量汉字被误判。
 - Jev 密钥仍只保存在本机 IndexedDB，并在同步设置或备份中被剔除；清除全部数据时删除。
-
-### Added
-- Initial project setup
-- User proficiency level assessment system
-- Adaptive translation based on user level
-- Smart word highlighting on web pages
-- Translation tooltip with marking functionality
-- Vocabulary book for unknown words
-- Quick vocabulary test (20 questions)
-- Support for multiple exam types (CET-4/6, TOEFL, IELTS, GRE)
-- Customizable highlight colors and font sizes
-- Selective and full translation modes
-- LLM integration (OpenAI GPT-4o-mini and Anthropic Claude)
-- Context menu integration
-- Data export functionality
-- Responsive UI with Tailwind CSS
-
-### Tech Stack
-- React 18 + TypeScript
-- Vite + @crxjs/vite-plugin
-- Tailwind CSS
-- Zustand for state management
-- Chrome Extension Manifest V3
 
 ## [0.4.0] - 2026-10-16
 

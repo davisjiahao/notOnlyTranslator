@@ -4,11 +4,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-一个面向英语学习者的 Chrome / Edge 扩展：根据阅读水平和已标记词汇突出难词，在保留英文阅读体验的同时提供中文释义。可切换行内、双语对照和全文翻译；支持流式响应的服务会在每段结果完整到达后立即展示，不必等整批结束。
+面向英语学习者的 Chrome / Edge 扩展（Manifest V3）。它按考试水平或测评结果，以及你标记过的已知词、生词，筛出候选难词并给出中文释义，同时尽量保留英文阅读。阅读方式有行内释义、双语对照和全文翻译。支持流式响应的服务会在每一段结果完整到达后立即展示。
 
-**常用单词优先查内置词典；未命中或需要语境翻译时才使用所选服务。**
+常用词优先查随扩展提供的词典和已有缓存；未收录，或需要语境释义、短语、语法、全文时，才调用你选中的服务。
 
-> 可从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载安装包，或从源码构建；尚未提供 Chrome 应用商店下载。词典命中不代表网页阅读完全离线，云端翻译会发送相应文本到所选服务。
+> 安装包从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载，或自行构建后以开发者模式加载。此发布不提交 Chrome 应用商店，扩展也未在商店上架。词典命中不代表整页阅读离线；选择云端或联网翻译后，相应文本会发到该服务。
+
+当前版本 **0.4.1**。
 
 ---
 
@@ -24,35 +26,34 @@
 
 | 功能 | 当前实现 |
 | --- | --- |
-| 分级阅读 | 按考试分数或测评估算词汇水平，结合已知／生词标记筛选和高亮候选词；自动判断不保证覆盖每个陌生词。 |
-| 释义与翻译 | 内置词典、本地缓存、所选翻译服务；提供行内、双语及全文模式，可按设置补充短语和语法说明。 |
-| 逐段显示与复用 | 支持 SSE 的批次按完整段落提前显示；仅切换展示模式时复用已有结果；页面刷新可复用有效缓存或仍在运行的后台批次。 |
-| 学习记录 | 生词筛选、闪卡复习、掌握度和翻译历史；评分确认前可撤销，保存失败可重试。统计展示当前词条快照与已有时间记录，不推算缺失的学习历史。 |
-| 界面与无障碍 | 阅读优先弹窗、分组设置与窄屏导航；高亮和浮层支持键盘操作及焦点返回，支持明暗主题和系统减少动画偏好。 |
-| 服务配置 | 支持云端提供商与 OpenAI 兼容服务，也可连接本机 Ollama。云端请求可能计费；请自行保管 API 密钥。 |
-
-**隐私提示：**词典与用户记录存于扩展本地／浏览器同步存储。默认配置未填写密钥时，不会自动把页面文本交给 Google 翻译；本地词典无法处理的内容会提示配置服务。明确选择云端或其他联网翻译（包括无需密钥的 Google 翻译）后，相应文本会发送到服务方。备份可能包含 API 密钥，勿公开分享，也不要在敏感页面启用联网翻译。导入设置可能改变翻译服务和联网范围，请导入后检查提供商与模式。为防止备份将页面文本送往未知地址，备份中的自定义服务端点（含本机地址）不会导入；如需使用，请在设置页自行重新配置。
+| 分级阅读 | 用考试分数或 20 题测评估计词汇量，再结合已知词、生词标记筛选和高亮候选词。自动判断不保证覆盖每一个陌生词。 |
+| 三种阅读模式 | 行内在难词后给出释义；双语在英文段落下给出整段中文；全文以中文为主并保留难词的英文原词。可按设置补充短语和语法说明。短语与语法增强默认开启。 |
+| 模式切换 | 取消在途请求并丢弃不再适用的缓存，立刻清掉当前译文和已有词义，再按新模式重新获取可见段落，包括双语和全文。浮动按钮显示正在重新获取；正文不做透明度闪动。 |
+| 高亮 | 在拼接后的可译正文上定位。同一词的每次出现都会标记；被行内标签拆开的词按整词标记，已有标记内不再嵌套。 |
+| 语言判断 | 取样前去掉扩展自己的中文界面。短页面整段判断。短英文不会因语言声明、全角标点或少量汉字被当成中文页跳过。 |
+| 查词浮层 | 点击或悬停难词查看释义，并可标记已知或生词。浮层分开显示正在翻译、翻译失败和翻译已取消。 |
+| 逐段显示与刷新 | 支持 SSE 的批次在单段校验通过后提前显示。刷新页面时可复用仍有效的缓存，或加入同一任务里仍在运行的后台批次。切换模式、词表、翻译配置或 API 密钥会取消在途任务并丢弃旧缓存。 |
+| 学习记录 | 生词筛选、闪卡复习、掌握度估算和翻译历史。闪卡在确认前可改评分，保存失败可重试；确认后的评分不能在复习页回滚。统计使用当前词条快照和已保存的时间，不补造缺失的学习历史。 |
+| 界面 | 阅读优先的弹窗、分组设置和窄屏导航；高亮与浮层可键盘操作并归还焦点；支持明暗主题和系统减少动画偏好。 |
+| 翻译服务 | 云端模型、OpenAI 兼容自定义端点、本机 Ollama，以及 DeepL、有道、Google 翻译。云端请求可能计费。请自行保管 API 密钥。 |
 
 ---
 
-## 快速开始
+## 安装
 
 ### 从发布包安装
 
-1. 从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载 `notOnlyTranslator-v*.zip` 并解压到固定目录。
+1. 从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载 `notOnlyTranslator-v*.zip`，解压到一个固定目录。
 2. 打开 `chrome://extensions/`（Edge 为 `edge://extensions/`），开启**开发者模式**。
 3. 点击**加载已解压的扩展程序**，选择解压后包含 `manifest.json` 的目录。
 
 ### 从源码安装
 
-需要 Node.js **20.19.0 或更新版本**（建议使用仍在维护的 LTS 版本）、npm，以及 Chrome 或 Edge。
+需要 Node.js **20.19.0 或更新版本**（建议使用仍在维护的 LTS）、npm，以及 Chrome 或 Edge。
 
 ```bash
-# 克隆仓库
 git clone https://github.com/davisjiahao/notOnlyTranslator.git
 cd notOnlyTranslator
-
-# 安装依赖并构建
 npm install
 npm run build
 ```
@@ -61,86 +62,148 @@ npm run build
 2. 开启**开发者模式**，点击**加载已解压的扩展程序**，选择生成的 `dist` 文件夹。
 3. 将扩展固定到工具栏，便于打开设置和切换阅读方式。
 
-**更新已有安装：**更新源码后重新运行 `npm run build`，在扩展管理页点击**重新加载**，再刷新已经打开的阅读页面。仅替换磁盘文件不会自动让现有页面使用新版本。
+**更新已有安装：**更新源码后重新运行 `npm run build`，在扩展管理页点击**重新加载**，再刷新已经打开的阅读页面。只替换磁盘上的文件，已打开页面里的内容脚本仍是旧版本。
 
-### 首次配置（约 2 分钟）
+### 首次配置
 
-1. **选择翻译方式**
-   - 基础单词查询优先使用本地词典，命中时无需 API 密钥或网络
-   - 需要模型增强时，点击插件图标 → API 设置，选择提供商并配置连接
-   - 云端服务按提供商要求输入 API 密钥；本机 Ollama 可留空
+1. **选择翻译方式。**基础单词查询先走本地词典，命中时不需要 API 密钥或网络。需要模型增强时，打开扩展图标中的设置，选择提供商并测试连接。云端服务按该服务的要求填写密钥；本机 Ollama 默认可留空。翻译尚未配置、且引导未跳过时，弹窗和设置页会显示欢迎引导。
+2. **设置英语水平。**选择考试类型和分数，或完成 20 题快速测评。
+3. **开始阅读。**打开英文网页后会高亮候选难词，点击即可查看释义并标记。四个阅读操作带有默认快捷键；弹窗快捷键可在 `chrome://extensions/shortcuts` 自行绑定。
 
-2. **设置英语水平**
-   - 选择考试类型和分数
-   - 或完成 20 题快速测评
+| 快捷键 | 作用 |
+| --- | --- |
+| Alt+T | 翻译当前段落 |
+| Alt+Shift+T | 显示或隐藏已有译文；页面上还没有译文时，翻译当前段落 |
+| Alt+F | 翻译当前页面 |
+| Alt+I | 在行内和双语之间切换，并按新模式重新获取 |
 
-3. **开始阅读**
-   - 访问英文网站，自动高亮难词，点击查看翻译
-   - 四个阅读操作保留默认快捷键；打开弹窗可点击扩展图标，也可在 `chrome://extensions/shortcuts` 自行绑定快捷键
+全文模式从浮动按钮或弹窗选择。Alt+I 只在行内和双语之间往返。
 
 ---
 
-## 选择阅读模式
+## 阅读模式
 
 | 模式 | 阅读效果 |
 | --- | --- |
-| 行内 | 保留英文，在识别出的难词后直接展示中文释义，适合连续阅读。 |
-| 双语对照 | 保留英文段落，在其下方展示完整中文译文，便于逐段核对。 |
-| 全文翻译 | 以中文译文为主，同时保留难词的英文原词，兼顾理解和词汇学习。 |
+| 行内 | 保留英文，在识别出的难词后直接展示中文释义。 |
+| 双语对照 | 保留英文段落，在其下方展示完整中文译文。 |
+| 全文翻译 | 以中文译文为主，同时保留难词的英文原词。 |
 
-仅切换展示模式时，已完成段落使用已有结果在本地重新排版，不因切换展示方式再次请求翻译。翻译过程中切换模式，后续结果按当前模式展示。更换服务、调整翻译任务设置或网页正文变化，可能需要重新翻译。
+可从页面浮动按钮或扩展弹窗切换。切换后页面不刷新，顺序是：
 
-如果已有结果只有词义、没有完整段落译文，双语和全文模式会保留原文及已有释义，并提示暂无全文；仅切换展示模式不会自动补发全文翻译请求。
+1. 取消尚未完成的翻译，并丢弃该阅读上下文下不再适用的缓存。
+2. 立刻清掉页面上的词义和旧译文。
+3. 大约 150 毫秒后重新扫描，并按新模式获取当前可见段落。双语和全文都会重新请求对应结果。
+4. 浮动按钮在重新获取期间显示状态，例如「正在按对照模式重新获取译文」；有批次进行时按钮文字为「翻译中…」。
+5. 正文保持可见，透明度不变。
 
-### 逐段流式展示与刷新
+查词浮层在请求期间显示「正在翻译」，失败时显示失败原因并提供重试，取消时显示「翻译已取消」。
 
-- **按批请求，按段显示。**一批可以包含多个段落；每段的全文、词义和已启用的语法分析完整到达并通过校验后立即展示，不等待整批结束，也不逐字刷新半截 JSON。
-- **服务必须真正返回流式内容。**目前支持 OpenAI 兼容接口（含使用该接口的 Ollama）、Anthropic 和 Gemini 的 SSE 响应。服务忽略流式参数、只返回普通 JSON 时，仍兼容完整响应，但无法提前展示；百度原生接口保留普通 JSON 路径。
-- **刷新优先复用。**有效缓存可以直接使用；同一翻译任务仍在后台运行时，新页面可加入该任务，重放已完成段落并继续接收后续结果，不重复发出相同请求。
-- **复用有边界。**正文、服务或影响结果的配置变化，缓存过期／被清理，或浏览器重启、后台 Service Worker 被回收，都可能需要重新请求。刷新不会主动取消后台批次；主动停用翻译或使请求失效的配置变更仍会取消相关任务。
+某次返回的双语或全文结果如果缺少完整段落译文，页面会保留原文和已有词义，并说明暂无全文。模式切换会先清掉这些词义，再按新模式重新获取。
+
+更换服务、词表、短语或语法开关、API 密钥，或网页正文发生变化，也会取消在途任务并重新获取。只改高亮颜色、字号等外观时，不因此丢弃译文。
+
+### 逐段展示、限流与刷新
+
+- **按批请求，按段显示。**一批可以包含多个段落。每段的全文、词义和已启用的语法分析完整到达并通过校验后立即展示，不等待整批结束，也不逐字刷新半截 JSON。
+- **流式取决于服务。**OpenAI 兼容接口（含走该接口的 Ollama）、Anthropic 和 Gemini 可以消费 SSE。服务忽略流式参数、只返回普通 JSON 时，仍接受完整响应，但要等整段完成。百度文心走原生 JSON。
+- **取消、超时和 429。**停用翻译、切换模式或变更影响结果的配置时，在途请求会被取消。单次请求有截止时间；源站返回 429 后，后续请求会等待冷却。错误提示不回显密钥或凭据。
+- **刷新可以复用未失效的结果。**同一翻译任务仍在后台运行时，新页面可加入该任务，重放已完成段落并继续接收后续结果。正文、服务、词表、模式或其他影响结果的配置变化，缓存过期或被清理，以及浏览器重启、后台 Service Worker 被回收，都需要重新请求。刷新页面本身不取消仍在运行的后台批次。
+
+Ollama 单次翻译请求默认限时 90 秒，后台翻译消息整体预算 120 秒。连接测试不受这条单次翻译超时约束。
+
+---
+
+## 高亮与语言判断
+
+阅读高亮在段落拼接后的可译正文上定位，包含被行内标签拆到后面节点里的文字。因此：
+
+- 同一个词出现多次时，每一次都会标记。
+- 单词被 `<em>`、`<a>` 等行内标签拆开时，按拼接后的整词定位，再分段包裹。
+- 已经落在高亮内的区间不会再套一层标记。
+
+判断页面语言之前，会先去掉扩展注入的浮动按钮、帮助面板、查词浮层和译文。短样本整段参与判断，避免采样窗口正好落在界面中文上。短英文即使带有中文语言声明、全角标点或很少的汉字，仍按英文页处理。段落级跳过同样只统计汉字；汉字很少时，不按中文比例跳过该段。
+
+编辑区、表单和部分导航会被跳过，以减少误翻译，也避免把正在输入的内容送出页面。
 
 ---
 
 ## Jev 实验生词识别
 
-在 **API 设置 → Jev 词汇评估** 中选择识别供应商，填写完整 HTTPS API URL、模型和阈值，保存配置后再保存该服务的密钥、测试连接并启用。TypeSafe 是默认预设，也支持使用 **Jev `systemone/noul` 协议**的自定义服务；不能直接填写 OpenAI 聊天接口。默认关闭，仅对 **B1、行内模式、关闭短语与语法增强** 的自动阅读生效；需要可生成语境释义的模型服务，支持 OpenAI、Anthropic、Gemini、Ollama 和 OpenAI 兼容自定义服务，其他翻译提供商与混合路由沿用原识别流程。手动查词保持原有行为。
+默认关闭。入口在 **API 设置 → Jev 词汇评估**。选择识别供应商，填写完整 HTTPS API URL、模型和阈值，先保存配置，再保存该服务的密钥、测试连接并启用。TypeSafe 是默认预设，地址为 `https://api.typesafe.ai/v1/systemone`。自定义服务必须兼容 **Jev `systemone/noul` 协议**，不能直接填写 OpenAI 聊天接口。
 
-- 开启后，将待判断的句子与目标词位置发送到已保存的识别地址；选中的词再由当前翻译模型补充语境释义。常见词也按语境判断，同一个词的不同出现位置分别处理。
-- Jev 密钥只存在本机扩展的独立 IndexedDB，绑定供应商和完整接口地址，不进入浏览器同步、设置响应或普通备份。更换供应商或地址后需重新保存对应密钥；“清除全部数据”删除该密钥。这不提供本机加密保护。
-- 首次启用或测试时按当前地址申请站点权限（TypeSafe 预设为 `https://api.typesafe.ai/*`）。地址不能包含用户名、密码、查询参数或片段。识别失败且任务仍有剩余时间时，使用原识别流程一次；任务超时或取消后不再补发请求。配置变化使旧缓存与在途请求失效。
-- 默认模型 `jev-1.13.0`、阈值 `0.26` 来自独立合成样本校准；更换地址、供应商、模型或阈值后不沿用已校准的结论，界面会提示。阈值越低，入选词越多；连接成功只证明接口可用。实验数据未经教师认证；冻结结果与运行命令见 [评估说明](scripts/jev-evaluation/README.md)。
+只有下面条件同时成立时，Jev 才会参与自动阅读识别：
 
-## 本地优先与 Ollama
+- 当前估算等级为 **B1**
+- 阅读模式为 **行内**
+- **短语增强和语法增强都关闭**（这两项默认是开启的）
+- 混合路由关闭，且释义服务是 OpenAI、Anthropic、Gemini、Ollama 或 OpenAI 兼容自定义服务
 
-- **基础查询**：优先复用匹配语境的生词本释义与缓存，再查询随扩展提供的 17,404 条常用及考试词条。包含常见屈折变化；词典返回通用义项，不保证消除一词多义。
-- **自动筛词**：个人已知/未知词和 CEFR 在本地参与筛选。轻量词汇模式由本地确定候选词、难度及位置，模型只补充中文释义；短语、语法和全文翻译仍使用对应增强流程。
-- **离线边界**：单词查词命中本地词典时可不调用翻译 API；段落仅在行内模式、关闭短语／语法增强且所有候选词均有本地释义时可免 API 请求。默认开启短语与语法增强；未配置密钥时不会自动回退 Google，未命中后可能提示配置服务。明确选择 Google 翻译需要联网：其全文译文可用于双语／全文模式；仅行内模式不支持需要联网的段落，会在发送前提示切换模式。云端增强会将对应文本发送给所选服务。
+任一条件不满足时，设置页会写明原因，阅读继续使用原来的识别流程。手动查词保持原有行为。识别失败且本次任务仍有剩余时间时，会回退原流程一次；超时或取消后不再补发。
+
+开启后，待判断的句子和目标词位置会发到已保存的识别地址；入选词再由当前翻译模型补充语境释义。常见词也按语境判断，同一个词的不同出现位置分别处理。
+
+密钥只保存在本机扩展的 IndexedDB 中，并绑定供应商和完整 HTTPS 地址。同步设置和普通备份都不包含它。更换供应商或地址后要重新保存对应密钥。「清除全部数据」会删除该密钥。扩展按原文字符串保存这份记录，没有再加密。
+
+地址不能包含用户名、密码、查询参数或片段。首次启用或测试时，按当前主机申请站点权限（TypeSafe 预设为 `https://api.typesafe.ai/*`）。
+
+默认模型 `jev-1.13.0`、阈值 `0.26` 来自冻结的合成样本，不是对自然文章识别质量的保证。更换地址、供应商、模型或阈值后不再沿用该校准，界面会提示重新评估。阈值越低，入选词越多；连接成功只说明接口可用。实验数据未经教师认证。冻结结果与运行命令见 [评估说明](scripts/jev-evaluation/README.md)。
+
+---
+
+## 本地词典与 Ollama
+
+- **基础查询：**优先复用匹配语境的生词本释义和缓存，再查随扩展提供的 17,404 条常用及考试词条。词典包含常见屈折变化，返回的是通用义项，不能保证消解一词多义。
+- **自动筛词：**已知词、未知词和 CEFR 等级在本地参与筛选。轻量词汇模式由本地确定候选词、难度和位置，模型只补充中文释义。短语、语法和全文仍走对应的增强流程。
+- **离线边界：**单词查词命中本地词典时可以不调用翻译 API。整段免请求只发生在行内模式、短语和语法增强都关闭、且所有候选词都有本地释义时。默认开启短语和语法增强。未配置密钥时不会自动改用 Google 翻译；未命中时可能提示配置服务。明确选择免费 Google 翻译后需要联网，其全文可用于双语和全文；仅行内模式不会发出这种只返回全文的请求，并会提示改用双语或全文。
 
 ### 配置本机 Ollama
 
 1. 启动 Ollama，在扩展 API 设置中选择 **Ollama 本地模型**。
-2. 默认地址可留空（使用 `http://localhost:11434/v1/chat/completions`）；若填写自定义地址，必须填**完整聊天端点**，不会自动补路径。本机默认服务无需 API 密钥。
-3. 选择已安装的模型并测试连接。CPU 机器可从 `qwen3:4b` 开始实测速度和效果；基础查词不需要安装模型。
+2. 默认地址可留空，此时使用 `http://localhost:11434/v1/chat/completions`。自定义地址必须是**完整聊天端点**，扩展不会自动补路径。本机默认服务不需要 API 密钥。
+3. 选择已安装的模型并测试连接。CPU 机器可从 `qwen3:4b` 开始实测速度和效果。基础查词不需要安装模型。
 
-翻译调用走 OpenAI 兼容接口，请求会尝试关闭思考并在适用时要求 JSON 输出，实际支持程度取决于模型。Ollama **单次翻译请求**默认限时 90 秒，后台翻译消息整体预算 120 秒；连接测试不受前述单次翻译超时约束。主动停用翻译或更换影响请求的配置时会取消相关任务；仅切换展示模式则复用已有结果。
+翻译走 OpenAI 兼容接口，请求会尝试关闭思考，并在适用时要求 JSON 输出；模型是否支持取决于该模型本身。
 
-### 离线词典来源与更新
+### 词典来源
 
-词条来自 [ECDICT](https://github.com/skywind3000/ECDICT)，筛选 BNC/词频前 15,000 或 CET4/CET6/高考/考研标签且含中文释义的英文词。许可证保留于 [`src/data/ECDICT-LICENSE`](src/data/ECDICT-LICENSE)，构建产物也携带 `ECDICT-LICENSE`。
+词条来自 [ECDICT](https://github.com/skywind3000/ECDICT)，筛选 BNC/词频前 15,000，或带 CET4、CET6、高考、考研标签且含中文释义的英文词。许可证保留于 [`src/data/ECDICT-LICENSE`](src/data/ECDICT-LICENSE)，构建产物也携带 `ECDICT-LICENSE`。
 
-日常 `npm run build` 使用仓库内的 JSON，无需下载原始词典。仅在维护词库时运行以下命令（已在 Node 25 验证；使用现有环境代理）：
+日常 `npm run build` 使用仓库内的 JSON，不需要下载原始词典。维护词库时运行（已在 Node 25 验证；使用现有环境代理）：
 
 ```bash
 node --use-env-proxy scripts/buildOfflineDictionary.ts
 ```
 
-生成器保存来源、筛选规则、源文件及产物 SHA-256。若上游内容与已记录哈希不同，会拒绝静默覆盖；更新前须审查来源与许可证变化。
+生成器保存来源、筛选规则、源文件及产物 SHA-256。上游内容与已记录哈希不同时，会拒绝静默覆盖；更新前须审查来源与许可证。
+
+---
+
+## 学习记录
+
+设置页提供生词本、到期闪卡和从生词本选出的手动复习。闪卡为 1–5 分自评：确认前可以改选或撤销本题评分；保存失败时保留当前题并可以重试。确认保存后，该评分不能在复习页回滚。跳过的词不计入本轮结果。没有到期记录只说明当前没有到期项，不代表全部词汇已掌握。
+
+学习统计展示当前词条快照，以及已保存的保存时间和最近一次复习时间，不把缺失的复习补成连续天数、学习时长或增长率。翻译历史保存在本机 IndexedDB，最多 1,000 条，并清理超过 30 天的记录。
+
+---
+
+## 隐私与备份
+
+词典和用户记录放在扩展本地或浏览器同步存储。翻译历史和 Jev 密钥使用各自的本机 IndexedDB。
+
+- 同步存储包含用户档案、设置和翻译服务密钥。
+- 本机存储包含已知词、未知词、掌握度和翻译缓存。
+- Jev 密钥只在本机 IndexedDB，并绑定供应商和完整 HTTPS 地址；导出和同步都会剔除它。
+- 备份可能包含翻译服务的 API 密钥。不要公开分享备份，也不要在敏感页面启用联网翻译。
+- 导入设置可能改变翻译服务和联网范围，导入后请检查提供商与模式。
+- 为避免备份把页面文本送到未知地址，备份中的自定义服务端点（含本机地址）不会导入。需要时在设置页重新填写。
+- 清除全部数据会删除 Jev 密钥，以及同步和本机中的用户数据。
 
 ---
 
 ## 适用范围
 
-适合阅读普通英文网页时辅助理解词汇；专业术语、语境多义词和复杂页面布局需自行核对结果。页面编辑区、表单和部分导航内容会被跳过，以减少误翻译及将输入内容送出页面的风险。
+适合在普通英文网页上辅助理解词汇。专业术语、语境多义词和复杂页面布局需要自行核对。自动高亮是候选结果，不是完整的词汇诊断。
 
 ---
 
@@ -148,9 +211,9 @@ node --use-env-proxy scripts/buildOfflineDictionary.ts
 
 ```bash
 npm test             # 单元与集成测试
-npm run lint         # ESLint
+npm run lint         # ESLint，不允许警告
 npm run type-check   # TypeScript
-npm run build        # 构建扩展
+npm run build        # 类型检查并构建扩展
 # 统计 src 下全部 TS/TSX 文件的覆盖率
 npx vitest run --coverage --coverage.include='src/**/*.{ts,tsx}'
 ```
@@ -172,49 +235,48 @@ npx playwright test --config=e2e/local-first.config.ts \
   llm-translation-display.spec.ts github-like-reading.spec.ts
 ```
 
-隔离测试使用真实扩展链路与受控 HTTP 响应，核对段落可见性、刷新后的文档身份和后台请求次数；不能替代真实提供商、个人浏览器配置及任意网站的验收。`npm run test:e2e` 使用另一套默认配置，可能访问外部网站，运行前请核对配置。
+隔离测试使用真实扩展链路和受控 HTTP 响应，核对段落可见性、刷新后的文档身份和后台请求次数。它们不能替代真实提供商、个人浏览器配置和任意网站的验收。`npm run test:e2e` 使用另一套默认配置，可能访问外部网站，运行前请核对配置。
 
 ---
 
 ## 技术栈
 
 <details>
-<summary>点击展开技术详情</summary>
+<summary>点击展开</summary>
 
-- **前端框架**: React 18 + TypeScript
-- **构建工具**: Vite + @crxjs/vite-plugin
-- **样式**: Tailwind CSS
-- **状态管理**: Zustand
-- **存储**: Chrome Storage API
-- **翻译服务**: OpenAI / Anthropic / DeepL / 有道
+- **界面：**React 18、TypeScript、Tailwind CSS、Zustand
+- **扩展构建：**Vite、@crxjs/vite-plugin、Chrome Extension Manifest V3
+- **浏览器存储：**`chrome.storage` 同步/本机，以及 IndexedDB（翻译历史、Jev 密钥）
+- **模型与翻译接口：**OpenAI、Anthropic、Gemini、Groq、DeepSeek、智谱、阿里通义、百度文心、Ollama、OpenAI 兼容自定义端点、DeepL、Google 翻译、有道
+- **离线词库：**ECDICT 筛选子集
 
 </details>
 
 ---
 
-## 🤝 贡献
+## 贡献
 
-欢迎贡献代码、报告问题或提出建议！
+欢迎报告问题、修正文档或提交代码。
 
 1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'feat: 添加某某功能'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
+2. 创建特性分支（`git checkout -b feature/AmazingFeature`）
+3. 提交更改（`git commit -m 'feat: 添加某某功能'`）
+4. 推送到分支（`git push origin feature/AmazingFeature`）
 5. 创建 Pull Request
 
 ---
 
-## 📄 许可证
+## 许可证
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
+本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。ECDICT 子集的许可证见 [`src/data/ECDICT-LICENSE`](src/data/ECDICT-LICENSE)。
 
 ---
 
-## 🙏 致谢
+## 致谢
 
-- 翻译服务：OpenAI GPT-4o-mini、Anthropic Claude、DeepL、有道翻译
-- 构建工具：React、Vite、Tailwind CSS
-- 灵感来源：语言学习与间隔重复理论
+- 词库：[ECDICT](https://github.com/skywind3000/ECDICT)
+- 翻译与模型接口：OpenAI、Anthropic、Google Gemini、Groq、DeepSeek、智谱、阿里通义、百度文心、Ollama、DeepL、Google 翻译、有道，以及 OpenAI 兼容端点
+- 界面与构建：React、Vite、Tailwind CSS、Zustand、@crxjs/vite-plugin
 
 ---
 
@@ -224,42 +286,83 @@ npx playwright test --config=e2e/local-first.config.ts \
 
 ## English Version
 
-**Smart English Reading Assistant - Only Translate What You Don't Know**
+**Smart English Reading Assistant — only translate the words above your level**
 
-### Why NotOnlyTranslator?
+NotOnlyTranslator is a Chrome/Edge extension (Manifest V3). It estimates vocabulary from an exam score or a 20-question check, then highlights candidate difficult words using that estimate and your known/unknown marks. Inline, bilingual, and full-translation modes are available. Providers that return SSE show each paragraph as soon as that paragraph is complete.
 
-**Problem**: Traditional translators translate everything, causing you to lose learning opportunities.
+Bundled dictionary lookups and existing cache are tried first. A configured service is used when a word is missing, or when you ask for context, phrases, grammar, or a full paragraph.
 
-**Solution**: NotOnlyTranslator only translates words beyond your level, helping you learn naturally while reading.
+> Download `notOnlyTranslator-v*.zip` from [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases), or build from source and load the unpacked extension. This distribution is not submitted to the Chrome Web Store and is not listed there. A dictionary hit does not make the whole page offline. Cloud or online translation sends the relevant text to the provider you selected.
 
-### Key Features
+Current version: **0.4.1**.
 
-- **Adaptive Translation**: Based on your proficiency level (CET-4/6, TOEFL, IELTS, GRE)
-- **Selective Highlighting**: Highlights candidate difficult words using your level and known/unknown word marks
-- **Local-first Lookup**: Uses bundled dictionary entries and cached meanings before a translation service where applicable
-- **Translation Modes**: Inline meanings, bilingual paragraphs, and full translation with difficult English words retained; display-only changes reuse existing results
-- **Progressive Paragraphs**: A complete paragraph appears as soon as it arrives over SSE, without waiting for the rest of the batch; JSON-only responses still wait for completion
-- **Refresh Reuse**: Reuses valid cache entries or joins an active background batch; worker restarts, cache expiry, and relevant configuration changes may require a new request
-- **Learning Tools**: Filtered vocabulary, flashcard review with undo before confirmation and retry after failed saves, current mastery snapshots, and recorded activity without invented historical trends
-- **Accessible Interface**: Reading-first popup, grouped responsive settings, keyboard-operated highlights with focus return, light/dark themes, and reduced-motion support
-- **Provider Options**: Cloud services and local Ollama; cloud requests may incur charges
+### Install
 
-### Quick Start
+Node.js **20.19 or newer**, npm, and Chrome or Edge are required for a source build.
 
-1. Download and extract the ZIP from [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases), then load the folder containing `manifest.json` as an unpacked Chrome/Edge extension. Alternatively, clone the repository, run `npm install && npm run build`, and load `dist`.
-2. Set your English level; configure a provider if you need context-aware translation (local Ollama needs no API key by default)
-3. Read an English page and mark known or unknown words; offline lookup only works when local data covers the request
+```bash
+git clone https://github.com/davisjiahao/notOnlyTranslator.git
+cd notOnlyTranslator
+npm install && npm run build
+```
 
-If a cached result contains only word meanings, bilingual and full-translation modes keep the original text and indicate that a full translation is unavailable. Switching display modes alone does not request the missing full translation.
+Load the extracted release folder, or the generated `dist` folder, from `chrome://extensions/` or `edge://extensions/` with Developer mode on. After rebuilding, reload the extension and refresh open reading tabs. Replacing files on disk leaves content scripts already injected in a page on the old version.
 
-After updating the source, rebuild, reload the extension on its management page, and refresh existing reading tabs. Replacing build files alone does not update content scripts already loaded in a page.
+Set an exam level or take the short vocabulary check. Configure a provider when you need model-backed translation. Local Ollama needs no API key for its default endpoint. Until translation is configured, and while the welcome flow has not been skipped, the popup and settings page show that guide.
 
-Cloud translation sends the relevant text to the selected provider. Do not enable it on sensitive pages or share backups containing credentials. SSE support depends on the provider; isolated tests do not certify your live provider or every website.
+| Shortcut | Action |
+| --- | --- |
+| Alt+T | Translate the current paragraph |
+| Alt+Shift+T | Show or hide existing translations; translate the current paragraph when none are present |
+| Alt+F | Translate the page |
+| Alt+I | Switch between inline and bilingual, then refetch |
 
-### Tech Stack
+Full translation is selected from the floating button or the popup. Alt+I does not enter that mode.
 
-React 18 + TypeScript + Vite + Tailwind CSS + Zustand + Chrome Storage API
+### Reading modes
 
----
+| Mode | What you see |
+| --- | --- |
+| Inline | English stays in place; Chinese senses appear after recognized difficult words. |
+| Bilingual | The English paragraph stays, with a full Chinese paragraph underneath. |
+| Full translation | Chinese is primary, and difficult English words are retained. |
 
-**Made with ❤️ for English learners**
+The page stays loaded. The extension cancels in-flight requests, drops cache entries that no longer apply, and immediately clears current translations, including existing word senses. About 150ms later it scans again and refetches the visible paragraphs in the new mode, including bilingual and full translation. The floating button shows a refetch status such as 「正在按对照模式重新获取译文」, and its label reads 「翻译中…」 while a batch is active. The page body stays opaque.
+
+The lookup tooltip distinguishes loading (`正在翻译`), failure, and cancelled (`翻译已取消`). If a bilingual or full-translation result arrives without a complete paragraph, the original text and any word senses stay, with a short notice that the full translation is missing. Switching modes clears those senses and refetches.
+
+Changing the provider, vocabulary, phrase or grammar settings, or API key also cancels in-flight work and refetches. Appearance-only changes, such as highlight color, leave existing translations in place.
+
+SSE is consumed for OpenAI-compatible endpoints (including Ollama on that API), Anthropic, and Gemini. A JSON-only response is still accepted after the whole payload arrives. Baidu uses its native JSON path. Requests can be cancelled or time out, and a 429 waits out the provider cooldown. Error text does not echo keys or credentials.
+
+Reloading a page can reuse a still-valid cache entry or join a background batch for the same task. A reload does not cancel that background batch. A changed page, provider, vocabulary, mode, or other result-shaping setting, an expired cache, or a restarted service worker requires a new request. An Ollama translation attempt defaults to 90 seconds; the background translation message budget is 120 seconds.
+
+### Highlighting and language detection
+
+Highlights are located in the concatenated translatable text of a paragraph. Repeated words are marked at each occurrence. A word split across inline tags is marked as one word, in slices, without nesting a highlight inside an existing one.
+
+Before a short page is classified, the extension’s own Chinese UI is removed: floating button, help panel, tooltip, and translation lines. Short samples are judged as a whole. A short English page is still treated as English when it declares Chinese, uses full-width punctuation, or contains only a few Han characters. Paragraph skipping counts Han characters; a paragraph with very few Han characters is not skipped by ratio.
+
+Editors, forms, and some navigation are skipped.
+
+### Jev experimental recognition
+
+Jev is off by default. It runs only when all of the following hold: estimated level **B1**, **inline** mode, **phrase and grammar enhancement both off** (both are on by default), hybrid routing off, and a gloss provider of OpenAI, Anthropic, Gemini, Ollama, or an OpenAI-compatible custom endpoint. Otherwise the original recognizer is used, and the settings page states why Jev is inactive. Manual lookup is unchanged. One fallback to the original pipeline is allowed when recognition fails and time remains.
+
+Configure it under API settings: vendor, full HTTPS URL, model, and threshold, then save the key, test the connection, and enable it. TypeSafe is the preset (`https://api.typesafe.ai/v1/systemone`). Custom endpoints must speak the Jev `systemone/noul` protocol.
+
+The key is stored only in local IndexedDB, as the original string, and is bound to the vendor and the full HTTPS URL. Sync settings and backups omit it. Clearing all data deletes it. The extension does not add its own encryption. Changing vendor or URL requires saving the key for the new target.
+
+The default model `jev-1.13.0` and threshold `0.26` come from frozen synthetic samples. They are not a quality guarantee for natural articles. A different URL, vendor, model, or threshold is uncalibrated; the UI says so. A successful connection test only shows that the endpoint responded. See [scripts/jev-evaluation/README.md](scripts/jev-evaluation/README.md).
+
+### Local dictionary, learning data, and privacy
+
+The bundled dictionary has 17,404 entries filtered from [ECDICT](https://github.com/skywind3000/ECDICT). It covers common inflections and returns general senses. A whole paragraph skips the API only in inline mode, with phrase and grammar enhancement off, when every candidate already has a local sense. With no key configured, the extension does not silently switch to Google Translate. Free Google Translate, once selected, is online and is used for bilingual and full translation; inline mode asks you to switch because that provider returns a full paragraph.
+
+Flashcards support due review and a manual pass over words you pick from the vocabulary book. You can change a 1–5 self-rating before confirming, and retry a failed save. A confirmed rating is not rolled back on the review screen. Statistics show the current snapshot and recorded timestamps. They do not invent streaks or study time. Translation history stays in local IndexedDB, up to 1,000 entries, and drops records older than 30 days.
+
+Synced storage holds the profile, settings, and translation API keys. Local extension storage holds known/unknown words, mastery, and the translation cache. Backups can contain translation API keys; do not share them, and do not enable online translation on sensitive pages. Custom endpoints in a backup, including localhost URLs, are not imported; set them again on the settings page. Importing settings can change the provider and what leaves the browser.
+
+### Tech stack
+
+React 18, TypeScript, Tailwind CSS, Zustand, Vite, @crxjs/vite-plugin, and Chrome Extension Manifest V3. Translation providers include OpenAI, Anthropic, Gemini, Groq, DeepSeek, Zhipu, Alibaba Tongyi, Baidu, Ollama, OpenAI-compatible custom endpoints, DeepL, Google Translate, and Youdao.
