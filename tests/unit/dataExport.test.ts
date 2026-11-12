@@ -104,6 +104,7 @@ vi.mock('@/background/storage', () => ({
     saveUserProfile: vi.fn(() => Promise.resolve()),
     updateUserProfile: vi.fn(() => Promise.resolve()),
     saveSettings: vi.fn(() => Promise.resolve()),
+    purgeSyncedJevCredentials: vi.fn(() => Promise.resolve()),
     importMasteryData: vi.fn(() => Promise.resolve()),
   },
 }));
@@ -452,6 +453,20 @@ describe('DataExport', () => {
       expect(data.profile).toBeDefined();
       expect(data.settings).toBeDefined();
       expect(data.metadata.knownWordsCount).toBe(2);
+    });
+
+    it('导出前清除同步区里的 Jev 密钥，备份正文不包含凭据', async () => {
+      vi.mocked(StorageManager.getSettings).mockResolvedValueOnce({
+        enabled: true,
+        translationMode: 'inline-only',
+        jevApiKey: 'synthetic-jev-secret',
+        jevCredentials: { apiKey: 'synthetic-jev-secret' },
+      } as never);
+      const data = await exportAllData();
+      expect(StorageManager.purgeSyncedJevCredentials).toHaveBeenCalled();
+      expect(JSON.stringify(data)).not.toContain('synthetic-jev-secret');
+      expect(data.settings).not.toHaveProperty('jevApiKey');
+      expect(data.settings).not.toHaveProperty('jevCredentials');
     });
 
     it('应该包含正确的元数据', async () => {

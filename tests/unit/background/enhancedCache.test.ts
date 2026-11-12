@@ -457,19 +457,19 @@ describe('EnhancedCacheManager — 译文作用域', () => {
     expect(unknownWords[0].word).toBe('first');
   });
 
-  it.each(['inline-only', 'bilingual', 'full-translate'] as const)('%s 模式所有引擎均忽略词表和百词桶内波动，仅跨桶失效', mode => {
+  it.each(['inline-only', 'bilingual', 'full-translate'] as const)('%s 模式词表变化使缓存失效，百词桶内波动仍保持命中', mode => {
     const manager = new EnhancedCacheManager();
     for (const engine of ['llm', 'batch', 'deepl', 'hybrid', 'free_google'] as const) {
       const profile = { ...userLevel, estimatedVocabulary: 4500 };
       const scope = { settings, userLevel: profile, engine };
       const key = manager.generateHash(text, mode, scope);
-      // 各模式使用相同分桶规则，但模式之间仍保留隔离。
       for (const estimatedVocabulary of [4500, 4550, 4599]) {
-        const changed = { ...scope, userLevel: { ...profile, estimatedVocabulary,
-          knownWords: ['other'], unknownWords: [{ word: 'result', translation: '结果', context: '', markedAt: 1, reviewCount: 0 }],
-        } };
-        expect(manager.generateHash(text, mode, changed)).toBe(key);
+        expect(manager.generateHash(text, mode, { ...scope, userLevel: { ...profile, estimatedVocabulary } })).toBe(key);
       }
+      expect(manager.generateHash(text, mode, { ...scope, userLevel: {
+        ...profile, knownWords: ['other'],
+        unknownWords: [{ word: 'result', translation: '结果', context: '', markedAt: 1, reviewCount: 0 }],
+      } })).not.toBe(key);
       expect(manager.generateHash(text, mode, { ...scope, userLevel: { ...profile, estimatedVocabulary: 4499 } })).not.toBe(key);
       expect(manager.generateHash(text, mode, { ...scope, userLevel: { ...profile, estimatedVocabulary: 4600 } })).not.toBe(key);
     }

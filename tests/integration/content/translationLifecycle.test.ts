@@ -241,12 +241,12 @@ describe('设置热更新的页面生命周期', () => {
     await first;
     state.settingsResolvers[1](snapshot);
     await second;
-    expect(refresh).toHaveBeenCalledTimes(change === 'provider' ? 1 : 0);
-    expect(rerender).toHaveBeenCalledTimes(change === 'mode' ? 1 : 0);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(rerender).not.toHaveBeenCalled();
     rerender.mockRestore();
   });
 
-  it('本地模式选择使更早的设置读取失效，保存回声不取消或刷新', async () => {
+  it('本地模式选择刷新一次，保存回声不重复刷新', async () => {
     const control = await createTranslator() as unknown as SettingsControl;
     const refresh = vi.spyOn(control, 'refreshTranslation').mockImplementation(() => {});
     state.deferSettings = true;
@@ -255,11 +255,11 @@ describe('设置热更新的页面生命周期', () => {
     state.settingsResolvers[0](state.settings);
     await reading;
     expect(control.settings.translationMode).toBe('bilingual');
+    expect(refresh).toHaveBeenCalledOnce();
     state.deferSettings = false;
     state.settings = { ...state.settings, translationMode: 'bilingual' };
     await control.handleSettingsUpdated();
-    expect(refresh).not.toHaveBeenCalled();
-    expect(state.sentMessages.filter(message => message.type === 'CANCEL_TRANSLATION')).toHaveLength(0);
+    expect(refresh).toHaveBeenCalledOnce();
   });
 
   it('设置读取的日志不打印包含凭据的完整响应', async () => {
@@ -307,7 +307,7 @@ describe('设置热更新的页面生命周期', () => {
     expect(scan).toHaveBeenCalled();
   });
 
-  it('模式变化仅重绘，真实其他设置变化才刷新翻译和同步高亮', async () => {
+  it('模式变化刷新翻译，其他设置变化才同步高亮', async () => {
     const translator = await createTranslator();
     const control = translator as unknown as {
       handleSettingsUpdated(): Promise<void>;
@@ -319,12 +319,12 @@ describe('设置热更新的页面生命周期', () => {
 
     state.settings = { ...state.settings, translationMode: 'bilingual' };
     await control.handleSettingsUpdated();
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
     expect(sync).not.toHaveBeenCalled();
 
     state.settings = { ...state.settings, vocabHighlightEnabled: true };
     await control.handleSettingsUpdated();
-    expect(refresh).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledTimes(2);
     expect(sync).toHaveBeenCalledOnce();
   });
 });
@@ -526,7 +526,7 @@ describe('内容脚本翻译请求生命周期', () => {
     await first;
   });
 
-  it('切换模式保留直接发起的在途翻译，并按最新模式显示响应', async () => {
+  it('切换模式取消直接发起的在途翻译，迟到响应不显示', async () => {
     const translator = await createTranslator();
     const paragraph = document.createElement('p');
     paragraph.textContent = 'The ephemeral nature of existence is difficult.';
@@ -541,10 +541,11 @@ describe('内容脚本翻译请求生命周期', () => {
       handleModeChange(mode: 'inline-only' | 'bilingual'): void;
     }).handleModeChange('bilingual');
 
-    expect(state.sentMessages.filter((message) => message.type === 'CANCEL_TRANSLATION')).toHaveLength(0);
+    expect(state.sentMessages.filter((message) => message.type === 'CANCEL_TRANSLATION')).toHaveLength(1);
     resolveTranslation(0);
-    await waitUntil(() => expect(document.querySelector('.not-translator-translation-line')?.textContent).toBe('短暂的'));
-    expect(state.translationCallbacks).toHaveLength(1);
+    await Promise.resolve();
+    expect(document.querySelector('.not-translator-translation-line')).toBeNull();
+    expect(paragraph.textContent).toContain('ephemeral');
   });
 
   it('去抖窗口累积多批动态元素，不丢弃先到元素', async () => {

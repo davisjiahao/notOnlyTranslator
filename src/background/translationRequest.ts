@@ -103,20 +103,52 @@ export function boundedMaxTokens(
   return Math.min(Math.max(Math.round(requested), TRANSPORT_DEFAULTS.minTokens), TRANSPORT_DEFAULTS.maxTokens);
 }
 
+const CREDENTIAL_QUERY = /([?&#](?:key|api_key|apikey|access_token|token|secret|app_key|app_secret|appkey|appsecret)=)[^&#\s]+/gi;
+const CREDENTIAL_HEADER = /(?:Bearer|DeepL-Auth-Key|Basic|Token|Api-Key)\s+\S+/gi;
+const CREDENTIAL_JSON = /("(?:apiKey|api_key|apikey|access_token|token|secret|appKey|appSecret|app_key|app_secret|key)"\s*:\s*")[^"]*/gi;
+
 /**
- * 错误信息脱敏：抹去敏感串、Bearer 令牌与 key 查询参数
+ * 错误信息脱敏：抹去敏感串、授权头、查询参数和 JSON 凭据字段。
+ * 过短的自由文本不做全文替换，避免误伤普通单词。
  */
 export function sanitizeErrorMessage(message: string, secrets: Array<string | undefined> = []): string {
   let safe = message;
   for (const secret of secrets) {
-    // 过短的串（如 Ollama 占位值之外的单词）不做全文替换，避免误伤
     if (secret && secret.length >= 6) {
       safe = safe.split(secret).join('[已脱敏]');
     }
   }
-  safe = safe.replace(/Bearer\s+\S+/gi, 'Bearer [已脱敏]');
-  safe = safe.replace(/([?&](?:key|access_token|api_key)=)[^&\s]+/gi, '$1[已脱敏]');
+  safe = safe.replace(CREDENTIAL_HEADER, match => `${match.split(/\s+/)[0]} [已脱敏]`);
+  safe = safe.replace(CREDENTIAL_QUERY, '$1[已脱敏]');
+  safe = safe.replace(CREDENTIAL_JSON, '$1[已脱敏]');
   return safe;
+}
+
+const sharedRateLimits = new Map<string, number>();
+const MAX_RATE_LIMIT_WAIT_MS = 60_000;
+
+export function resetSharedRateLimits(): void {
+  sharedRateLimits.clear();
+}
+
+function endpointOrigin(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
+function rememberRateLimit(url: string, retryAfterMs?: number): void {
+  const wait = Math.min(Math.max(retryAfterMs ?? 1_000, 0), MAX_RATE_LIMIT_WAIT_MS);
+  const until = Date.now() + wait;
+  const origin = endpointOrigin(url);
+  if (until > (sharedRateLimits.get(origin) ?? 0)) sharedRateLimits.set(origin, until);
+}
+
+async function waitForSharedRateLimit(url: string, signal?: AbortSignal): Promise<void> {
+  const delay = (sharedRateLimits.get(endpointOrigin(url)) ?? 0) - Date.now();
+  if (delay > 0) await cancellableSleep(delay, signal);
 }
 
 /**
@@ -152,6 +184,8 @@ export interface TransportRequestConfig {
   maxResponseBytes?: number;
   /** 自定义成功响应读取，仍受单次尝试的取消和超时约束。 */
   readResponse?: (response: Response, attemptSignal: AbortSignal) => Promise<string>;
+  /** 流式与非流式共用同一源站冷却，429 后的新请求会等待 Retry-After。 */
+  shareRateLimit?: boolean;
   /** 处理 2xx 响应数据并提取内容；可抛 TransportError 表示响应无效（参与重试） */
   onSuccess: (data: unknown) => string;
 }
@@ -393,8 +427,12 @@ export async function executeTransportRequest(
   let delay = initialDelay;
   for (let attempt = 0; ; attempt++) {
     try {
+      if (config.shareRateLimit) await waitForSharedRateLimit(url, config.signal);
       return await attemptOnce(url, init, config, timeoutMs);
     } catch (error) {
+      if (config.shareRateLimit && error instanceof TransportError && error.statusCode === 429) {
+        rememberRateLimit(url, error.retryAfterMs);
+      }
       const isLastAttempt = attempt >= maxRetries;
       const retryError = error instanceof Error ? error : new Error('翻译请求失败');
       const retryAllowed = isRetryableFailure(error, config.signal)
@@ -402,9 +440,14 @@ export async function executeTransportRequest(
       if (isLastAttempt || !retryAllowed) {
         throw error;
       }
-      // 带随机抖动的指数退避，避免惊群
+      // 带随机抖动的指数退避；429 至少等待服务端给出的冷却时间。
+      const retryAfter = error instanceof TransportError ? error.retryAfterMs : undefined;
       const jitter = Math.random() * 0.3 * delay;
-      const actualDelay = Math.min(delay + jitter, maxDelay);
+      const paced = Math.min(delay + jitter, maxDelay);
+      const actualDelay = Math.min(
+        Math.max(paced, retryAfter ?? 0),
+        Math.max(maxDelay, Math.min(retryAfter ?? 0, MAX_RATE_LIMIT_WAIT_MS)),
+      );
       onRetry?.(error as TransportError, attempt + 1, actualDelay);
       // 公共日志只保留 kind/状态码等固定信息，不输出错误详情（详情可能含 provider 回显内容）
       const transportError = error as TransportError;

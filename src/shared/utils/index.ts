@@ -126,6 +126,33 @@ export function getChineseRatio(text: string): number {
   return (chineseMatches?.length || 0) / cleanText.length;
 }
 
+const HAN_CHARACTERS = /[\u4e00-\u9fff\u3400-\u4dbf]/gu;
+
+function compactText(text: string): string {
+  return text.replace(/\s/g, '');
+}
+
+/**
+ * 短英文不能因为语言声明、全角标点或少量汉字被当成其他语言。
+ * 只统计汉字，不把全角 ASCII、标点或韩文算进去。
+ */
+export function isShortEnglishSample(text: string): boolean {
+  const compact = compactText(text);
+  if (!compact || compact.length >= 280) return false;
+  const latin = compact.match(/[A-Za-z]/g)?.length ?? 0;
+  const han = compact.match(HAN_CHARACTERS)?.length ?? 0;
+  return latin >= 12 && han <= 2 && latin / compact.length >= 0.5;
+}
+
+/** 汉字太少时不按比例判中文，避免短英文段落被跳过。 */
+export function isChineseContent(text: string, threshold: number): boolean {
+  const compact = compactText(text);
+  if (!compact) return false;
+  const han = compact.match(HAN_CHARACTERS)?.length ?? 0;
+  if (han < 4) return false;
+  return han / compact.length > threshold;
+}
+
 /**
  * Clean and normalize text for translation
  */

@@ -60,6 +60,8 @@ vi.mock('@/shared/utils', () => ({
   },
   debounce: (fn: Function) => fn,
   getChineseRatio: () => 0,
+  isShortEnglishSample: () => false,
+  isChineseContent: () => false,
 }));
 
 // Mock frequencyManager

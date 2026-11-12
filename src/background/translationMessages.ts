@@ -49,6 +49,7 @@ function publicError(error: unknown): string {
     if (error.kind === 'cancelled') return '翻译请求已取消';
     if (error.kind === 'output_limit') return '模型输出预算耗尽，未返回完整译文，请缩短文本或使用非思考模型';
     if (error.statusCode === 401 || error.statusCode === 403) return '翻译服务凭据无效，请检查密钥配置';
+    if (error.statusCode === 429) return '请求过于频繁，请稍后重试';
     return '翻译服务暂不可用，请检查服务是否启动或稍后重试';
   }
   if (error instanceof Error || error instanceof DOMException) {
@@ -58,6 +59,10 @@ function publicError(error: unknown): string {
     if (error.name === 'SyntaxError') return '模型返回格式不正确，请重试或更换模型';
   }
   return '翻译失败，请检查翻译服务与模型配置后重试';
+}
+
+export function cancelAllTranslations(): number {
+  return registry.cancelAll();
 }
 
 export async function handleTranslationMessage(message: Message, sender: chrome.runtime.MessageSender): Promise<MessageResponse> {

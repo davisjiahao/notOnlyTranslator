@@ -7,7 +7,7 @@ import type {
   UserSettings,
 } from '@/shared/types';
 import { CSS_CLASSES, CHINESE_DETECTION_THRESHOLD, DEFAULT_BATCH_CONFIG, MAX_TRANSLATION_TEXT_LENGTH, TIMING } from '@/shared/constants';
-import { debounce, logger, getChineseRatio } from '@/shared/utils';
+import { debounce, logger, isChineseContent, isShortEnglishSample } from '@/shared/utils';
 import { getJevEligibility } from '@/shared/utils/jev';
 import { MetricType, recordMetric } from '@/shared/performance';
 import { OptimizedHighlighter } from './optimizedHighlighter';
@@ -791,13 +791,9 @@ class NotOnlyTranslator {
       logger.error('NotOnlyTranslator: 保存设置失败:', error);
     });
 
-    // Jev 适用范围变化需要重新获取；旧流程的纯展示切换仍只重绘。
-    if (wasJevActive !== this.isJevActive()) {
-      this.refreshTranslation(mode);
-      this.syncVocabHighlightEnabledState();
-    } else {
-      TranslationDisplay.rerenderTranslations(mode);
-    }
+    // 模式切换会作废在途请求和旧缓存，必须重新获取，不能把上一模式的结果留在页面上。
+    this.refreshTranslation(mode);
+    if (wasJevActive !== this.isJevActive()) this.syncVocabHighlightEnabledState();
   }
 
   /**
@@ -901,33 +897,25 @@ class NotOnlyTranslator {
    * 1. 检查 <html> 标签的 lang 属性
    * 2. 采样页面内容计算中文字符比例
    */
-  private isChinesePage(): boolean {
-    // 1. 检查 HTML lang 属性
+  private declaredChineseLanguage(): string {
     const htmlLang = document.documentElement.lang?.toLowerCase() || '';
-    if (htmlLang.startsWith('zh')) {
-      logger.info(`NotOnlyTranslator: Detected Chinese page by lang attribute: ${htmlLang}`);
-      return true;
-    }
-
-    // 2. 检查 Content-Language meta 标签
+    if (htmlLang.startsWith('zh')) return htmlLang;
     const contentLangMeta = document.querySelector('meta[http-equiv="Content-Language"]');
     const contentLang = contentLangMeta?.getAttribute('content')?.toLowerCase() || '';
-    if (contentLang.startsWith('zh')) {
-      logger.info(`NotOnlyTranslator: Detected Chinese page by Content-Language: ${contentLang}`);
+    return contentLang.startsWith('zh') ? contentLang : '';
+  }
+
+  private isChinesePage(): boolean {
+    const sampleText = this.getPageTextSample();
+    const declared = this.declaredChineseLanguage();
+    // 语言声明只覆盖足够长、且不是短英文的页面。短英文即使标了 zh 也继续翻译。
+    if (declared && !isShortEnglishSample(sampleText)) {
+      logger.info(`NotOnlyTranslator: Detected Chinese page by lang attribute: ${declared}`);
       return true;
     }
 
-    // 3. 采样页面内容，计算中文字符比例
-    const sampleText = this.getPageTextSample();
-    if (sampleText.length < 100) {
-      // 内容太少，无法判断
-      return false;
-    }
-
-    const chineseRatio = this.calculateChineseRatio(sampleText);
-
-    if (chineseRatio > CHINESE_DETECTION_THRESHOLD.PAGE) {
-      logger.info(`NotOnlyTranslator: Detected Chinese page by content ratio: ${(chineseRatio * 100).toFixed(1)}%`);
+    if (isChineseContent(sampleText, CHINESE_DETECTION_THRESHOLD.PAGE)) {
+      logger.info('NotOnlyTranslator: Detected Chinese page by content ratio');
       return true;
     }
 
@@ -973,6 +961,8 @@ class NotOnlyTranslator {
     excludeSelectors.forEach(sel => {
       clone.querySelectorAll(sel).forEach(el => el.remove());
     });
+    // 扩展自己的中文界面（浮层、帮助、浮动按钮）不参与语言判断。
+    clone.querySelectorAll('[class*="not-translator-"], [id^="not-translator-"]').forEach(el => el.remove());
 
     const fullText = clone.textContent || '';
     const maxSampleLength = TIMING.MAX_SAMPLE_LENGTH;
@@ -981,14 +971,6 @@ class NotOnlyTranslator {
     const endPos = Math.min(fullText.length, startPos + maxSampleLength);
 
     return fullText.slice(startPos, endPos);
-  }
-
-  /**
-   * 计算文本中中文字符的比例
-   * 使用统一的 getChineseRatio 函数
-   */
-  private calculateChineseRatio(text: string): number {
-    return getChineseRatio(text);
   }
 
   /**
@@ -1335,7 +1317,8 @@ class NotOnlyTranslator {
       const usesLegacyKey = this.settings?.apiProvider === 'openai' && !this.settings.customApiUrl
         && !this.settings.apiConfigs?.length && !this.settings.activeApiConfigId;
       const credentialsChanged = usesLegacyKey && ('apiKey' in changes || 'legacyApiKeyInvalidated' in changes);
-      if (credentialsChanged) {
+      const wordListsChanged = area === 'local' && ('knownWords' in changes || 'unknownWords' in changes);
+      if (credentialsChanged || wordListsChanged) {
         this.refreshTranslation(this.settings?.translationMode || 'inline-only');
       }
       if ('settings' in changes) void this.handleSettingsUpdated();
@@ -1918,13 +1901,10 @@ class NotOnlyTranslator {
         === JSON.stringify({ ...this.settings, translationMode: undefined });
     if (onlyPresentationChanged) {
       // 重复广播和 storage 事件均为幂等操作，不进入失效/扫描分支。
+      // 模式本身会使后台丢弃在途请求和缓存，页面必须重新获取。
       if (oldSettings?.translationMode !== newMode && newEnabled) {
-        if (this.isJevActive(oldSettings) !== this.isJevActive()) {
-          this.refreshTranslation(newMode);
-          this.syncVocabHighlightEnabledState();
-        } else {
-          TranslationDisplay.rerenderTranslations(newMode);
-        }
+        this.refreshTranslation(newMode);
+        if (this.isJevActive(oldSettings) !== this.isJevActive()) this.syncVocabHighlightEnabledState();
       }
       return;
     }

@@ -12,7 +12,7 @@ import {
 } from '@/shared/constants';
 import {
   normalizeText,
-  getChineseRatio,
+  isChineseContent,
   logger,
   extractJsonFromResponse,
   repairMalformedJson,
@@ -172,9 +172,8 @@ export class BatchTranslationService {
     // 中文占比过高的段落无需翻译；英文候选统一按个人词表和 CEFR 筛选
     const skippedParagraphs: BatchParagraphResult[] = [];
     toTranslate = toTranslate.filter(p => {
-      const chineseRatio = getChineseRatio(p.text);
-      if (chineseRatio > CHINESE_DETECTION_THRESHOLD.PARAGRAPH) {
-        logger.info(`BatchTranslationService: 跳过中文占比过高的段落 (${(chineseRatio * 100).toFixed(1)}%)`, p.id);
+      if (isChineseContent(p.text, CHINESE_DETECTION_THRESHOLD.PARAGRAPH)) {
+        logger.info('BatchTranslationService: 跳过中文占比过高的段落', p.id);
         skippedParagraphs.push({
           id: p.id,
           result: this.createEmptyResult(),

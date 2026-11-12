@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { UserProfile, UserSettings, UnknownWordEntry } from '../types';
 import { DEFAULT_SETTINGS, DEFAULT_USER_PROFILE } from '../constants';
 import { logger } from '../utils';
+import { omitJevCredentialFields } from '../utils/jevIsolation';
 
 interface AppState {
   // User Profile
@@ -51,7 +52,7 @@ export const useStore = create<AppState>((set, get) => {
             createdAt: state.userProfile.createdAt,
             updatedAt: state.userProfile.updatedAt,
           },
-          settings: state.settings,
+          settings: omitJevCredentialFields(state.settings),
           apiKey: state.apiKey,
         });
 
@@ -215,7 +216,7 @@ export const useStore = create<AppState>((set, get) => {
               knownWords: localData.knownWords || [],
               unknownWords: localData.unknownWords || [],
             },
-            settings: syncData.settings || DEFAULT_SETTINGS,
+            settings: omitJevCredentialFields(syncData.settings || DEFAULT_SETTINGS),
             apiKey: syncData.apiKey || '',
             isInitialized: true,
           }));
