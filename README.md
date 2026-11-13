@@ -10,7 +10,7 @@
 
 > 安装包从 [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases) 下载，或自行构建后以开发者模式加载。此发布不提交 Chrome 应用商店，扩展也未在商店上架。词典命中不代表整页阅读离线；选择云端或联网翻译后，相应文本会发到该服务。
 
-当前版本 **0.4.1**。
+当前版本 **0.4.2**。
 
 ---
 
@@ -294,7 +294,7 @@ Bundled dictionary lookups and existing cache are tried first. A configured serv
 
 > Download `notOnlyTranslator-v*.zip` from [GitHub Releases](https://github.com/davisjiahao/notOnlyTranslator/releases), or build from source and load the unpacked extension. This distribution is not submitted to the Chrome Web Store and is not listed there. A dictionary hit does not make the whole page offline. Cloud or online translation sends the relevant text to the provider you selected.
 
-Current version: **0.4.1**.
+Current version: **0.4.2**.
 
 ### Install
 

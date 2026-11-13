@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-13
+
+### Fixed
+- 跨节点补高亮改为一次扫描建立可翻译文本索引，避免按词重复遍历 DOM 导致「标记认识」后撤销扫描超时。
+
 ## [0.4.1] - 2026-11-12
 
 ### Fixed
